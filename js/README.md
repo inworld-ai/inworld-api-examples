@@ -26,12 +26,6 @@ This directory contains JavaScript/Node.js examples demonstrating how to use the
 
 Demonstrates synchronous text-to-speech synthesis using HTTP requests.
 
-**Features:**
-- Simple HTTP POST request
-- Base64 audio decoding
-- WAV file creation and saving
-- Error handling
-
 **Usage:**
 ```bash
 npm run tts
@@ -44,12 +38,6 @@ node example_tts.js
 ### 2. Streaming TTS Synthesis (`example_tts_stream.js`)
 
 Demonstrates streaming text-to-speech synthesis for real-time audio generation.
-
-**Features:**
-- HTTP streaming requests
-- Real-time audio chunk processing
-- Performance metrics (time to first chunk)
-- Chunked audio assembly
 
 **Usage:**
 ```bash
@@ -64,12 +52,6 @@ node example_tts_stream.js
 
 Demonstrates WebSocket-based TTS synthesis with context management.
 
-**Features:**
-- WebSocket bidirectional streaming
-- Context-aware multi-request flow
-- Real-time audio streaming
-- Advanced error handling
-- Timestamp information processing
 
 **Usage:**
 ```bash
@@ -135,39 +117,6 @@ The examples provide timing information:
 - **axios** (^1.6.0): HTTP client for REST API calls
 - **ws** (^8.14.0): WebSocket client for real-time streaming
 
-## Troubleshooting
-
-### Common Issues
-
-1. **Missing API Key:**
-   ```
-   ❌ Error: INWORLD_API_KEY environment variable is not set.
-   ```
-   **Solution:** Set the environment variable with your API key.
-
-2. **Network Errors:**
-   ```
-   ❌ HTTP Error: connect ECONNREFUSED
-   ```
-   **Solution:** Check your internet connection and API endpoint availability.
-
-3. **Audio File Issues:**
-   ```
-   ❌ Error saving audio file
-   ```
-   **Solution:** Ensure you have write permissions in the current directory.
-
-### Debug Mode
-
-To enable verbose logging, you can modify the examples to include additional debug information or use Node.js debugging:
-
-```bash
-DEBUG=* node example_tts.js
-```
-
-## License
-
-MIT License - see the main repository for details.
 
 ## Support
 
