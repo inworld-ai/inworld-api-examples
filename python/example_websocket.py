@@ -153,7 +153,7 @@ async def save_websocket_audio_to_file(audio_chunks_generator, output_file: str)
         with wave.open(output_file, "wb") as wf:
             wf.setnchannels(1)  # Mono
             wf.setsampwidth(2)  # 16-bit
-            wf.setframerate(48000)
+            wf.setframerate(24000)
             wf.writeframes(raw_audio_data)
         
         print(f"✅ Audio saved successfully! Processed {chunk_count} chunks")
@@ -177,10 +177,9 @@ def create_websocket_requests(context_id: str, voice_id: str, model_id: str, tex
         "create": {
             "voice_id": voice_id,
             "model_id": model_id,
-            "buffer_char_threshold": 50,
             "audio_config": {
                 "audio_encoding": "LINEAR16",
-                "sample_rate_hertz": 48000
+                "sample_rate_hertz": 24000
             },
         },
     }
