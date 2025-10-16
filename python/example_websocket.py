@@ -6,10 +6,10 @@ This script demonstrates how to synthesize speech from text using the Inworld TT
 with WebSocket connections for real-time streaming audio synthesis.
 """
 
+import argparse
 import asyncio
 import base64
 import json
-from nturl2path import url2pathname
 import os
 import time
 import wave
@@ -78,6 +78,11 @@ async def stream_tts_with_context(
                             print("✅ Synthesis completed (done=true)")
                             break
                         continue
+
+                    # Check for context close confirmation
+                    if "contextClosed" in result:
+                        print("✅ Context closed confirmation received")
+                        break
 
                     # Status updates
                     if "status" in result:
@@ -148,7 +153,7 @@ async def save_websocket_audio_to_file(audio_chunks_generator, output_file: str)
         with wave.open(output_file, "wb") as wf:
             wf.setnchannels(1)  # Mono
             wf.setsampwidth(2)  # 16-bit
-            wf.setframerate(48000)
+            wf.setframerate(24000)
             wf.writeframes(raw_audio_data)
         
         print(f"✅ Audio saved successfully! Processed {chunk_count} chunks")
@@ -164,43 +169,100 @@ async def synthesize_and_save_with_context(api_key: str, requests: list, output_
     await save_websocket_audio_to_file(audio_generator, output_file)
 
 
+def create_websocket_requests(context_id: str, voice_id: str, model_id: str, text: str, timestamp_type: str = None):
+    """Create the sequence of WebSocket requests for synthesis."""
+    # Prepare create context request
+    create_request = {
+        "context_id": context_id,
+        "create": {
+            "voice_id": voice_id,
+            "model_id": model_id,
+            "audio_config": {
+                "audio_encoding": "LINEAR16",
+                "sample_rate_hertz": 24000
+            },
+        },
+    }
+    
+    # Add timestamp type if specified
+    if timestamp_type is not None:
+        if timestamp_type == "word":
+            create_request["create"]["timestampType"] = "WORD"
+        elif timestamp_type == "character":
+            create_request["create"]["timestampType"] = "CHARACTER"
+    
+    return [
+        create_request,
+        {
+            "context_id": context_id,
+            "send_text": {
+                "text": text,
+                "flush_context": {}
+            }
+        },
+        {
+            "context_id": context_id,
+            "close_context": {}
+        }
+    ]
+
+
 async def main():
     """Main function to demonstrate WebSocket TTS synthesis."""
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description="Inworld TTS WebSocket Synthesis Example",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Basic WebSocket synthesis with default model
+  python example_websocket.py
+  
+  # WebSocket synthesis with word-level timestamps
+  python example_websocket.py --timestamp word
+  
+  # WebSocket synthesis with custom model and character timestamps
+  python example_websocket.py --model-id inworld-tts-1 --timestamp character
+        """
+    )
+    
+    parser.add_argument("--model-id", default="inworld-tts-1", 
+                       help="Model ID to use (default: inworld-tts-1)")
+    parser.add_argument("--timestamp", choices=["word", "character"], default=None,
+                       help="Enable timestamp alignment: 'word' for word-level, 'character' for character-level")
+    parser.add_argument("--voice-id", default="Ashley",
+                       help="Voice ID to use (default: Ashley)")
+    parser.add_argument("--text", default="Hello, adventurer! What a beautiful day, isn't it?...",
+                       help="Text to synthesize")
+    parser.add_argument("--output-file", default="synthesis_websocket_output.wav",
+                       help="Output WAV file path (default: synthesis_websocket_output.wav)")
+    
+    args = parser.parse_args()
+    
     print("🎵 Inworld TTS WebSocket Synthesis (Context Flow) Example")
     print("=" * 50)
+    
+    print(f"📝 Text: {args.text}")
+    print(f"🎤 Voice: {args.voice_id}")
+    print(f"🤖 Model: {args.model_id}")
+    if args.timestamp is not None:
+        print(f"⏰ Timestamp: {args.timestamp}")
+    print(f"📁 Output: {args.output_file}")
+    print()
     
     # Check API key
     api_key = check_api_key()
     if not api_key:
         return 1
     
-    # Example multi-request flow sharing a single context
-    output_file = "synthesis_websocket_output.wav"
-    requests = [
-        {
-            "context_id": "ctx-1",
-            "create": {
-                "voice_id": "Ashley",
-                "model_id": "inworld-tts-1",
-                "buffer_char_threshold": 50,
-                "audio_config": {
-                    "audio_encoding": "LINEAR16",
-                    "sample_rate_hertz": 48000
-                },
-            },
-        },
-        {
-            "context_id": "ctx-1",
-            "send_text": {
-                "text": "Okay so like, I'm 19 and I just started trying to do this whole online streaming thing...",
-                "flush_context": {}
-            }
-        },
-        {
-            "context_id": "ctx-1",
-            "close_context": {}
-        }
-    ]
+    # Create requests with parsed arguments
+    requests = create_websocket_requests(
+        context_id="ctx-1",
+        voice_id=args.voice_id,
+        model_id=args.model_id,
+        text=args.text,
+        timestamp_type=args.timestamp
+    )
     
     try:
         start_time = time.time()
@@ -208,12 +270,12 @@ async def main():
         await synthesize_and_save_with_context(
             api_key=api_key,
             requests=requests,
-            output_file=output_file
+            output_file=args.output_file
         )
         
         total_time = time.time() - start_time
         print(f"⏱️  Total synthesis time: {total_time:.2f} seconds")
-        print(f"🎉 WebSocket synthesis completed successfully! Audio file saved: {output_file}")
+        print(f"🎉 WebSocket synthesis completed successfully! Audio file saved: {args.output_file}")
         
     except Exception as e:
         print(f"\n❌ WebSocket synthesis failed: {e}")

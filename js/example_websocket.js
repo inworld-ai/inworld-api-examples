@@ -90,6 +90,12 @@ async function* streamTtsWithContext(
                     continue;
                 }
 
+                // Check for context close confirmation
+                if (result.contextClosed) {
+                    console.log('✅ Context closed confirmation received');
+                    break;
+                }
+
                 // Status updates
                 if (result.status) {
                     console.log(`ℹ️  Status: ${result.status}`);
@@ -225,7 +231,7 @@ async function saveWebsocketAudioToFile(audioChunksGenerator, outputFile) {
         const combinedAudio = Buffer.concat(rawAudioData);
         
         // Create WAV header and save file
-        const wavHeader = createWavHeader(combinedAudio.length, 1, 48000, 16);
+        const wavHeader = createWavHeader(combinedAudio.length, 1, 24000, 16);
         const wavFile = Buffer.concat([wavHeader, combinedAudio]);
         
         fs.writeFileSync(outputFile, wavFile);
@@ -306,10 +312,9 @@ async function main() {
             create: {
                 voice_id: 'Ashley',
                 model_id: 'inworld-tts-1',
-                buffer_char_threshold: 50,
                 audio_config: {
                     audio_encoding: 'LINEAR16',
-                    sample_rate_hertz: 48000
+                    sample_rate_hertz: 24000
                 }
             }
         },
