@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS Model Test</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- <header>
+            <h1>TTS Latency Test</h1>
+        </header> -->
+
+        <div class="two-column-section">
+            <div class="input-section">
+                <textarea 
+                    id="textInput" 
+                    placeholder="Enter text to convert to speech..."
+                    rows="4"
+                    maxlength="400"
+                >Life moves pretty fast. If you don't stop and look around once in a while, you could miss it.</textarea>
+                <div class="char-counter">
+                    <span id="charCount">12</span> / 400 characters
+                </div>
+                
+                <div class="controls">
+                    <button id="generateBtn" class="btn-primary">
+                        Generate Speech
+                    </button>
+                    <div class="mini-legend">
+                        <div class="mini-legend-item">
+                            <span class="mini-legend-dot server-response"></span>
+                            <span class="mini-legend-label">Server processing</span>
+                        </div>
+                        <div class="mini-legend-item">
+                            <span class="mini-legend-dot silence"></span>
+                            <span class="mini-legend-label">Silence</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <h3>TTS Latency Test Methodology</h3>
+                <p>TTS providers return audio in different ways. Streaming chunk sizes may differ, and the amount of silence prefixing meaningful audio may differ. This tool facilitates a fair comparison by measuring the time to first byte, then running voice activity detection on the generated audio to calculate silence length. The result (time to first real audio) is what users will experience.</p>
+            </div>
+        </div>
+
+        <div class="comparison-section">
+            <!-- Loading animation -->
+            <div class="loading-section" id="loadingSection">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">Generating speech...</div>
+            </div>
+
+            <!-- ElevenLabs Turbo Model Section -->
+            <!-- COMMENTED OUT: ElevenLabs Turbo
+            <div class="model-section hidden" id="elevenlabs-section" data-model="elevenlabs">
+                <div class="model-header">
+                    <div class="model-info">
+                        <h3>ElevenLabs Turbo</h3>
+                        <span class="model-badge turbo">Turbo v2.5</span>
+                    </div>
+                    <div class="model-controls">
+                        <button id="elevenlabs-play-btn" class="play-btn" disabled>
+                            Play Audio
+                        </button>
+                        <div class="model-stats" id="elevenlabs-stats">
+                            <span class="stat-item">Time to First Real Audio: <span class="stat-value">--</span></span>
+                            <span class="stat-item">Time to First Byte: <span class="stat-value">--</span></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="timeline-container">
+                    <div class="timeline" id="elevenlabs-timeline">
+                        <div class="timeline-bar">
+                            <div class="timeline-segment processing" style="width: 0%"></div>
+                            <div class="timeline-segment silent-prefix" style="width: 0%"></div>
+                            <div class="timeline-segment speech" style="width: 0%"></div>
+                            <div class="timeline-segment vad-silence" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            -->
+
+            <!-- ElevenLabs Multilingual Model Section -->
+            <div class="model-section hidden" id="elevenlabs-multilingual-section" data-model="elevenlabs-multilingual">
+                <div class="model-header">
+                    <div class="model-info">
+                        <h3>ElevenLabs</h3>
+                        <span class="model-badge multilingual">eleven_multilingual_v2</span>
+                    </div>
+                    <div class="model-controls">
+                        <button id="elevenlabs-multilingual-play-btn" class="play-btn" disabled>
+                            Play Audio
+                        </button>
+                        <div class="model-stats" id="elevenlabs-multilingual-stats">
+                            <span class="stat-item">Time to First Real Audio: <span class="stat-value">--</span></span>
+                            <span class="stat-item">Time to First Byte: <span class="stat-value">--</span></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="timeline-container">
+                    <div class="timeline" id="elevenlabs-multilingual-timeline">
+                        <div class="timeline-bar">
+                            <div class="timeline-segment processing" style="width: 0%"></div>
+                            <div class="timeline-segment silent-prefix" style="width: 0%"></div>
+                            <div class="timeline-segment speech" style="width: 0%"></div>
+                            <div class="timeline-segment vad-silence" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ElevenLabs Flash Model Section -->
+            <!-- COMMENTED OUT: ElevenLabs Flash
+            <div class="model-section hidden" id="elevenlabs-flash-section" data-model="elevenlabs-flash">
+                <div class="model-header">
+                    <div class="model-info">
+                        <h3>ElevenLabs Flash</h3>
+                        <span class="model-badge flash">Flash v2.5</span>
+                    </div>
+                    <div class="model-controls">
+                        <button id="elevenlabs-flash-play-btn" class="play-btn" disabled>
+                            Play Audio
+                        </button>
+                        <div class="model-stats" id="elevenlabs-flash-stats">
+                            <span class="stat-item">Time to First Real Audio: <span class="stat-value">--</span></span>
+                            <span class="stat-item">Time to First Byte: <span class="stat-value">--</span></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="timeline-container">
+                    <div class="timeline" id="elevenlabs-flash-timeline">
+                        <div class="timeline-bar">
+                            <div class="timeline-segment processing" style="width: 0%"></div>
+                            <div class="timeline-segment silent-prefix" style="width: 0%"></div>
+                            <div class="timeline-segment speech" style="width: 0%"></div>
+                            <div class="timeline-segment vad-silence" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            -->
+
+            <!-- Inworld Model Section -->
+            <div class="model-section hidden" id="inworld-section" data-model="inworld">
+                <div class="model-header">
+                    <div class="model-info">
+                        <h3>Inworld</h3>
+                        <span class="model-badge standard">inworld-tts-1</span>
+                    </div>
+                    <div class="model-controls">
+                        <button id="inworld-play-btn" class="play-btn" disabled>
+                            Play Audio
+                        </button>
+                        <div class="model-stats" id="inworld-stats">
+                            <span class="stat-item">Time to First Real Audio: <span class="stat-value">--</span></span>
+                            <span class="stat-item">Time to First Byte: <span class="stat-value">--</span></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="timeline-container">
+                    <div class="timeline" id="inworld-timeline">
+                        <div class="timeline-bar">
+                            <div class="timeline-segment processing" style="width: 0%"></div>
+                            <div class="timeline-segment silent-prefix" style="width: 0%"></div>
+                            <div class="timeline-segment speech" style="width: 0%"></div>
+                            <div class="timeline-segment vad-silence" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inworld Max Model Section -->
+            <div class="model-section hidden" id="inworldmax-section" data-model="inworldmax">
+                <div class="model-header">
+                    <div class="model-info">
+                        <h3>Inworld</h3>
+                        <span class="model-badge premium">inworld-tts-1-max</span>
+                    </div>
+                    <div class="model-controls">
+                        <button id="inworldmax-play-btn" class="play-btn" disabled>
+                            Play Audio
+                        </button>
+                        <div class="model-stats" id="inworldmax-stats">
+                            <span class="stat-item">Time to First Real Audio: <span class="stat-value">--</span></span>
+                            <span class="stat-item">Time to First Byte: <span class="stat-value">--</span></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="timeline-container">
+                    <div class="timeline" id="inworldmax-timeline">
+                        <div class="timeline-bar">
+                            <div class="timeline-segment processing" style="width: 0%"></div>
+                            <div class="timeline-segment silent-prefix" style="width: 0%"></div>
+                            <div class="timeline-segment speech" style="width: 0%"></div>
+                            <div class="timeline-segment vad-silence" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hume Model Section -->
+            <div class="model-section hidden" id="hume-section" data-model="hume">
+                <div class="model-header">
+                    <div class="model-info">
+                        <h3>Hume AI</h3>
+                        <span class="model-badge expressive">hume</span>
+                    </div>
+                    <div class="model-controls">
+                        <button id="hume-play-btn" class="play-btn" disabled>
+                            Play Audio
+                        </button>
+                        <div class="model-stats" id="hume-stats">
+                            <span class="stat-item">Time to First Real Audio: <span class="stat-value">--</span></span>
+                            <span class="stat-item">Time to First Byte: <span class="stat-value">--</span></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="timeline-container">
+                    <div class="timeline" id="hume-timeline">
+                        <div class="timeline-bar">
+                            <div class="timeline-segment processing" style="width: 0%"></div>
+                            <div class="timeline-segment silent-prefix" style="width: 0%"></div>
+                            <div class="timeline-segment speech" style="width: 0%"></div>
+                            <div class="timeline-segment vad-silence" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cartesia Model Section -->
+            <div class="model-section hidden" id="cartesia-section" data-model="cartesia">
+                <div class="model-header">
+                    <div class="model-info">
+                        <h3>Cartesia</h3>
+                        <span class="model-badge sonic">sonic-2</span>
+                    </div>
+                    <div class="model-controls">
+                        <button id="cartesia-play-btn" class="play-btn" disabled>
+                            Play Audio
+                        </button>
+                        <div class="model-stats" id="cartesia-stats">
+                            <span class="stat-item">Time to First Real Audio: <span class="stat-value">--</span></span>
+                            <span class="stat-item">Time to First Byte: <span class="stat-value">--</span></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="timeline-container">
+                    <div class="timeline" id="cartesia-timeline">
+                        <div class="timeline-bar">
+                            <div class="timeline-segment processing" style="width: 0%"></div>
+                            <div class="timeline-segment silent-prefix" style="width: 0%"></div>
+                            <div class="timeline-segment speech" style="width: 0%"></div>
+                            <div class="timeline-segment vad-silence" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
