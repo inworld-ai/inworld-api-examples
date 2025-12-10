@@ -215,11 +215,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-
-# wave files
-*.wav
-*.mp3
-
 # JavaScript / Node.js
 node_modules/
 npm-debug.log*
@@ -329,5 +324,7 @@ public
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+.DS_Store
 
 

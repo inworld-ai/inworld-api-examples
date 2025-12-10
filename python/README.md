@@ -109,6 +109,58 @@ python tts_cli.py --text "Hello world" --voice Dennis --temperature 0.8 --timest
 
 **Best for:** Testing, development, batch processing, and performance analysis.
 
+---
+
+### 5. `example_voice_clone.py` - Voice Cloning
+**Purpose:** Clone a voice using audio samples via the Inworld Voice API.
+
+**Features:**
+- Clone voices from WAV or MP3 audio samples
+- Support for multiple audio samples
+- Optional transcriptions for better quality
+- Background noise removal option
+- Tag and description support
+
+**Setup:**
+```bash
+export INWORLD_API_KEY=your_api_key_here
+export INWORLD_WORKSPACE=your_workspace_id
+```
+
+**Usage:**
+```bash
+# Basic usage with default audio
+python example_voice_clone.py --name "My Voice"
+
+# With custom audio file
+python example_voice_clone.py --name "My Voice" --audio sample.wav
+
+# Advanced usage
+python example_voice_clone.py \
+  --name "British Voice" \
+  --audio sample1.wav sample2.wav \
+  --lang EN_US \
+  --description "A warm British accent" \
+  --tags british warm \
+  --remove-noise
+```
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `--name <name>` | Display name for the cloned voice (default: "Cloned Voice Demo") |
+| `--audio <files...>` | Path(s) to audio file(s) for cloning (WAV or MP3) |
+| `--lang <code>` | Language code (default: EN_US) |
+| `--description <text>` | Description of the voice |
+| `--tags <tags...>` | Tags for the voice (space-separated) |
+| `--transcription <text...>` | Transcription(s) for audio file(s) |
+| `--remove-noise` | Enable background noise removal |
+
+**Supported Languages:**
+`EN_US`, `ZH_CN`, `KO_KR`, `JA_JP`, `RU_RU`, `AUTO`, `IT_IT`, `ES_ES`, `PT_BR`, `DE_DE`, `FR_FR`, `AR_SA`, `PL_PL`, `NL_NL`
+
+**Best for:** Creating custom voices from voice recordings.
+
 ## 🔧 Configuration Options
 
 All examples support the following configuration through code modification:

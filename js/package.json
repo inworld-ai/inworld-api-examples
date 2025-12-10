@@ -6,7 +6,8 @@
   "scripts": {
     "tts": "node example_tts.js",
     "tts-stream": "node example_tts_stream.js",
-    "tts-websocket": "node example_websocket.js"
+    "tts-websocket": "node example_websocket.js",
+    "voice-clone": "node example_voice_clone.js"
   },
   "keywords": [
     "inworld",

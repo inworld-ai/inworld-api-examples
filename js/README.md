@@ -1,6 +1,6 @@
 # Inworld TTS API Examples - JavaScript/Node.js
 
-This directory contains JavaScript/Node.js examples demonstrating how to use the Inworld Text-to-Speech (TTS) API.
+This directory contains JavaScript/Node.js examples demonstrating how to use the Inworld Text-to-Speech (TTS) and Voice APIs.
 
 ## Prerequisites
 
@@ -18,6 +18,11 @@ This directory contains JavaScript/Node.js examples demonstrating how to use the
 2. **Set your API key:**
    ```bash
    export INWORLD_API_KEY=your_api_key_here
+   ```
+
+3. **Set your workspace ID (required for voice cloning):**
+   ```bash
+   export INWORLD_WORKSPACE=your_workspace_id
    ```
 
 ## Examples
@@ -62,6 +67,43 @@ node example_websocket.js
 
 **Output:** `synthesis_websocket_output.wav`
 
+### 4. Voice Cloning (`example_voice_clone.js`)
+
+Demonstrates how to clone a voice using audio samples via the Inworld Voice API.
+
+**Usage:**
+```bash
+npm run voice-clone
+# or
+node example_voice_clone.js --name "My Voice" --audio sample.wav
+```
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `-n, --name <name>` | Display name for the cloned voice (default: "Cloned Voice Demo") |
+| `-a, --audio <files...>` | Path(s) to audio file(s) for cloning (WAV or MP3) |
+| `-l, --lang <code>` | Language code (default: EN_US) |
+| `-d, --description <text>` | Description of the voice |
+| `-t, --tags <tags...>` | Tags for the voice (space-separated) |
+| `--transcription <text...>` | Transcription(s) for audio file(s) |
+| `--remove-noise` | Enable background noise removal |
+| `-h, --help` | Show help message |
+
+**Supported Languages:**
+`EN_US`, `ZH_CN`, `KO_KR`, `JA_JP`, `RU_RU`, `AUTO`, `IT_IT`, `ES_ES`, `PT_BR`, `DE_DE`, `FR_FR`, `AR_SA`, `PL_PL`, `NL_NL`
+
+**Example with multiple options:**
+```bash
+node example_voice_clone.js \
+  --name "British Voice" \
+  --audio sample1.wav sample2.wav \
+  --lang EN_US \
+  --description "A warm British accent" \
+  --tags british warm \
+  --remove-noise
+```
+
 ## Configuration
 
 All examples use the following default configuration:
@@ -85,6 +127,7 @@ You can modify these values in each example file to test different voices, model
 - **Basic TTS:** `https://api.inworld.ai/tts/v1/voice`
 - **Streaming TTS:** `https://api.inworld.ai/tts/v1/voice:stream`
 - **WebSocket TTS:** `wss://api.inworld.ai/tts/v1/voice:streamBidirectional`
+- **Voice Cloning:** `https://api.inworld.ai/voices/v1/workspaces/{workspace}/voices:clone`
 
 ## Audio Output
 
