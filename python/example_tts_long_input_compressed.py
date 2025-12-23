@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 """
-Example script for Inworld TTS synthesis with long text input.
+Example script for Inworld TTS synthesis with long text input (MP3 compressed).
 
 This script demonstrates how to synthesize speech from long text by:
 1. Chunking text at natural boundaries (paragraphs → newlines → sentences)
 2. Processing chunks through the TTS API with controlled concurrency
-3. Stitching all audio outputs together
-4. Reporting splice points with timestamps for quality checking
+3. Stitching all MP3 audio outputs together
 """
 
 import base64
 import os
 import re
 import time
-import wave
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,11 +27,8 @@ MAX_CONCURRENT_REQUESTS = 2   # Limit parallel requests to avoid RPS limits
 MAX_RETRIES = 3         # Maximum retries for rate limit errors
 RETRY_BASE_DELAY = 1.0  # Base delay for exponential backoff (seconds)
 
-# Audio configuration
+# Audio configuration for MP3
 SAMPLE_RATE = 48000
-BITS_PER_SAMPLE = 16
-CHANNELS = 1
-SPLICE_BREAK = 0.5      # Seconds of silence to insert between chunks for natural pause
 
 
 @dataclass
@@ -45,23 +40,12 @@ class TextChunk:
 
 
 @dataclass
-class SplicePoint:
-    """Represents a splice point in the combined audio."""
-    splice_index: int
-    timestamp: float
-    formatted_time: str
-    chunk_start_char: int
-    chunk_end_char: int
-    text_preview: str
-
-
-@dataclass
 class SynthesisConfig:
     """Configuration for TTS synthesis."""
     voice_id: str
     model_id: str
     api_key: str
-    audio_encoding: str = "LINEAR16"
+    audio_encoding: str = "MP3"
 
 
 def check_api_key() -> Optional[str]:
@@ -292,111 +276,24 @@ def synthesize_all_chunks(
     return audio_buffers
 
 
-def extract_raw_audio(audio_data: bytes) -> bytes:
-    """Extract raw audio data from buffer (skip WAV header if present)."""
-    if len(audio_data) > 44 and audio_data[:4] == b'RIFF':
-        return audio_data[44:]
-    return audio_data
-
-
-def calculate_duration(raw_audio: bytes) -> float:
-    """Calculate audio duration from raw PCM data."""
-    bytes_per_second = SAMPLE_RATE * (BITS_PER_SAMPLE // 8) * CHANNELS
-    return len(raw_audio) / bytes_per_second
-
-
-def format_time(seconds: float) -> str:
-    """Format seconds as MM:SS.mmm"""
-    mins = int(seconds // 60)
-    secs = seconds % 60
-    return f"{mins}:{secs:06.3f}"
-
-
-def create_silence_buffer(duration_seconds: float) -> bytes:
+def combine_audio_buffers(audio_buffers: list[bytes]) -> bytes:
     """
-    Create silence buffer for splice breaks.
+    Combine multiple MP3 audio buffers into one.
     
     Args:
-        duration_seconds: Duration of silence in seconds
+        audio_buffers: List of MP3 audio data buffers
         
     Returns:
-        Silent audio buffer (zeros)
+        Combined audio buffer
     """
-    bytes_per_second = SAMPLE_RATE * (BITS_PER_SAMPLE // 8) * CHANNELS
-    num_bytes = int(bytes_per_second * duration_seconds)
-    # Ensure even number of bytes for 16-bit audio
-    aligned_bytes = num_bytes - (num_bytes % 2)
-    return bytes(aligned_bytes)
-
-
-def combine_audio_buffers(
-    audio_buffers: list[bytes],
-    chunks: list[TextChunk]
-) -> tuple[bytes, list[SplicePoint], float]:
-    """
-    Combine multiple audio buffers and create splice report.
-    Inserts SPLICE_BREAK seconds of silence between chunks for natural pauses.
-    
-    Args:
-        audio_buffers: List of audio data buffers
-        chunks: Original text chunks with positions
-        
-    Returns:
-        Tuple of (combined_audio, splice_points, total_duration)
-    """
-    splice_points = []
-    current_time = 0.0
-    combined_buffers = []
-    
-    # Create silence buffer once if we need it
-    silence_buffer = create_silence_buffer(SPLICE_BREAK) if SPLICE_BREAK > 0 else None
-    
-    for index, buffer in enumerate(audio_buffers):
-        raw_audio = extract_raw_audio(buffer)
-        duration = calculate_duration(raw_audio)
-        
-        # Add silence before this chunk (except for the first chunk)
-        if index > 0 and silence_buffer:
-            combined_buffers.append(silence_buffer)
-            current_time += SPLICE_BREAK
-        
-        if index > 0:
-            splice_points.append(SplicePoint(
-                splice_index=index,
-                timestamp=current_time,
-                formatted_time=format_time(current_time),
-                chunk_start_char=chunks[index].start_char,
-                chunk_end_char=chunks[index].end_char,
-                text_preview=chunks[index].text[:50] + "..."
-            ))
-        
-        combined_buffers.append(raw_audio)
-        current_time += duration
-    
-    combined_audio = b''.join(combined_buffers)
-    return combined_audio, splice_points, current_time
+    return b''.join(audio_buffers)
 
 
 def save_audio_to_file(audio_data: bytes, output_file: str):
-    """Save audio to WAV file."""
-    with wave.open(output_file, "wb") as wf:
-        wf.setnchannels(CHANNELS)
-        wf.setsampwidth(BITS_PER_SAMPLE // 8)
-        wf.setframerate(SAMPLE_RATE)
-        wf.writeframes(audio_data)
-    
+    """Save MP3 audio to file."""
+    with open(output_file, 'wb') as f:
+        f.write(audio_data)
     print(f"Audio saved to: {output_file}")
-
-
-def print_splice_report(splice_points: list[SplicePoint], total_duration: float):
-    """Print splice report for quality checking."""
-    if not splice_points:
-        print("No splices - text was short enough for single request")
-        return
-    
-    print(f"\nSplice Report ({len(splice_points)} splices, duration: {format_time(total_duration)}):")
-    for idx, point in enumerate(splice_points):
-        print(f'  #{idx + 1} at {point.formatted_time} - "{point.text_preview}"')
 
 
 def read_input_text(input_file: Path) -> Optional[str]:
@@ -412,7 +309,7 @@ def read_input_text(input_file: Path) -> Optional[str]:
 
 def main():
     """Main function - high-level orchestration only."""
-    print("Inworld TTS Long Text Synthesis\n")
+    print("Inworld TTS Long Text Synthesis (MP3 Compressed)\n")
     
     # Setup
     api_key = check_api_key()
@@ -422,7 +319,7 @@ def main():
     # Configuration - modify these for your use case
     voice_id = "Edward"
     model_id = "inworld-tts-1-max"
-    output_file = "synthesis_long_output.wav"
+    output_file = "synthesis_long_output.mp3"
     
     script_dir = Path(__file__).parent
     input_file = script_dir / INPUT_FILE_PATH
@@ -431,7 +328,7 @@ def main():
         voice_id=voice_id,
         model_id=model_id,
         api_key=api_key,
-        audio_encoding="LINEAR16"
+        audio_encoding="MP3"
     )
     
     # Read input text
@@ -452,16 +349,16 @@ def main():
         
         # Combine audio
         print("\nCombining audio...")
-        combined_audio, splice_points, total_duration = combine_audio_buffers(audio_buffers, chunks)
+        combined_audio = combine_audio_buffers(audio_buffers)
         
         # Save output
         save_audio_to_file(combined_audio, output_file)
         
         # Report
-        print_splice_report(splice_points, total_duration)
-        
+        file_size_kb = len(combined_audio) / 1024
         elapsed = time.time() - start_time
-        print(f"\nCompleted in {elapsed:.2f}s - Audio duration: {format_time(total_duration)}")
+        print(f"Output size: {file_size_kb:.1f} KB")
+        print(f"Completed in {elapsed:.2f}s")
         
     except Exception as e:
         print(f"\nSynthesis failed: {e}")
@@ -472,3 +369,4 @@ def main():
 
 if __name__ == "__main__":
     exit(main())
+

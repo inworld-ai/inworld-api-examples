@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 /**
- * Example script for Inworld TTS synthesis with long text input.
+ * Example script for Inworld TTS synthesis with long text input (MP3 compressed).
  *
  * This script demonstrates how to synthesize speech from long text by:
  * 1. Chunking text at natural boundaries (paragraphs → newlines → sentences)
  * 2. Processing chunks through the TTS API with controlled concurrency
- * 3. Stitching all audio outputs together
- * 4. Reporting splice points with timestamps for quality checking
+ * 3. Stitching all MP3 audio outputs together
  */
 
 const fs = require('fs');
@@ -21,11 +20,8 @@ const MAX_CONCURRENT_REQUESTS = 2;  // Limit parallel requests to avoid RPS limi
 const MAX_RETRIES = 3;        // Maximum retries for rate limit errors
 const RETRY_BASE_DELAY = 1000; // Base delay for exponential backoff (ms)
 
-// Audio configuration
+// Audio configuration for MP3
 const SAMPLE_RATE = 48000;
-const BITS_PER_SAMPLE = 16;
-const CHANNELS = 1;
-const SPLICE_BREAK = 0.5;     // Seconds of silence to insert between chunks for natural pause
 
 /**
  * Check if INWORLD_API_KEY environment variable is set.
@@ -199,7 +195,7 @@ async function synthesizeSpeech(text, voiceId, modelId, apiKey, chunkIndex, tota
         voice_id: voiceId,
         model_id: modelId,
         audio_config: {
-            audio_encoding: 'LINEAR16',
+            audio_encoding: 'MP3',
             sample_rate_hertz: SAMPLE_RATE
         }
     };
@@ -212,6 +208,7 @@ async function synthesizeSpeech(text, voiceId, modelId, apiKey, chunkIndex, tota
             const audioData = Buffer.from(response.data.audioContent, 'base64');
             
             console.log(`[${chunkIndex + 1}/${totalChunks}] Done - ${audioData.length} bytes`);
+            
             return audioData;
             
         } catch (error) {
@@ -275,152 +272,22 @@ async function synthesizeAllChunks(chunks, voiceId, modelId, apiKey) {
 }
 
 /**
- * Extract raw audio data from buffer (skip WAV header if present).
- * @param {Buffer} audioData - Audio data (may include WAV header)
- * @returns {Buffer} Raw PCM audio data
+ * Combine multiple audio buffers into one.
+ * @param {Array<Buffer>} audioBuffers - Audio buffers to combine
+ * @returns {Buffer} Combined audio
  */
-function extractRawAudio(audioData) {
-    if (audioData.length > 44 && audioData.subarray(0, 4).equals(Buffer.from('RIFF'))) {
-        return audioData.subarray(44);
-    }
-    return audioData;
-}
-
-/**
- * Calculate audio duration from raw PCM data.
- * @param {Buffer} rawAudio - Raw PCM audio data
- * @returns {number} Duration in seconds
- */
-function calculateDuration(rawAudio) {
-    const bytesPerSecond = SAMPLE_RATE * (BITS_PER_SAMPLE / 8) * CHANNELS;
-    return rawAudio.length / bytesPerSecond;
-}
-
-/**
- * Format seconds as MM:SS.mmm
- * @param {number} seconds - Duration in seconds
- * @returns {string} Formatted time string
- */
-function formatTime(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toFixed(3).padStart(6, '0')}`;
-}
-
-/**
- * Create silence buffer for splice breaks.
- * @param {number} durationSeconds - Duration of silence in seconds
- * @returns {Buffer} Silent audio buffer
- */
-function createSilenceBuffer(durationSeconds) {
-    const bytesPerSecond = SAMPLE_RATE * (BITS_PER_SAMPLE / 8) * CHANNELS;
-    const numBytes = Math.floor(bytesPerSecond * durationSeconds);
-    // Ensure even number of bytes for 16-bit audio
-    const alignedBytes = numBytes - (numBytes % 2);
-    return Buffer.alloc(alignedBytes, 0);
-}
-
-/**
- * Combine multiple audio buffers and create splice report.
- * Inserts SPLICE_BREAK seconds of silence between chunks for natural pauses.
- * @param {Array<Buffer>} audioBuffers - Array of audio buffers
- * @param {Array<Object>} chunks - Original text chunks with positions
- * @returns {{combinedAudio: Buffer, splicePoints: Array, totalDuration: number}}
- */
-function combineAudioBuffers(audioBuffers, chunks) {
-    const splicePoints = [];
-    const combinedBuffers = [];
-    let currentTime = 0;
-    
-    // Create silence buffer once if we need it
-    const silenceBuffer = SPLICE_BREAK > 0 ? createSilenceBuffer(SPLICE_BREAK) : null;
-    
-    audioBuffers.forEach((buffer, index) => {
-        const rawAudio = extractRawAudio(buffer);
-        const duration = calculateDuration(rawAudio);
-        
-        // Add silence before this chunk (except for the first chunk)
-        if (index > 0 && silenceBuffer) {
-            combinedBuffers.push(silenceBuffer);
-            currentTime += SPLICE_BREAK;
-        }
-        
-        if (index > 0) {
-            splicePoints.push({
-                spliceIndex: index,
-                timestamp: currentTime,
-                formattedTime: formatTime(currentTime),
-                chunkStartChar: chunks[index].startChar,
-                chunkEndChar: chunks[index].endChar,
-                textPreview: chunks[index].text.substring(0, 50) + '...'
-            });
-        }
-        
-        combinedBuffers.push(rawAudio);
-        currentTime += duration;
-    });
-    
-    return {
-        combinedAudio: Buffer.concat(combinedBuffers),
-        splicePoints,
-        totalDuration: currentTime
-    };
-}
-
-/**
- * Create WAV file header.
- * @param {number} dataSize - Size of audio data
- * @returns {Buffer} WAV header
- */
-function createWavHeader(dataSize) {
-    const header = Buffer.alloc(44);
-    const bytesPerSample = BITS_PER_SAMPLE / 8;
-    const blockAlign = CHANNELS * bytesPerSample;
-    const byteRate = SAMPLE_RATE * blockAlign;
-    
-    header.write('RIFF', 0);
-    header.writeUInt32LE(36 + dataSize, 4);
-    header.write('WAVE', 8);
-    header.write('fmt ', 12);
-    header.writeUInt32LE(16, 16);
-    header.writeUInt16LE(1, 20);
-    header.writeUInt16LE(CHANNELS, 22);
-    header.writeUInt32LE(SAMPLE_RATE, 24);
-    header.writeUInt32LE(byteRate, 28);
-    header.writeUInt16LE(blockAlign, 32);
-    header.writeUInt16LE(BITS_PER_SAMPLE, 34);
-    header.write('data', 36);
-    header.writeUInt32LE(dataSize, 40);
-    
-    return header;
+function combineAudioBuffers(audioBuffers) {
+    return Buffer.concat(audioBuffers);
 }
 
 /**
  * Save audio to file.
- * @param {Buffer} audioData - Audio data
+ * @param {Buffer} audioData - Audio data (MP3)
  * @param {string} outputFile - Output file path
  */
 function saveAudioToFile(audioData, outputFile) {
-    const wavHeader = createWavHeader(audioData.length);
-    fs.writeFileSync(outputFile, Buffer.concat([wavHeader, audioData]));
+    fs.writeFileSync(outputFile, audioData);
     console.log(`Audio saved to: ${outputFile}`);
-}
-
-/**
- * Print splice report for quality checking.
- * @param {Array<Object>} splicePoints - Splice point info
- * @param {number} totalDuration - Total audio duration
- */
-function printSpliceReport(splicePoints, totalDuration) {
-    if (splicePoints.length === 0) {
-        console.log('No splices - text was short enough for single request');
-        return;
-    }
-    
-    console.log(`\nSplice Report (${splicePoints.length} splices, duration: ${formatTime(totalDuration)}):`);
-    splicePoints.forEach((point, idx) => {
-        console.log(`  #${idx + 1} at ${point.formattedTime} - "${point.textPreview}"`);
-    });
 }
 
 /**
@@ -443,7 +310,7 @@ function readInputText(inputFile) {
  * Main function - high-level orchestration only.
  */
 async function main() {
-    console.log('Inworld TTS Long Text Synthesis\n');
+    console.log('Inworld TTS Long Text Synthesis (MP3 Compressed)\n');
     
     // Setup
     const apiKey = checkApiKey();
@@ -452,7 +319,7 @@ async function main() {
     // Configuration - modify these for your use case
     const voiceId = 'Edward';
     const modelId = 'inworld-tts-1-max';
-    const outputFile = 'synthesis_long_output.wav';
+    const outputFile = 'synthesis_long_output.mp3';
     const inputFile = path.join(__dirname, INPUT_FILE_PATH);
     
     // Read input text
@@ -472,16 +339,16 @@ async function main() {
         
         // Combine audio
         console.log('\nCombining audio...');
-        const { combinedAudio, splicePoints, totalDuration } = combineAudioBuffers(audioBuffers, chunks);
+        const combinedAudio = combineAudioBuffers(audioBuffers);
         
         // Save output
         saveAudioToFile(combinedAudio, outputFile);
         
         // Report
-        printSpliceReport(splicePoints, totalDuration);
-        
+        const fileSizeKB = (combinedAudio.length / 1024).toFixed(1);
         const elapsed = (Date.now() - startTime) / 1000;
-        console.log(`\nCompleted in ${elapsed.toFixed(2)}s - Audio duration: ${formatTime(totalDuration)}`);
+        console.log(`Output size: ${fileSizeKB} KB`);
+        console.log(`Completed in ${elapsed.toFixed(2)}s`);
         
     } catch (error) {
         console.log(`\nSynthesis failed: ${error.message}`);
