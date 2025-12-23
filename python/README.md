@@ -44,7 +44,27 @@ python example_tts.py
 
 ---
 
-### 2. `example_tts_stream.py` - HTTP Streaming Synthesis
+### 2. `example_tts_long_input.py` - Long Text Synthesis
+**Purpose:** Synthesize speech from long text that exceeds the API's 2000 character limit.
+
+**Features:**
+- Automatic text chunking at sentence boundaries (after ~1000 chars)
+- Parallel synthesis using ThreadPoolExecutor
+- Audio stitching into single output file
+- Splice timestamp reporting for quality verification
+
+**Usage:**
+```bash
+python example_tts_long_input.py
+```
+
+**Input:** Reads from `../tests-data/text/chapter1.txt` (configurable in code)
+
+**Best for:** Processing long documents, books, articles, or any text exceeding 2000 characters.
+
+---
+
+### 3. `example_tts_stream.py` - HTTP Streaming Synthesis
 **Purpose:** Streaming TTS synthesis using HTTP with chunked responses.
 
 **Features:**
@@ -62,7 +82,7 @@ python example_tts_stream.py
 
 ---
 
-### 3. `example_websocket.py` - WebSocket Synthesis
+### 4. `example_websocket.py` - WebSocket Synthesis
 **Purpose:** Real-time TTS synthesis using WebSocket connections.
 
 **Features:**
@@ -81,7 +101,7 @@ python example_websocket.py
 
 ---
 
-### 4. `tts_cli.py` - Command Line Interface
+### 5. `tts_cli.py` - Command Line Interface
 **Purpose:** Comprehensive CLI tool for TTS testing and batch processing.
 
 **Features:**
@@ -111,7 +131,7 @@ python tts_cli.py --text "Hello world" --voice Dennis --temperature 0.8 --timest
 
 ---
 
-### 5. `example_voice_clone.py` - Voice Cloning
+### 6. `example_voice_clone.py` - Voice Cloning
 **Purpose:** Clone a voice using audio samples via the Inworld Voice API.
 
 **Features:**

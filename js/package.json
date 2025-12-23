@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "tts": "node example_tts.js",
+    "tts-long": "node example_tts_long_input.js",
     "tts-stream": "node example_tts_stream.js",
     "tts-websocket": "node example_websocket.js",
     "voice-clone": "node example_voice_clone.js"
