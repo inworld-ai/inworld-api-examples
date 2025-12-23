@@ -40,7 +40,31 @@ node example_tts.js
 
 **Output:** `synthesis_output.wav`
 
-### 2. Streaming TTS Synthesis (`example_tts_stream.js`)
+### 2. Long Text TTS Synthesis (`example_tts_long_input.js`)
+
+Synthesizes long text by chunking at natural boundaries. Outputs WAV with splice point timestamps and customizable silence between chunks for quality control.
+
+**Usage:**
+```bash
+npm run tts-long
+# or
+node example_tts_long_input.js
+```
+
+**Output:** `synthesis_long_output.wav`
+
+### 3. Long Text TTS Synthesis - Compressed (`example_tts_long_input_compressed.js`)
+
+Same chunking as above but outputs MP3 for smaller file sizes. No splice point reporting.
+
+**Usage:**
+```bash
+node example_tts_long_input_compressed.js
+```
+
+**Output:** `synthesis_long_output.mp3`
+
+### 4. Streaming TTS Synthesis (`example_tts_stream.js`)
 
 Demonstrates streaming text-to-speech synthesis for real-time audio generation.
 
@@ -53,7 +77,7 @@ node example_tts_stream.js
 
 **Output:** `synthesis_stream_output.wav`
 
-### 3. WebSocket TTS Synthesis (`example_websocket.js`)
+### 5. WebSocket TTS Synthesis (`example_websocket.js`)
 
 Demonstrates WebSocket-based TTS synthesis with context management.
 
@@ -67,7 +91,7 @@ node example_websocket.js
 
 **Output:** `synthesis_websocket_output.wav`
 
-### 4. Voice Cloning (`example_voice_clone.js`)
+### 6. Voice Cloning (`example_voice_clone.js`)
 
 Demonstrates how to clone a voice using audio samples via the Inworld Voice API.
 
