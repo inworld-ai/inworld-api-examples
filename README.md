@@ -1,11 +1,6 @@
-# Inworld API Examples
 
-This repository contains examples to help you get started with the [Inworld APIs](https://docs.inworld.ai/api-reference/introduction). 
-These examples are short snippets that demonstrate best-practices in using Inworld and accelerating your development process.
-
-## Getting Started
-
-- **[Python Examples](./python/)** - Complete examples for Python integration
-- **[JavaScript Examples](./js/)** - Complete examples for JavaScript integration
-
-We will be adding examples for other programming languages soon...
+समुंदर के किनारे बसे एक छोटे से शहर में चीकू नाम का एक चालाक बंदर रहता था। चीकू बहुत समझदार था और उसे इंसानों के काम देखना बहुत पसंद था। वह रोज़ बंदरगाह पर जाकर बड़े-बड़े पानी के जहाज देखता और कप्तान की नकल करता।
+एक दिन अचानक समुद्र में तूफान आ गया। बंदरगाह पर खड़ा एक छोटा पानी जहाज अपने कप्तान का इंतज़ार कर रहा था, लेकिन कप्तान बीमार पड़ गया। जहाज पर बैठे यात्री घबरा गए। तभी चीकू चुपचाप जहाज पर चढ़ गया।
+चीकू ने पहले से सब कुछ देख रखा था। उसने स्टीयरिंग पकड़ा, सीटी बजाई और जहाज धीरे-धीरे चल पड़ा। तूफान तेज़ था, लहरें ऊँची थीं, लेकिन चीकू ने हिम्मत नहीं हारी। वह कभी दाएँ मोड़ता, कभी बाएँ, और जहाज को सुरक्षित रास्ते पर ले जाता।
+यात्री पहले डर गए, फिर जब उन्होंने देखा कि एक बंदर जहाज चला रहा है, तो सब हैरान रह गए। कुछ लोग दुआ करने लगे, कुछ तालियाँ बजाने लगे।
+थोड़ी देर बाद जहाज सुरक्षित किनारे पहुँच गया। सभी यात्रियों ने राहत की साँस ली। कप्तान भी आ गया और चीकू को गले लगा लिया। शहर के लोग चीकू को “समुंदर का हीरो बंदर” कहने लगे।
