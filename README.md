@@ -12,5 +12,3 @@ These examples are short snippets that demonstrate best-practices in using Inwor
 
 - **[Python Examples](./python/)** - Complete examples for Python integration
 - **[JavaScript Examples](./js/)** - Complete examples for JavaScript integration
-
-We will be adding examples for other programming languages soon...
