@@ -311,7 +311,7 @@ async function main() {
             context_id: 'ctx-1',
             create: {
                 voice_id: 'Ashley',
-                model_id: 'inworld-tts-1',
+                model_id: 'inworld-tts-1.5-mini',
                 audio_config: {
                     audio_encoding: 'LINEAR16',
                     sample_rate_hertz: 24000

@@ -1,8 +1,7 @@
-import axios from 'axios';
 
 /**
  * Inworld TTS Max Service
- * Handles Inworld text-to-speech processing using inworld-tts-1-max model with Hades voice
+ * Handles Inworld text-to-speech processing using inworld-tts-1.5-max model with Hades voice
  */
 
 class InworldMaxService {
@@ -93,7 +92,7 @@ class InworldMaxService {
         const requestBody = {
             text: text,
             voiceId: process.env.INWORLD_MAX_VOICE_ID || 'Hades',
-            modelId: 'inworld-tts-1-max',
+            modelId: 'inworld-tts-1.5-max',
             audioConfig: {
                 audioEncoding: 'MP3',
                 sampleRateHertz: 44100  // Standardized to 44.1kHz for better browser compatibility
@@ -104,7 +103,7 @@ class InworldMaxService {
         // Create Basic auth header - Inworld expects the API key directly, not base64 encoded
         const authHeader = `Basic ${process.env.INWORLD_API_KEY}`;
 
-        const response = await axios.post(
+        const response = await fetch(
             'https://api.inworld.ai/tts/v1/voice:stream',
             requestBody,
             {

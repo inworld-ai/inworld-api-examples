@@ -1,4 +1,3 @@
-import axios from 'axios';
 
 /**
  * Cartesia TTS Service
@@ -89,7 +88,7 @@ class CartesiaService {
         // Make actual API call to Cartesia using streaming SSE endpoint
         const voiceId = process.env.CARTESIA_VOICE_ID || '694f9389-aac1-45b6-b726-9d9369183238';
 
-        const response = await axios.post(
+        const response = await fetch(
             'https://api.cartesia.ai/tts/sse',
             {
                 model_id: 'sonic-2',

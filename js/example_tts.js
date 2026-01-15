@@ -7,7 +7,6 @@
  */
 
 const fs = require('fs');
-const axios = require('axios');
 
 /**
  * Check if INWORLD_API_KEY environment variable is set.
@@ -59,22 +58,33 @@ async function synthesizeSpeech(text, voiceId, modelId, apiKey) {
         console.log(`   Voice ID: ${voiceId}`);
         console.log(`   Model ID: ${modelId}`);
         
-        const response = await axios.post(url, requestData, { headers });
+        // Use native fetch API (Node.js 18+)
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(requestData)
+        });
         
-        const audioData = Buffer.from(response.data.audioContent, 'base64');
+        // Check for HTTP errors (fetch doesn't throw on 4xx/5xx)
+        if (!response.ok) {
+            let errorDetails = '';
+            try {
+                const errorData = await response.json();
+                errorDetails = JSON.stringify(errorData);
+            } catch {
+                errorDetails = await response.text();
+            }
+            throw new Error(`HTTP ${response.status}: ${errorDetails}`);
+        }
+        
+        const result = await response.json();
+        const audioData = Buffer.from(result.audioContent, 'base64');
         
         console.log(`Synthesis successful! Audio size: ${audioData.length} bytes`);
         return audioData;
         
     } catch (error) {
         console.log(`HTTP Error: ${error.message}`);
-        if (error.response) {
-            try {
-                console.log(`   Error details: ${JSON.stringify(error.response.data)}`);
-            } catch {
-                console.log(`   Response text: ${error.response.data}`);
-            }
-        }
         throw error;
     }
 }
@@ -156,7 +166,7 @@ async function main() {
     // Configuration
     const text = "Hello, adventurer! What a beautiful day, isn't it?";
     const voiceId = 'Dennis';
-    const modelId = 'inworld-tts-1';
+    const modelId = 'inworld-tts-1.5-mini';
     const outputFile = 'synthesis_output.wav';
     
     try {

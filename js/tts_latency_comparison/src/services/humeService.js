@@ -1,4 +1,3 @@
-import axios from 'axios';
 
 /**
  * Hume TTS Service
@@ -95,7 +94,7 @@ class HumeService {
         let timeToFirstByte = null;
 
         // Make actual API call to Hume
-        const response = await axios.post(
+        const response = await fetch(
             'https://api.hume.ai/v0/tts/stream/json',
             {
                 utterances: [

@@ -1,4 +1,3 @@
-import axios from 'axios';
 
 /**
  * ElevenLabs Multilingual TTS Service
@@ -96,7 +95,7 @@ class ElevenLabsMultilingualService {
         // Make actual API call to ElevenLabs with multilingual model and specific voice
         const voiceId = process.env.ELEVENLABS_MULTILINGUAL_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb';
 
-        const response = await axios.post(
+        const response = await fetch(
             `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream/with-timestamps`,
             {
                 text: text,

@@ -7,7 +7,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
 
 // ============================================================================
 // CONFIGURATION - Modify this path to use your own audio file
@@ -140,8 +139,24 @@ async function cloneVoice({
         console.log('  Noise removal: enabled');
     }
     
-    const response = await axios.post(url, requestData, { headers });
-    const result = response.data;
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(requestData)
+    });
+    
+    if (!response.ok) {
+        let errorDetails = '';
+        try {
+            const errorData = await response.json();
+            errorDetails = JSON.stringify(errorData);
+        } catch {
+            errorDetails = await response.text();
+        }
+        throw new Error(`HTTP ${response.status}: ${errorDetails}`);
+    }
+    
+    const result = await response.json();
     
     console.log('\nVoice cloned successfully!');
     

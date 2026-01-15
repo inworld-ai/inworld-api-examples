@@ -136,7 +136,7 @@ All examples use the following default configuration:
 const config = {
     text: "Hello, adventurer! What a beautiful day, isn't it?",
     voiceId: "Dennis", // or "Ashley" for WebSocket example
-    modelId: "inworld-tts-1",
+    modelId: "inworld-tts-1.5-mini",
     audioConfig: {
         audioEncoding: "LINEAR16",
         sampleRateHertz: 48000
@@ -181,7 +181,6 @@ The examples provide timing information:
 
 ## Dependencies
 
-- **axios** (^1.6.0): HTTP client for REST API calls
 - **ws** (^8.14.0): WebSocket client for real-time streaming
 
 

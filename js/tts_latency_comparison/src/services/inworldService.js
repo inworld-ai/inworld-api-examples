@@ -1,4 +1,3 @@
-import axios from 'axios';
 
 /**
  * Inworld TTS Service
@@ -93,7 +92,7 @@ class InworldService {
         const requestBody = {
             text: text,
             voiceId: process.env.INWORLD_VOICE_ID || 'Alex', // Default voice, can be made configurable
-            modelId: 'inworld-tts-1',
+            modelId: 'inworld-tts-1.5-mini',
             audioConfig: {
                 audioEncoding: 'MP3',
                 sampleRateHertz: 44100  // Standardized to 44.1kHz for better browser compatibility
@@ -104,7 +103,7 @@ class InworldService {
         // Create Basic auth header - Inworld expects the API key directly, not base64 encoded
         const authHeader = `Basic ${process.env.INWORLD_API_KEY}`;
 
-        const response = await axios.post(
+        const response = await fetch(
             'https://api.inworld.ai/tts/v1/voice:stream',
             requestBody,
             {

@@ -1,4 +1,3 @@
-import axios from 'axios';
 
 /**
  * ElevenLabs Flash TTS Service
@@ -96,7 +95,7 @@ class ElevenLabsFlashService {
         // Make actual API call to ElevenLabs with flash model and specific voice
         const voiceId = process.env.ELEVENLABS_FLASH_VOICE_ID || '4YYIPFl9wE5c4L2eu2Gb';
 
-        const response = await axios.post(
+        const response = await fetch(
             `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream/with-timestamps`,
             {
                 text: text,

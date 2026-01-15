@@ -7,7 +7,6 @@
  */
 
 const fs = require('fs');
-const axios = require('axios');
 
 /**
  * Check if INWORLD_API_KEY environment variable is set.
@@ -60,10 +59,21 @@ async function* synthesizeSpeechStream(text, voiceId, modelId, apiKey) {
         console.log(`   Model ID: ${modelId}`);
         console.log();
         
-        const response = await axios.post(url, requestData, {
-            headers,
-            responseType: 'stream'
+        // Use native fetch API with streaming
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(requestData)
         });
+        
+        // Check for HTTP errors
+        if (!response.ok) {
+            let errorDetails = '';
+            try {
+                errorDetails = await response.text();
+            } catch {}
+            throw new Error(`HTTP ${response.status}: ${errorDetails}`);
+        }
         
         let chunkCount = 0;
         let totalAudioSize = 0;
@@ -72,10 +82,18 @@ async function* synthesizeSpeechStream(text, voiceId, modelId, apiKey) {
         
         console.log('Receiving audio chunks:');
         
+        // Process streaming response using ReadableStream
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
         let buffer = '';
         
-        for await (const chunk of response.data) {
-            buffer += chunk.toString();
+        while (true) {
+            const { done, value } = await reader.read();
+            
+            if (done) break;
+            
+            // Decode the chunk and add to buffer
+            buffer += decoder.decode(value, { stream: true });
             
             // Process complete lines
             const lines = buffer.split('\n');
@@ -119,13 +137,6 @@ async function* synthesizeSpeechStream(text, voiceId, modelId, apiKey) {
         
     } catch (error) {
         console.log(`HTTP Error: ${error.message}`);
-        if (error.response) {
-            try {
-                console.log(`   Error details: ${JSON.stringify(error.response.data)}`);
-            } catch {
-                console.log(`   Response text: ${error.response.data}`);
-            }
-        }
         throw error;
     }
 }
@@ -219,7 +230,7 @@ async function main() {
     // Configuration
     const text = "Hello, adventurer! What a beautiful day, isn't it?";
     const voiceId = 'Dennis';
-    const modelId = 'inworld-tts-1';
+    const modelId = 'inworld-tts-1.5-mini';
     const outputFile = 'synthesis_stream_output.wav';
     
     try {
