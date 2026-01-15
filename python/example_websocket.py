@@ -222,12 +222,12 @@ Examples:
   python example_websocket.py --timestamp word
   
   # WebSocket synthesis with custom model and character timestamps
-  python example_websocket.py --model-id inworld-tts-1 --timestamp character
+  python example_websocket.py --model-id inworld-tts-1.5-mini --timestamp character
         """
     )
     
-    parser.add_argument("--model-id", default="inworld-tts-1", 
-                       help="Model ID to use (default: inworld-tts-1)")
+    parser.add_argument("--model-id", default="inworld-tts-1.5-mini", 
+                       help="Model ID to use (default: inworld-tts-1.5-mini)")
     parser.add_argument("--timestamp", choices=["word", "character"], default=None,
                        help="Enable timestamp alignment: 'word' for word-level, 'character' for character-level")
     parser.add_argument("--voice-id", default="Ashley",

@@ -270,12 +270,12 @@ Examples:
   python tts_cli.py --json-example ../tests-data/tts/tts_marketing_samples.json --stream --timestamp character
   
   # Custom voice and model with all options
-  python tts_cli.py --output-file output.wav --voice-id Dennis --model-id inworld-tts-1 --temperature 1.2 --timestamp word --text-normalization on
+  python tts_cli.py --output-file output.wav --voice-id Dennis --model-id inworld-tts-1.5-mini --temperature 1.2 --timestamp word --text-normalization on
         """
     )
     
     # Required parameters
-    parser.add_argument("--model-id", default="inworld-tts-1", help="Model ID to use (default: inworld-tts-1)")
+    parser.add_argument("--model-id", default="inworld-tts-1.5-mini", help="Model ID to use (default: inworld-tts-1.5-mini)")
     parser.add_argument("--voice-id", default="Dennis", help="Voice ID to use (default: Dennis)")
     
     # Text input options

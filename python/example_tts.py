@@ -119,7 +119,7 @@ def main():
     # Configuration
     text = "Hello, adventurer! What a beautiful day, isn't it?"
     voice_id = "Dennis"
-    model_id = "inworld-tts-1"
+    model_id = "inworld-tts-1.5-mini"
     output_file = "synthesis_output.wav"
     
     try:
