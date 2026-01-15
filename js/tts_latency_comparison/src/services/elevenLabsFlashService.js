@@ -32,7 +32,7 @@ class ElevenLabsFlashService {
         
         try {
             if (!this.hasValidApiKey()) {
-                console.log('⏭️ ElevenLabs Flash: Skipping - no valid API key (0ms)');
+                console.log(' ElevenLabs Flash: Skipping - no valid API key (0ms)');
                 return { timeToFirstByte: 99999, hasAudio: false };
             }
 
@@ -45,7 +45,7 @@ class ElevenLabsFlashService {
                 timestamp: startTime
             });
 
-            console.log('🎙️ ElevenLabs Flash: Using real API');
+            console.log(' ElevenLabs Flash: Using real API');
             const result = await this.processReal(text, sendUpdate, sessionId);
 
             // Send completion
@@ -152,7 +152,7 @@ class ElevenLabsFlashService {
                             if (!firstAudioChunkReceived) {
                                 firstAudioChunkReceived = true;
                                 timeToFirstByte = Date.now() - requestStartTime;
-                                console.log(`🎵 ElevenLabs Flash: First chunk received after ${timeToFirstByte}ms - Size: ${audioData.length} bytes`);
+                                console.log(`ElevenLabs Flash: First chunk received after ${timeToFirstByte}ms - Size: ${audioData.length} bytes`);
                                 
                                 // Mark processing as complete when first chunk arrives
                                 sendUpdate({
@@ -186,7 +186,7 @@ class ElevenLabsFlashService {
                                     
                                     // ElevenLabs now goes straight to speech like Inworld (no silent prefix stage)
                                     // VAD analysis will handle actual silence detection
-                                    console.log(`🗣️ ElevenLabs Flash: Starting speech generation`);
+                                    console.log(` ElevenLabs Flash: Starting speech generation`);
                                     sendUpdate({
                                         type: 'model_update',
                                         model: 'elevenlabs-flash',
@@ -237,7 +237,7 @@ class ElevenLabsFlashService {
                 const audioBuffer = Buffer.concat(audioChunks);
                 this.audioManager.storeAudio(sessionId, 'elevenlabs-flash', audioBuffer);
                 hasAudio = true;
-                console.log(`✅ ElevenLabs Flash: Total audio duration (estimated): ${totalAudioDuration}ms`);
+                console.log(`ElevenLabs Flash: Total audio duration (estimated): ${totalAudioDuration}ms`);
                 console.log(`Total chunks: ${totalAudioChunks}`);
                 
                 // NEW: Save complete audio file to disk for VAD and duration analysis
@@ -250,7 +250,7 @@ class ElevenLabsFlashService {
                         const ffmpegDuration = await this.audioManager.getAudioDuration(sessionId, 'elevenlabs-flash', 'complete');
                         if (ffmpegDuration !== null) {
                             accurateDuration = ffmpegDuration;
-                            console.log(`📏 ElevenLabs Flash: Corrected duration from ${totalAudioDuration}ms to ${accurateDuration}ms (complete file)`);
+                            console.log(` ElevenLabs Flash: Corrected duration from ${totalAudioDuration}ms to ${accurateDuration}ms (complete file)`);
                         }
                     } catch (error) {
                         console.warn(`ElevenLabs Flash: Could not get accurate duration from complete file, using estimated: ${error.message}`);
@@ -348,13 +348,13 @@ class ElevenLabsFlashService {
      */
     async performVADAnalysisOnComplete(sessionId, model, sendUpdate) {
         try {
-            console.log(`🔍 ${model}: Starting VAD analysis on complete audio...`);
+            console.log(`${model}: Starting VAD analysis on complete audio...`);
             
             // Use the new method to analyze complete audio file
             const vadResult = await this.vadService.analyzeCompleteAudioFile(sessionId, model, this.audioManager);
             
             if (vadResult.success) {
-                console.log(`🔍 ${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech (complete audio)`);
+                console.log(`${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech (complete audio)`);
                 
                 // Send VAD results to frontend
                 sendUpdate({
@@ -364,11 +364,11 @@ class ElevenLabsFlashService {
                     timestamp: Date.now()
                 });
             } else {
-                console.log(`🔍 ${model}: VAD analysis failed - ${vadResult.message}`);
+                console.log(`${model}: VAD analysis failed - ${vadResult.message}`);
             }
             
         } catch (error) {
-            console.error(`🔍 ${model}: VAD analysis error:`, error);
+            console.error(`${model}: VAD analysis error:`, error);
         }
     }
 
@@ -380,7 +380,7 @@ class ElevenLabsFlashService {
      */
     async performVADAnalysis(sessionId, model, sendUpdate) {
         try {
-            console.log(`🔍 ${model}: Starting VAD analysis...`);
+            console.log(`${model}: Starting VAD analysis...`);
             
             // Get the first chunk file path
             const audioDir = this.audioManager.getAudioDirectory();
@@ -390,7 +390,7 @@ class ElevenLabsFlashService {
             const vadResult = await this.vadService.analyzeAudioFile(audioFilePath, sessionId, model, this.audioManager);
             
             if (vadResult.success) {
-                console.log(`🔍 ${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech`);
+                console.log(`${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech`);
                 
                 // Send VAD results to frontend
                 sendUpdate({
@@ -400,11 +400,11 @@ class ElevenLabsFlashService {
                     timestamp: Date.now()
                 });
             } else {
-                console.log(`🔍 ${model}: VAD analysis failed - ${vadResult.message}`);
+                console.log(`${model}: VAD analysis failed - ${vadResult.message}`);
             }
             
         } catch (error) {
-            console.error(`🔍 ${model}: VAD analysis error:`, error);
+            console.error(`${model}: VAD analysis error:`, error);
         }
     }
 }

@@ -32,7 +32,7 @@ class InworldMaxService {
         
         try {
             if (!this.hasValidApiKey()) {
-                console.log('⏭️ Inworld Max: Skipping - no valid API key (0ms)');
+                console.log(' Inworld Max: Skipping - no valid API key (0ms)');
                 return { timeToFirstByte: 99999, hasAudio: false };
             }
 
@@ -45,7 +45,7 @@ class InworldMaxService {
                 timestamp: startTime
             });
 
-            console.log('🎙️ Inworld Max: Using real API');
+            console.log(' Inworld Max: Using real API');
             const result = await this.processReal(text, sendUpdate, sessionId);
 
             // Send completion
@@ -141,7 +141,7 @@ class InworldMaxService {
                         
                         // Debug: Log the full response structure to understand the format
                         // if (data.result) {
-                        //     console.log('📊 Inworld Max response structure:', JSON.stringify(data.result, null, 2));
+                        //     console.log(' Inworld Max response structure:', JSON.stringify(data.result, null, 2));
                         // }
                         
                         if (data.result && data.result.audioContent) {
@@ -153,7 +153,7 @@ class InworldMaxService {
                             if (!firstAudioChunkReceived) {
                                 firstAudioChunkReceived = true;
                                 timeToFirstByte = Date.now() - requestStartTime;
-                                console.log(`🎵 Inworld Max: First chunk received after ${timeToFirstByte}ms - Size: ${audioData.length} bytes`);
+                                console.log(`Inworld Max: First chunk received after ${timeToFirstByte}ms - Size: ${audioData.length} bytes`);
                                 
                                 // Mark processing as complete when first chunk arrives
                                 sendUpdate({
@@ -170,7 +170,7 @@ class InworldMaxService {
                                 }
                                 
                                 // Inworld goes straight to speech (no silent prefix)
-                                console.log(`🗣️ Inworld Max: Starting speech generation`);
+                                console.log(` Inworld Max: Starting speech generation`);
                                 sendUpdate({
                                     type: 'model_update',
                                     model: 'inworldmax',
@@ -203,7 +203,7 @@ class InworldMaxService {
                                     const processedWords = words.length;
                                     const speechProgress = Math.min((processedWords / Math.max(totalWords, 1)) * 100, 95);
                                     
-                                    console.log(`📝 Inworld Max: Processed ${processedWords}/${totalWords} words, duration: ${totalAudioDuration}ms`);
+                                    console.log(` Inworld Max: Processed ${processedWords}/${totalWords} words, duration: ${totalAudioDuration}ms`);
                                     
                                     sendUpdate({
                                         type: 'model_update',
@@ -230,7 +230,7 @@ class InworldMaxService {
                             // Update our duration estimate
                             if (totalAudioDuration === 0) {
                                 totalAudioDuration = estimatedDurationMs;
-                                console.log(`📝 Inworld Max: Using estimated duration: ${estimatedDurationMs}ms for ${text.split(/\s+/).length} words`);
+                                console.log(` Inworld Max: Using estimated duration: ${estimatedDurationMs}ms for ${text.split(/\s+/).length} words`);
                             }
                             
                             sendUpdate({
@@ -263,7 +263,7 @@ class InworldMaxService {
                 const audioBuffer = Buffer.concat(audioChunks);
                 this.audioManager.storeAudio(sessionId, 'inworldmax', audioBuffer);
                 hasAudio = true;
-                    console.log(`✅ Inworld Max: Total audio duration (estimated): ${totalAudioDuration}ms`);
+                    console.log(`Inworld Max: Total audio duration (estimated): ${totalAudioDuration}ms`);
                     console.log(`Total chunks: ${totalAudioChunks}`);
                     
                     // NEW: Save complete audio file to disk for VAD and duration analysis
@@ -276,7 +276,7 @@ class InworldMaxService {
                             const ffmpegDuration = await this.audioManager.getAudioDuration(sessionId, 'inworldmax', 'complete');
                             if (ffmpegDuration !== null) {
                                 accurateDuration = ffmpegDuration;
-                                console.log(`📏 Inworld Max: Corrected duration from ${totalAudioDuration}ms to ${accurateDuration}ms (complete file)`);
+                                console.log(` Inworld Max: Corrected duration from ${totalAudioDuration}ms to ${accurateDuration}ms (complete file)`);
                             }
                         } catch (error) {
                             console.warn(`Inworld Max: Could not get accurate duration from complete file, using estimated: ${error.message}`);
@@ -301,7 +301,7 @@ class InworldMaxService {
                     // If we still don't have duration, estimate it one final time
                     if (totalAudioDuration === 0) {
                         totalAudioDuration = Math.round((text.split(/\s+/).length / 150) * 60 * 1000);
-                        console.log(`📝 Inworld Max: Final fallback duration estimate: ${totalAudioDuration}ms`);
+                        console.log(` Inworld Max: Final fallback duration estimate: ${totalAudioDuration}ms`);
                     }
                     
                     // Send final speech completion without audio
@@ -385,13 +385,13 @@ class InworldMaxService {
      */
     async performVADAnalysisOnComplete(sessionId, model, sendUpdate) {
         try {
-            console.log(`🔍 ${model}: Starting VAD analysis on complete audio...`);
+            console.log(`${model}: Starting VAD analysis on complete audio...`);
             
             // Use the new method to analyze complete audio file
             const vadResult = await this.vadService.analyzeCompleteAudioFile(sessionId, model, this.audioManager);
             
             if (vadResult.success) {
-                console.log(`🔍 ${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech (complete audio)`);
+                console.log(`${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech (complete audio)`);
                 
                 // Send VAD results to frontend
                 sendUpdate({
@@ -401,11 +401,11 @@ class InworldMaxService {
                     timestamp: Date.now()
                 });
             } else {
-                console.log(`🔍 ${model}: VAD analysis failed - ${vadResult.message}`);
+                console.log(`${model}: VAD analysis failed - ${vadResult.message}`);
             }
             
         } catch (error) {
-            console.error(`🔍 ${model}: VAD analysis error:`, error);
+            console.error(`${model}: VAD analysis error:`, error);
         }
     }
 
@@ -417,7 +417,7 @@ class InworldMaxService {
      */
     async performVADAnalysis(sessionId, model, sendUpdate) {
         try {
-            console.log(`🔍 ${model}: Starting VAD analysis...`);
+            console.log(`${model}: Starting VAD analysis...`);
             
             // Get the first chunk file path
             const audioDir = this.audioManager.getAudioDirectory();
@@ -427,7 +427,7 @@ class InworldMaxService {
             const vadResult = await this.vadService.analyzeAudioFile(audioFilePath, sessionId, model, this.audioManager);
             
             if (vadResult.success) {
-                console.log(`🔍 ${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech`);
+                console.log(`${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech`);
                 
                 // Send VAD results to frontend
                 sendUpdate({
@@ -437,11 +437,11 @@ class InworldMaxService {
                     timestamp: Date.now()
                 });
             } else {
-                console.log(`🔍 ${model}: VAD analysis failed - ${vadResult.message}`);
+                console.log(`${model}: VAD analysis failed - ${vadResult.message}`);
             }
             
         } catch (error) {
-            console.error(`🔍 ${model}: VAD analysis error:`, error);
+            console.error(`${model}: VAD analysis error:`, error);
         }
     }
 }

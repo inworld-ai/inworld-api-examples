@@ -19,7 +19,7 @@ def check_api_key():
     """Check if INWORLD_API_KEY environment variable is set."""
     api_key = os.getenv("INWORLD_API_KEY")
     if not api_key:
-        print("❌ Error: INWORLD_API_KEY environment variable is not set.")
+        print("Error: INWORLD_API_KEY environment variable is not set.")
         print("Please set it with: export INWORLD_API_KEY=your_api_key_here")
         return None
     return api_key
@@ -59,7 +59,7 @@ def synthesize_speech(text: str, voice_id: str, model_id: str, api_key: str):
     }
     
     try:
-        print(f"🎤 Synthesizing speech...")
+        print(f"Synthesizing speech...")
         print(f"   Text: {text}")
         print(f"   Voice ID: {voice_id}")
         print(f"   Model ID: {model_id}")
@@ -70,11 +70,11 @@ def synthesize_speech(text: str, voice_id: str, model_id: str, api_key: str):
         result = response.json()
         audio_data = base64.b64decode(result["audioContent"])
         
-        print(f"✅ Synthesis successful! Audio size: {len(audio_data)} bytes")
+        print(f"Synthesis successful! Audio size: {len(audio_data)} bytes")
         return audio_data
         
     except requests.exceptions.RequestException as e:
-        print(f"❌ HTTP Error: {e}")
+        print(f"HTTP Error: {e}")
         if hasattr(e, 'response') and e.response is not None:
             try:
                 error_detail = e.response.json()
@@ -83,7 +83,7 @@ def synthesize_speech(text: str, voice_id: str, model_id: str, api_key: str):
                 print(f"   Response text: {e.response.text}")
         raise
     except Exception as e:
-        print(f"❌ Error during synthesis: {e}")
+        print(f"Error during synthesis: {e}")
         raise
 
 
@@ -99,16 +99,16 @@ def save_audio_to_file(audio_data: bytes, output_file: str):
             wf.setframerate(48000)
             wf.writeframes(raw_audio)
         
-        print(f"💾 Audio saved to: {output_file}")
+        print(f"Audio saved to: {output_file}")
         
     except Exception as e:
-        print(f"❌ Error saving audio file: {e}")
+        print(f"Error saving audio file: {e}")
         raise
 
 
 def main():
     """Main function to demonstrate TTS synthesis."""
-    print("🎵 Inworld TTS Synthesis Example")
+    print("Inworld TTS Synthesis Example")
     print("=" * 40)
     
     # Check API key
@@ -134,11 +134,11 @@ def main():
         
         save_audio_to_file(audio_data, output_file)
         
-        print(f"⏱️  Synthesis time: {synthesis_time:.2f} seconds")
-        print(f"🎉 Synthesis completed successfully! You can play the audio file: {output_file}")
+        print(f"Synthesis time: {synthesis_time:.2f} seconds")
+        print(f"Synthesis completed successfully! You can play the audio file: {output_file}")
         
     except Exception as e:
-        print(f"\n❌ Synthesis failed: {e}")
+        print(f"\nSynthesis failed: {e}")
         return 1
     
     return 0

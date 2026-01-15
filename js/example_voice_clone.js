@@ -28,7 +28,7 @@ const SUPPORTED_LANGUAGES = [
 function checkApiKey() {
     const apiKey = process.env.INWORLD_API_KEY;
     if (!apiKey) {
-        console.log('❌ Error: INWORLD_API_KEY environment variable is not set.');
+        console.log('Error: INWORLD_API_KEY environment variable is not set.');
         console.log('Please set it with: export INWORLD_API_KEY=your_api_key_here');
         return null;
     }
@@ -42,7 +42,7 @@ function checkApiKey() {
 function checkWorkspace() {
     const workspace = process.env.INWORLD_WORKSPACE;
     if (!workspace) {
-        console.log('❌ Error: INWORLD_WORKSPACE environment variable is not set.');
+        console.log('Error: INWORLD_WORKSPACE environment variable is not set.');
         console.log('Please set it with: export INWORLD_WORKSPACE=your_workspace_id');
         return null;
     }
@@ -126,7 +126,7 @@ async function cloneVoice({
         requestData.audioProcessingConfig = { removeBackgroundNoise: true };
     }
     
-    console.log('\n🎤 Cloning voice...');
+    console.log('\nCloning voice...');
     console.log(`  Display Name: ${displayName}`);
     console.log(`  Language: ${langCode}`);
     console.log(`  Samples: ${voiceSamples.length}`);
@@ -143,12 +143,12 @@ async function cloneVoice({
     const response = await axios.post(url, requestData, { headers });
     const result = response.data;
     
-    console.log('\n✅ Voice cloned successfully!');
+    console.log('\nVoice cloned successfully!');
     
     // Display voice details
     const voice = result.voice || {};
     if (Object.keys(voice).length > 0) {
-        console.log('\n📋 Voice Details:');
+        console.log('\nVoice Details:');
         console.log(`  Name: ${voice.name || 'N/A'}`);
         console.log(`  Voice ID: ${voice.voiceId || 'N/A'}`);
         console.log(`  Display Name: ${voice.displayName || 'N/A'}`);
@@ -164,7 +164,7 @@ async function cloneVoice({
     // Display sample validation results
     const validatedSamples = result.audioSamplesValidated || [];
     if (validatedSamples.length > 0) {
-        console.log('\n🔍 Sample Validation:');
+        console.log('\nSample Validation:');
         for (let i = 0; i < validatedSamples.length; i++) {
             const sample = validatedSamples[i];
             console.log(`\n  Sample ${i + 1}:`);
@@ -178,16 +178,16 @@ async function cloneVoice({
             
             const warnings = sample.warnings || [];
             for (const warning of warnings) {
-                console.log(`    ⚠️  Warning: ${warning.text || 'Unknown warning'}`);
+                console.log(`    Warning: ${warning.text || 'Unknown warning'}`);
             }
             
             const errors = sample.errors || [];
             for (const error of errors) {
-                console.log(`    ❌ Error: ${error.text || 'Unknown error'}`);
+                console.log(`    Error: ${error.text || 'Unknown error'}`);
             }
             
             if (warnings.length === 0 && errors.length === 0) {
-                console.log('    Status: ✓ OK');
+                console.log('    Status:  OK');
             }
         }
     }
@@ -325,7 +325,7 @@ async function main() {
         return 0;
     }
     
-    console.log('🎵 Inworld Voice Cloning Example');
+    console.log('Inworld Voice Cloning Example');
     console.log('=' + '='.repeat(39));
     
     // Check environment variables
@@ -341,7 +341,7 @@ async function main() {
     
     // Validate language code
     if (!SUPPORTED_LANGUAGES.includes(args.lang)) {
-        console.log(`❌ Error: Invalid language code '${args.lang}'.`);
+        console.log(`Error: Invalid language code '${args.lang}'.`);
         console.log(`Supported languages: ${SUPPORTED_LANGUAGES.join(', ')}`);
         return 1;
     }
@@ -354,7 +354,7 @@ async function main() {
             audioPaths = [DEFAULT_AUDIO_PATH];
             console.log(`Using default audio: ${DEFAULT_AUDIO_PATH}`);
         } else {
-            console.log('❌ Error: No audio file specified and default not found.');
+            console.log('Error: No audio file specified and default not found.');
             console.log('Use --audio to specify audio file(s).');
             return 1;
         }
@@ -363,7 +363,7 @@ async function main() {
     // Validate audio files exist
     for (const audioPath of audioPaths) {
         if (!fs.existsSync(audioPath)) {
-            console.log(`❌ Error: Audio file not found: ${audioPath}`);
+            console.log(`Error: Audio file not found: ${audioPath}`);
             return 1;
         }
     }
@@ -384,17 +384,17 @@ async function main() {
         });
         
         const cloneTime = (Date.now() - startTime) / 1000;
-        console.log(`\n⏱️  Clone time: ${cloneTime.toFixed(2)}s`);
+        console.log(`\nClone time: ${cloneTime.toFixed(2)}s`);
         
         const voice = result.voice || {};
         if (voice.voiceId) {
-            console.log(`\n🎤 Use this voice_id in TTS calls: ${voice.voiceId}`);
+            console.log(`\nUse this voice_id in TTS calls: ${voice.voiceId}`);
         }
         
         return 0;
         
     } catch (error) {
-        console.log(`\n❌ HTTP Error: ${error.message}`);
+        console.log(`\nHTTP Error: ${error.message}`);
         if (error.response) {
             try {
                 console.log(`Details: ${JSON.stringify(error.response.data, null, 2)}`);
