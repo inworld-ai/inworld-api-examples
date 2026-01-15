@@ -7,7 +7,6 @@
  */
 
 const fs = require('fs');
-const axios = require('axios');
 
 /**
  * Check if INWORLD_API_KEY environment variable is set.
@@ -16,7 +15,7 @@ const axios = require('axios');
 function checkApiKey() {
     const apiKey = process.env.INWORLD_API_KEY;
     if (!apiKey) {
-        console.log('❌ Error: INWORLD_API_KEY environment variable is not set.');
+        console.log('Error: INWORLD_API_KEY environment variable is not set.');
         console.log('Please set it with: export INWORLD_API_KEY=your_api_key_here');
         return null;
     }
@@ -54,27 +53,38 @@ async function synthesizeSpeech(text, voiceId, modelId, apiKey) {
     };
     
     try {
-        console.log('🎤 Synthesizing speech...');
+        console.log('Synthesizing speech...');
         console.log(`   Text: ${text}`);
         console.log(`   Voice ID: ${voiceId}`);
         console.log(`   Model ID: ${modelId}`);
         
-        const response = await axios.post(url, requestData, { headers });
+        // Use native fetch API (Node.js 18+)
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(requestData)
+        });
         
-        const audioData = Buffer.from(response.data.audioContent, 'base64');
+        // Check for HTTP errors (fetch doesn't throw on 4xx/5xx)
+        if (!response.ok) {
+            let errorDetails = '';
+            try {
+                const errorData = await response.json();
+                errorDetails = JSON.stringify(errorData);
+            } catch {
+                errorDetails = await response.text();
+            }
+            throw new Error(`HTTP ${response.status}: ${errorDetails}`);
+        }
         
-        console.log(`✅ Synthesis successful! Audio size: ${audioData.length} bytes`);
+        const result = await response.json();
+        const audioData = Buffer.from(result.audioContent, 'base64');
+        
+        console.log(`Synthesis successful! Audio size: ${audioData.length} bytes`);
         return audioData;
         
     } catch (error) {
-        console.log(`❌ HTTP Error: ${error.message}`);
-        if (error.response) {
-            try {
-                console.log(`   Error details: ${JSON.stringify(error.response.data)}`);
-            } catch {
-                console.log(`   Response text: ${error.response.data}`);
-            }
-        }
+        console.log(`HTTP Error: ${error.message}`);
         throw error;
     }
 }
@@ -96,10 +106,10 @@ function saveAudioToFile(audioData, outputFile) {
         const wavFile = Buffer.concat([wavHeader, rawAudio]);
         
         fs.writeFileSync(outputFile, wavFile);
-        console.log(`💾 Audio saved to: ${outputFile}`);
+        console.log(`Audio saved to: ${outputFile}`);
         
     } catch (error) {
-        console.log(`❌ Error saving audio file: ${error.message}`);
+        console.log(`Error saving audio file: ${error.message}`);
         throw error;
     }
 }
@@ -144,7 +154,7 @@ function createWavHeader(dataSize, channels, sampleRate, bitsPerSample) {
  * Main function to demonstrate TTS synthesis.
  */
 async function main() {
-    console.log('🎵 Inworld TTS Synthesis Example');
+    console.log('Inworld TTS Synthesis Example');
     console.log('=' + '='.repeat(39));
     
     // Check API key
@@ -156,7 +166,7 @@ async function main() {
     // Configuration
     const text = "Hello, adventurer! What a beautiful day, isn't it?";
     const voiceId = 'Dennis';
-    const modelId = 'inworld-tts-1';
+    const modelId = 'inworld-tts-1.5-mini';
     const outputFile = 'synthesis_output.wav';
     
     try {
@@ -166,11 +176,11 @@ async function main() {
         
         saveAudioToFile(audioData, outputFile);
         
-        console.log(`⏱️  Synthesis time: ${synthesisTime.toFixed(2)} seconds`);
-        console.log(`🎉 Synthesis completed successfully! You can play the audio file: ${outputFile}`);
+        console.log(`Synthesis time: ${synthesisTime.toFixed(2)} seconds`);
+        console.log(`Synthesis completed successfully! You can play the audio file: ${outputFile}`);
         
     } catch (error) {
-        console.log(`\n❌ Synthesis failed: ${error.message}`);
+        console.log(`\nSynthesis failed: ${error.message}`);
         return 1;
     }
     

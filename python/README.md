@@ -186,7 +186,7 @@ python example_voice_clone.py \
 All examples support the following configuration through code modification:
 
 - **Voice ID:** Choose from available voices (default: "Dennis")
-- **Model ID:** TTS model to use (default: "inworld-tts-1")
+- **Model ID:** TTS model to use (default: "inworld-tts-1.5-mini")
 - **Audio Format:** LINEAR16, 48kHz (configurable in code)
 - **Output File:** Customize output filename and location
 - **Temperature:** Control voice variation (0.0-1.0)

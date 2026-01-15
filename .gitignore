@@ -327,4 +327,10 @@ public
 
 .DS_Store
 
+# Audio output files from examples
+*.wav
+*.mp3
+synthesis_*.wav
+synthesis_*.mp3
+
 

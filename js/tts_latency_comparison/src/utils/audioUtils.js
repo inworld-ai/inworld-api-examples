@@ -32,7 +32,7 @@ export async function getAudioDuration(audioFilePath) {
                 const duration = metadata.format?.duration;
                 if (duration && typeof duration === 'number') {
                     const durationMs = Math.round(duration * 1000);
-                    console.log(`🎵 Audio duration detected: ${durationMs}ms for ${audioFilePath.split('/').pop()}`);
+                    console.log(`Audio duration detected: ${durationMs}ms for ${audioFilePath.split('/').pop()}`);
                     resolve(durationMs);
                 } else {
                     console.warn(`Could not extract duration from metadata for ${audioFilePath}`);

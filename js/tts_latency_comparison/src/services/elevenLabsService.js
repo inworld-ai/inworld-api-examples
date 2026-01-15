@@ -1,4 +1,3 @@
-import axios from 'axios';
 
 /**
  * ElevenLabs TTS Service
@@ -32,7 +31,7 @@ class ElevenLabsService {
         
         try {
             if (!this.hasValidApiKey()) {
-                console.log('⏭️ ElevenLabs: Skipping - no valid API key (0ms)');
+                console.log(' ElevenLabs: Skipping - no valid API key (0ms)');
                 return { timeToFirstByte: 99999, hasAudio: false };
             }
 
@@ -45,7 +44,7 @@ class ElevenLabsService {
                 timestamp: startTime
             });
 
-            console.log('🎙️ ElevenLabs: Using real API');
+            console.log(' ElevenLabs: Using real API');
             const result = await this.processReal(text, sendUpdate, sessionId);
 
             // Send completion
@@ -96,7 +95,7 @@ class ElevenLabsService {
         // Make actual API call to ElevenLabs
         const voiceId = process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb';
 
-        const response = await axios.post(
+        const response = await fetch(
             `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream/with-timestamps`,
             {
                 text: text,
@@ -152,7 +151,7 @@ class ElevenLabsService {
                             if (!firstAudioChunkReceived) {
                                 firstAudioChunkReceived = true;
                                 timeToFirstByte = Date.now() - requestStartTime;
-                                console.log(`🎵 ElevenLabs: First chunk received after ${timeToFirstByte}ms - Size: ${audioData.length} bytes`);
+                                console.log(`ElevenLabs: First chunk received after ${timeToFirstByte}ms - Size: ${audioData.length} bytes`);
                                 
                                 // Mark processing as complete when first chunk arrives
                                 sendUpdate({
@@ -186,7 +185,7 @@ class ElevenLabsService {
                                     
                                     // ElevenLabs now goes straight to speech like Inworld (no silent prefix stage)
                                     // VAD analysis will handle actual silence detection
-                                    console.log(`🗣️ ElevenLabs: Starting speech generation`);
+                                    console.log(` ElevenLabs: Starting speech generation`);
                                     sendUpdate({
                                         type: 'model_update',
                                         model: 'elevenlabs',
@@ -237,7 +236,7 @@ class ElevenLabsService {
                 const audioBuffer = Buffer.concat(audioChunks);
                 this.audioManager.storeAudio(sessionId, 'elevenlabs', audioBuffer);
                 hasAudio = true;
-                console.log(`✅ ElevenLabs: Total audio duration (estimated): ${totalAudioDuration}ms`);
+                console.log(`ElevenLabs: Total audio duration (estimated): ${totalAudioDuration}ms`);
                 console.log(`Total chunks: ${totalAudioChunks}`);
                 
                 // NEW: Save complete audio file to disk for VAD and duration analysis
@@ -250,7 +249,7 @@ class ElevenLabsService {
                         const ffmpegDuration = await this.audioManager.getAudioDuration(sessionId, 'elevenlabs', 'complete');
                         if (ffmpegDuration !== null) {
                             accurateDuration = ffmpegDuration;
-                            console.log(`📏 ElevenLabs: Corrected duration from ${totalAudioDuration}ms to ${accurateDuration}ms (complete file)`);
+                            console.log(` ElevenLabs: Corrected duration from ${totalAudioDuration}ms to ${accurateDuration}ms (complete file)`);
                         }
                     } catch (error) {
                         console.warn(`ElevenLabs: Could not get accurate duration from complete file, using estimated: ${error.message}`);
@@ -352,13 +351,13 @@ class ElevenLabsService {
      */
     async performVADAnalysisOnComplete(sessionId, model, sendUpdate) {
         try {
-            console.log(`🔍 ${model}: Starting VAD analysis on complete audio...`);
+            console.log(`${model}: Starting VAD analysis on complete audio...`);
             
             // Use the new method to analyze complete audio file
             const vadResult = await this.vadService.analyzeCompleteAudioFile(sessionId, model, this.audioManager);
             
             if (vadResult.success) {
-                console.log(`🔍 ${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech (complete audio)`);
+                console.log(`${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech (complete audio)`);
                 
                 // Send VAD results to frontend
                 sendUpdate({
@@ -368,11 +367,11 @@ class ElevenLabsService {
                     timestamp: Date.now()
                 });
             } else {
-                console.log(`🔍 ${model}: VAD analysis failed - ${vadResult.message}`);
+                console.log(`${model}: VAD analysis failed - ${vadResult.message}`);
             }
             
         } catch (error) {
-            console.error(`🔍 ${model}: VAD analysis error:`, error);
+            console.error(`${model}: VAD analysis error:`, error);
         }
     }
 
@@ -384,7 +383,7 @@ class ElevenLabsService {
      */
     async performVADAnalysis(sessionId, model, sendUpdate) {
         try {
-            console.log(`🔍 ${model}: Starting VAD analysis...`);
+            console.log(`${model}: Starting VAD analysis...`);
             
             // Get the first chunk file path
             const audioDir = this.audioManager.getAudioDirectory();
@@ -394,7 +393,7 @@ class ElevenLabsService {
             const vadResult = await this.vadService.analyzeAudioFile(audioFilePath, sessionId, model, this.audioManager);
             
             if (vadResult.success) {
-                console.log(`🔍 ${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech`);
+                console.log(`${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech`);
                 
                 // Send VAD results to frontend
                 sendUpdate({
@@ -404,11 +403,11 @@ class ElevenLabsService {
                     timestamp: Date.now()
                 });
             } else {
-                console.log(`🔍 ${model}: VAD analysis failed - ${vadResult.message}`);
+                console.log(`${model}: VAD analysis failed - ${vadResult.message}`);
             }
             
         } catch (error) {
-            console.error(`🔍 ${model}: VAD analysis error:`, error);
+            console.error(`${model}: VAD analysis error:`, error);
         }
     }
 }

@@ -1,4 +1,3 @@
-import axios from 'axios';
 
 /**
  * Hume TTS Service
@@ -32,7 +31,7 @@ class HumeService {
         
         try {
             if (!this.hasValidApiKey()) {
-                console.log('⏭️ Hume: Skipping - no valid API key (0ms)');
+                console.log(' Hume: Skipping - no valid API key (0ms)');
                 return { timeToFirstByte: 99999, hasAudio: false };
             }
 
@@ -45,7 +44,7 @@ class HumeService {
                 timestamp: startTime
             });
 
-            console.log('🎙️ Hume: Using real API');
+            console.log(' Hume: Using real API');
             const result = await this.processReal(text, sendUpdate, sessionId);
 
             // Send completion
@@ -95,7 +94,7 @@ class HumeService {
         let timeToFirstByte = null;
 
         // Make actual API call to Hume
-        const response = await axios.post(
+        const response = await fetch(
             'https://api.hume.ai/v0/tts/stream/json',
             {
                 utterances: [
@@ -150,7 +149,7 @@ class HumeService {
                             if (!firstAudioChunkReceived) {
                                 firstAudioChunkReceived = true;
                                 timeToFirstByte = Date.now() - requestStartTime;
-                                console.log(`🎵 Hume: First chunk received after ${timeToFirstByte}ms - Size: ${audioData.length} bytes`);
+                                console.log(`Hume: First chunk received after ${timeToFirstByte}ms - Size: ${audioData.length} bytes`);
                                 
                                 // Mark processing as complete when first chunk arrives
                                 sendUpdate({
@@ -167,7 +166,7 @@ class HumeService {
                                 }
                                 
                                 // Hume goes straight to speech (no silent prefix)
-                                console.log(`🗣️ Hume: Starting speech generation`);
+                                console.log(` Hume: Starting speech generation`);
                                 sendUpdate({
                                     type: 'model_update',
                                     model: 'hume',
@@ -210,7 +209,7 @@ class HumeService {
                         
                         // Handle final chunk
                         if (data.is_last_chunk === true) {
-                            console.log(`🎵 Hume: Received final chunk (${data.chunk_index})`);
+                            console.log(`Hume: Received final chunk (${data.chunk_index})`);
                             
                             // Final duration estimation if not set
                             if (totalAudioDuration === 0) {
@@ -246,7 +245,7 @@ class HumeService {
                     
                     this.audioManager.storeAudio(sessionId, 'hume', finalAudioBuffer);
                     hasAudio = true;
-                    console.log(`✅ Hume: Total audio duration (estimated): ${totalAudioDuration}ms`);
+                    console.log(`Hume: Total audio duration (estimated): ${totalAudioDuration}ms`);
                     console.log(`Total chunks: ${totalAudioChunks}`);
                     
                     // NEW: Save complete audio file to disk for VAD and duration analysis
@@ -259,7 +258,7 @@ class HumeService {
                             const ffmpegDuration = await this.audioManager.getAudioDuration(sessionId, 'hume', 'complete');
                             if (ffmpegDuration !== null) {
                                 accurateDuration = ffmpegDuration;
-                                console.log(`📏 Hume: Corrected duration from ${totalAudioDuration}ms to ${accurateDuration}ms (complete file)`);
+                                console.log(` Hume: Corrected duration from ${totalAudioDuration}ms to ${accurateDuration}ms (complete file)`);
                             }
                         } catch (error) {
                             console.warn(`Hume: Could not get accurate duration from complete file, using estimated: ${error.message}`);
@@ -280,7 +279,7 @@ class HumeService {
                     // If we still don't have duration, estimate it one final time
                     if (totalAudioDuration === 0) {
                         totalAudioDuration = Math.round((text.split(/\s+/).length / 150) * 60 * 1000);
-                        console.log(`📝 Hume: Final fallback duration estimate: ${totalAudioDuration}ms`);
+                        console.log(` Hume: Final fallback duration estimate: ${totalAudioDuration}ms`);
                     }
                     
                     // Send final speech completion without audio
@@ -411,10 +410,10 @@ class HumeService {
                 
                 ffmpeg.on('close', (code) => {
                     if (code === 0) {
-                        console.log(`🔄 Hume: Audio chunks concatenated and converted successfully`);
+                        console.log(` Hume: Audio chunks concatenated and converted successfully`);
                         resolve();
                     } else {
-                        console.error(`🔄 Hume: Concatenation failed with code ${code}`);
+                        console.error(` Hume: Concatenation failed with code ${code}`);
                         console.error(`FFmpeg stderr: ${ffmpegError}`);
                         reject(new Error(`Concatenation failed: ${ffmpegError}`));
                     }
@@ -433,12 +432,12 @@ class HumeService {
                 console.warn('Failed to clean up temp directory:', cleanupError.message);
             }
             
-            console.log(`🔄 Hume: ${audioChunks.length} chunks concatenated and converted (${finalBuffer.length} bytes)`);
+            console.log(` Hume: ${audioChunks.length} chunks concatenated and converted (${finalBuffer.length} bytes)`);
             return finalBuffer;
             
         } catch (error) {
             console.error('Audio concatenation failed:', error.message);
-            console.log('🔄 Hume: Falling back to simple concatenation');
+            console.log(' Hume: Falling back to simple concatenation');
             
             // Fallback to simple concatenation and conversion
             const simpleBuffer = Buffer.concat(audioChunks);
@@ -494,17 +493,17 @@ class HumeService {
                 
                 ffmpeg.on('close', (code) => {
                     if (code === 0) {
-                        console.log(`🔄 Hume: FFmpeg conversion successful`);
+                        console.log(` Hume: FFmpeg conversion successful`);
                         resolve();
                     } else {
-                        console.error(`🔄 Hume: FFmpeg failed with code ${code}`);
+                        console.error(` Hume: FFmpeg failed with code ${code}`);
                         console.error(`FFmpeg stderr: ${ffmpegError}`);
                         reject(new Error(`FFmpeg process exited with code ${code}: ${ffmpegError}`));
                     }
                 });
                 
                 ffmpeg.on('error', (err) => {
-                    console.error(`🔄 Hume: FFmpeg spawn error:`, err);
+                    console.error(` Hume: FFmpeg spawn error:`, err);
                     reject(err);
                 });
             });
@@ -520,12 +519,12 @@ class HumeService {
                 console.warn('Failed to clean up temp files:', cleanupError.message);
             }
             
-            console.log(`🔄 Hume: Audio converted from 48kHz to 44.1kHz (${audioBuffer.length} -> ${convertedBuffer.length} bytes)`);
+            console.log(` Hume: Audio converted from 48kHz to 44.1kHz (${audioBuffer.length} -> ${convertedBuffer.length} bytes)`);
             return convertedBuffer;
             
         } catch (error) {
             console.error('Audio conversion failed:', error.message);
-            console.log('🔄 Hume: Using original audio without conversion');
+            console.log(' Hume: Using original audio without conversion');
             return null;
         }
     }
@@ -538,13 +537,13 @@ class HumeService {
      */
     async performVADAnalysisOnComplete(sessionId, model, sendUpdate) {
         try {
-            console.log(`🔍 ${model}: Starting VAD analysis on complete audio...`);
+            console.log(`${model}: Starting VAD analysis on complete audio...`);
             
             // Use the new method to analyze complete audio file
             const vadResult = await this.vadService.analyzeCompleteAudioFile(sessionId, model, this.audioManager);
             
             if (vadResult.success) {
-                console.log(`🔍 ${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech (complete audio)`);
+                console.log(`${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech (complete audio)`);
                 
                 // Send VAD results to frontend
                 sendUpdate({
@@ -554,11 +553,11 @@ class HumeService {
                     timestamp: Date.now()
                 });
             } else {
-                console.log(`🔍 ${model}: VAD analysis failed - ${vadResult.message}`);
+                console.log(`${model}: VAD analysis failed - ${vadResult.message}`);
             }
             
         } catch (error) {
-            console.error(`🔍 ${model}: VAD analysis error:`, error);
+            console.error(`${model}: VAD analysis error:`, error);
         }
     }
 
@@ -570,7 +569,7 @@ class HumeService {
      */
     async performVADAnalysis(sessionId, model, sendUpdate) {
         try {
-            console.log(`🔍 ${model}: Starting VAD analysis...`);
+            console.log(`${model}: Starting VAD analysis...`);
             
             // Get the first chunk file path
             const audioDir = this.audioManager.getAudioDirectory();
@@ -580,7 +579,7 @@ class HumeService {
             const vadResult = await this.vadService.analyzeAudioFile(audioFilePath, sessionId, model, this.audioManager);
             
             if (vadResult.success) {
-                console.log(`🔍 ${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech`);
+                console.log(`${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech`);
                 
                 // Send VAD results to frontend
                 sendUpdate({
@@ -590,11 +589,11 @@ class HumeService {
                     timestamp: Date.now()
                 });
             } else {
-                console.log(`🔍 ${model}: VAD analysis failed - ${vadResult.message}`);
+                console.log(`${model}: VAD analysis failed - ${vadResult.message}`);
             }
             
         } catch (error) {
-            console.error(`🔍 ${model}: VAD analysis error:`, error);
+            console.error(`${model}: VAD analysis error:`, error);
         }
     }
 }

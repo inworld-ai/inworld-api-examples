@@ -7,7 +7,6 @@
  */
 
 const fs = require('fs');
-const axios = require('axios');
 
 /**
  * Check if INWORLD_API_KEY environment variable is set.
@@ -16,7 +15,7 @@ const axios = require('axios');
 function checkApiKey() {
     const apiKey = process.env.INWORLD_API_KEY;
     if (!apiKey) {
-        console.log('❌ Error: INWORLD_API_KEY environment variable is not set.');
+        console.log('Error: INWORLD_API_KEY environment variable is not set.');
         console.log('Please set it with: export INWORLD_API_KEY=your_api_key_here');
         return null;
     }
@@ -54,28 +53,47 @@ async function* synthesizeSpeechStream(text, voiceId, modelId, apiKey) {
     };
     
     try {
-        console.log('🎤 Starting streaming synthesis...');
+        console.log('Starting streaming synthesis...');
         console.log(`   Text: ${text}`);
         console.log(`   Voice ID: ${voiceId}`);
         console.log(`   Model ID: ${modelId}`);
         console.log();
         
-        const response = await axios.post(url, requestData, {
-            headers,
-            responseType: 'stream'
+        // Use native fetch API with streaming
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(requestData)
         });
+        
+        // Check for HTTP errors
+        if (!response.ok) {
+            let errorDetails = '';
+            try {
+                errorDetails = await response.text();
+            } catch {}
+            throw new Error(`HTTP ${response.status}: ${errorDetails}`);
+        }
         
         let chunkCount = 0;
         let totalAudioSize = 0;
         let firstChunkTime = null;
         const startTime = Date.now();
         
-        console.log('📡 Receiving audio chunks:');
+        console.log('Receiving audio chunks:');
         
+        // Process streaming response using ReadableStream
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
         let buffer = '';
         
-        for await (const chunk of response.data) {
-            buffer += chunk.toString();
+        while (true) {
+            const { done, value } = await reader.read();
+            
+            if (done) break;
+            
+            // Decode the chunk and add to buffer
+            buffer += decoder.decode(value, { stream: true });
             
             // Process complete lines
             const lines = buffer.split('\n');
@@ -94,18 +112,18 @@ async function* synthesizeSpeechStream(text, voiceId, modelId, apiKey) {
                             // Record time for first chunk
                             if (chunkCount === 1) {
                                 firstChunkTime = (Date.now() - startTime) / 1000;
-                                console.log(`   ⏱️  Time to first chunk: ${firstChunkTime.toFixed(2)} seconds`);
+                                console.log(`   Time to first chunk: ${firstChunkTime.toFixed(2)} seconds`);
                             }
                             
-                            console.log(`   📦 Chunk ${chunkCount}: ${audioChunk.length} bytes`);
+                            console.log(`   Chunk ${chunkCount}: ${audioChunk.length} bytes`);
                             yield audioChunk;
                         }
                     } catch (error) {
                         if (error instanceof SyntaxError) {
-                            console.log(`   ⚠️  JSON decode error: ${error.message}`);
+                            console.log(`   JSON decode error: ${error.message}`);
                             continue;
                         } else {
-                            console.log(`   ⚠️  Missing key in response: ${error.message}`);
+                            console.log(`   Missing key in response: ${error.message}`);
                             continue;
                         }
                     }
@@ -113,19 +131,12 @@ async function* synthesizeSpeechStream(text, voiceId, modelId, apiKey) {
             }
         }
         
-        console.log(`\n✅ Streaming completed!`);
+        console.log(`\nStreaming completed!`);
         console.log(`   Total chunks: ${chunkCount}`);
         console.log(`   Total audio size: ${totalAudioSize} bytes`);
         
     } catch (error) {
-        console.log(`❌ HTTP Error: ${error.message}`);
-        if (error.response) {
-            try {
-                console.log(`   Error details: ${JSON.stringify(error.response.data)}`);
-            } catch {
-                console.log(`   Response text: ${error.response.data}`);
-            }
-        }
+        console.log(`HTTP Error: ${error.message}`);
         throw error;
     }
 }
@@ -137,7 +148,7 @@ async function* synthesizeSpeechStream(text, voiceId, modelId, apiKey) {
  */
 async function saveStreamingAudioToFile(audioChunks, outputFile) {
     try {
-        console.log(`💾 Saving audio chunks to: ${outputFile}`);
+        console.log(`Saving audio chunks to: ${outputFile}`);
         
         // Collect all raw audio data (skip WAV headers from chunks)
         const rawAudioData = [];
@@ -162,7 +173,7 @@ async function saveStreamingAudioToFile(audioChunks, outputFile) {
         fs.writeFileSync(outputFile, wavFile);
         
     } catch (error) {
-        console.log(`❌ Error saving audio file: ${error.message}`);
+        console.log(`Error saving audio file: ${error.message}`);
         throw error;
     }
 }
@@ -207,7 +218,7 @@ function createWavHeader(dataSize, channels, sampleRate, bitsPerSample) {
  * Main function to demonstrate streaming TTS synthesis.
  */
 async function main() {
-    console.log('🎵 Inworld TTS Streaming Synthesis Example');
+    console.log('Inworld TTS Streaming Synthesis Example');
     console.log('=' + '='.repeat(44));
     
     // Check API key
@@ -219,16 +230,16 @@ async function main() {
     // Configuration
     const text = "Hello, adventurer! What a beautiful day, isn't it?";
     const voiceId = 'Dennis';
-    const modelId = 'inworld-tts-1';
+    const modelId = 'inworld-tts-1.5-mini';
     const outputFile = 'synthesis_stream_output.wav';
     
     try {
         const audioChunks = synthesizeSpeechStream(text, voiceId, modelId, apiKey);
         await saveStreamingAudioToFile(audioChunks, outputFile);
-        console.log(`🎉 Streaming synthesis completed successfully! You can play the audio file: ${outputFile}`);
+        console.log(`Streaming synthesis completed successfully! You can play the audio file: ${outputFile}`);
         
     } catch (error) {
-        console.log(`\n❌ Streaming synthesis failed: ${error.message}`);
+        console.log(`\nStreaming synthesis failed: ${error.message}`);
         return 1;
     }
     
