@@ -23,7 +23,7 @@ def check_api_key():
     """Check if INWORLD_API_KEY environment variable is set."""
     api_key = os.getenv("INWORLD_API_KEY")
     if not api_key:
-        print("❌ Error: INWORLD_API_KEY environment variable is not set.")
+        print("Error: INWORLD_API_KEY environment variable is not set.")
         print("Please set it with: export INWORLD_API_KEY=your_api_key_here")
         return None
     return api_key
@@ -43,19 +43,19 @@ async def stream_tts_with_context(
     headers = {"Authorization": f"Basic {api_key}"}
 
     try:
-        print(f"🔌 Connecting to WebSocket: {uri}")
+        print(f" Connecting to WebSocket: {uri}")
         start_time = time.time()
         websocket = await websockets.connect(uri, additional_headers=headers)
 
         async with websocket:
-            print("✅ WebSocket connection established")
-            print(f"⏱️  Connection established in {time.time() - start_time:.2f} seconds")
+            print("WebSocket connection established")
+            print(f"Connection established in {time.time() - start_time:.2f} seconds")
 
             # Send the sequence of context-aware requests
             for req in requests:
                 await websocket.send(json.dumps(req))
 
-            print("📡 Receiving audio chunks:")
+            print("Receiving audio chunks:")
             chunk_count = 0
             total_audio_size = 0
             first_chunk_time = None
@@ -68,25 +68,25 @@ async def stream_tts_with_context(
                     # Handle server errors
                     if "error" in response:
                         error_msg = response["error"].get("message", "Unknown error")
-                        print(f"❌ Server error: {error_msg}")
+                        print(f"Server error: {error_msg}")
                         break
 
                     result = response.get("result")
                     if not result:
                         # Non-result informational message
                         if response.get("done"):
-                            print("✅ Synthesis completed (done=true)")
+                            print("Synthesis completed (done=true)")
                             break
                         continue
 
                     # Check for context close confirmation
                     if "contextClosed" in result:
-                        print("✅ Context closed confirmation received")
+                        print("Context closed confirmation received")
                         break
 
                     # Status updates
                     if "status" in result:
-                        print(f"ℹ️  Status: {result['status']}")
+                        print(f"Status: {result['status']}")
 
                     # Audio chunk (new protocol)
                     if "audioChunk" in result:
@@ -99,8 +99,8 @@ async def stream_tts_with_context(
                             total_audio_size += len(audio_bytes)
                             if chunk_count == 1:
                                 first_chunk_time = time.time() - recv_start
-                                print(f"   ⏱️  Time to first chunk: {first_chunk_time:.2f} seconds")
-                            print(f"   📦 Chunk {chunk_count}: {len(audio_bytes)} bytes")
+                                print(f"   Time to first chunk: {first_chunk_time:.2f} seconds")
+                            print(f"   Chunk {chunk_count}: {len(audio_bytes)} bytes")
                             yield audio_bytes
 
                         # Optional timestamp info
@@ -108,34 +108,34 @@ async def stream_tts_with_context(
                         if ts_info is not None:
                             # Print a compact summary (count if list, else dict keys)
                             if isinstance(ts_info, list):
-                                print(f"   🕒 Timestamps: {len(ts_info)} entries")
+                                print(f"    Timestamps: {len(ts_info)} entries")
                             elif isinstance(ts_info, dict):
-                                print(f"   🕒 Timestamp fields: {', '.join(ts_info.keys())}")
+                                print(f"    Timestamp fields: {', '.join(ts_info.keys())}")
 
                 except json.JSONDecodeError as e:
-                    print(f"   ⚠️  JSON decode error: {e}")
+                    print(f"   JSON decode error: {e}")
                     continue
                 except KeyError as e:
-                    print(f"   ⚠️  Missing key in response: {e}")
+                    print(f"   Missing key in response: {e}")
                     continue
 
-            print(f"\n✅ Stream finished. Total chunks: {chunk_count}, total bytes: {total_audio_size}")
+            print(f"\nStream finished. Total chunks: {chunk_count}, total bytes: {total_audio_size}")
 
     except ConnectionClosedError as e:
-        print(f"❌ WebSocket connection closed unexpectedly: {e}")
+        print(f"WebSocket connection closed unexpectedly: {e}")
         raise
     except WebSocketException as e:
-        print(f"❌ WebSocket error: {e}")
+        print(f"WebSocket error: {e}")
         raise
     except Exception as e:
-        print(f"❌ Error during WebSocket synthesis: {e}")
+        print(f"Error during WebSocket synthesis: {e}")
         raise
 
 
 async def save_websocket_audio_to_file(audio_chunks_generator, output_file: str):
     """Save WebSocket audio chunks to a WAV file."""
     try:
-        print(f"💾 Saving audio chunks to: {output_file}")
+        print(f"Saving audio chunks to: {output_file}")
         
         # Collect all raw audio data (skip WAV headers from chunks)
         raw_audio_data = bytearray()
@@ -156,10 +156,10 @@ async def save_websocket_audio_to_file(audio_chunks_generator, output_file: str)
             wf.setframerate(24000)
             wf.writeframes(raw_audio_data)
         
-        print(f"✅ Audio saved successfully! Processed {chunk_count} chunks")
+        print(f"Audio saved successfully! Processed {chunk_count} chunks")
         
     except Exception as e:
-        print(f"❌ Error saving audio file: {e}")
+        print(f"Error saving audio file: {e}")
         raise
 
 
@@ -222,12 +222,12 @@ Examples:
   python example_websocket.py --timestamp word
   
   # WebSocket synthesis with custom model and character timestamps
-  python example_websocket.py --model-id inworld-tts-1 --timestamp character
+  python example_websocket.py --model-id inworld-tts-1.5-mini --timestamp character
         """
     )
     
-    parser.add_argument("--model-id", default="inworld-tts-1", 
-                       help="Model ID to use (default: inworld-tts-1)")
+    parser.add_argument("--model-id", default="inworld-tts-1.5-mini", 
+                       help="Model ID to use (default: inworld-tts-1.5-mini)")
     parser.add_argument("--timestamp", choices=["word", "character"], default=None,
                        help="Enable timestamp alignment: 'word' for word-level, 'character' for character-level")
     parser.add_argument("--voice-id", default="Ashley",
@@ -239,15 +239,15 @@ Examples:
     
     args = parser.parse_args()
     
-    print("🎵 Inworld TTS WebSocket Synthesis (Context Flow) Example")
+    print("Inworld TTS WebSocket Synthesis (Context Flow) Example")
     print("=" * 50)
     
-    print(f"📝 Text: {args.text}")
-    print(f"🎤 Voice: {args.voice_id}")
-    print(f"🤖 Model: {args.model_id}")
+    print(f" Text: {args.text}")
+    print(f"Voice: {args.voice_id}")
+    print(f" Model: {args.model_id}")
     if args.timestamp is not None:
-        print(f"⏰ Timestamp: {args.timestamp}")
-    print(f"📁 Output: {args.output_file}")
+        print(f" Timestamp: {args.timestamp}")
+    print(f"Output: {args.output_file}")
     print()
     
     # Check API key
@@ -274,11 +274,11 @@ Examples:
         )
         
         total_time = time.time() - start_time
-        print(f"⏱️  Total synthesis time: {total_time:.2f} seconds")
-        print(f"🎉 WebSocket synthesis completed successfully! Audio file saved: {args.output_file}")
+        print(f"Total synthesis time: {total_time:.2f} seconds")
+        print(f"WebSocket synthesis completed successfully! Audio file saved: {args.output_file}")
         
     except Exception as e:
-        print(f"\n❌ WebSocket synthesis failed: {e}")
+        print(f"\nWebSocket synthesis failed: {e}")
         return 1
     
     return 0
