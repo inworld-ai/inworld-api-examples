@@ -150,16 +150,22 @@ python example_websocket.py
 **Usage:**
 ```bash
 # Basic synthesis
-python tts_cli.py --text "Hello world" --voice Dennis
+python tts_cli.py --output-file output.wav --text "Hello world"
 
-# Streaming synthesis
-python tts_cli.py --text "Hello world" --voice Dennis --stream
+# Streaming synthesis with timestamp alignment
+python tts_cli.py --output-file output.wav --text "Hello world" --stream --timestamp word
 
-# Batch testing
-python tts_cli.py --batch ../tests-data/tts/tts_small_samples.json
+# Custom temperature and text normalization
+python tts_cli.py --output-file output.wav --temperature 0.8 --text-normalization off
 
-# Advanced options
-python tts_cli.py --text "Hello world" --voice Dennis --temperature 0.8 --timestamps --normalize
+# Batch testing with JSON samples
+python tts_cli.py --json-example ../tests-data/tts/tts_marketing_samples.json
+
+# Batch testing with streaming and character-level timestamps
+python tts_cli.py --json-example ../tests-data/tts/tts_marketing_samples.json --stream --timestamp character
+
+# Custom voice and model with all options
+python tts_cli.py --output-file output.wav --voice-id Dennis --model-id inworld-tts-1.5-mini --temperature 1.2 --timestamp word --text-normalization on
 ```
 
 **Best for:** Testing, development, batch processing, and performance analysis.
