@@ -16,7 +16,7 @@ const WebSocket = require('ws');
 function checkApiKey() {
     const apiKey = process.env.INWORLD_API_KEY;
     if (!apiKey) {
-        console.log('Error: INWORLD_API_KEY environment variable is not set.');
+        console.log('❌ Error: INWORLD_API_KEY environment variable is not set.');
         console.log('Please set it with: export INWORLD_API_KEY=your_api_key_here');
         return null;
     }
@@ -43,7 +43,7 @@ async function* streamTtsWithContext(
     };
 
     try {
-        console.log(` Connecting to WebSocket: ${websocketUrl}`);
+        console.log(`🔌 Connecting to WebSocket: ${websocketUrl}`);
         const startTime = Date.now();
         
         const ws = new WebSocket(websocketUrl, { headers });
@@ -54,15 +54,15 @@ async function* streamTtsWithContext(
             ws.on('error', reject);
         });
 
-        console.log('WebSocket connection established');
-        console.log(`Connection established in ${((Date.now() - startTime) / 1000).toFixed(2)} seconds`);
+        console.log('✅ WebSocket connection established');
+        console.log(`⏱️  Connection established in ${((Date.now() - startTime) / 1000).toFixed(2)} seconds`);
 
         // Send the sequence of context-aware requests
         for (const req of requests) {
             ws.send(JSON.stringify(req));
         }
 
-        console.log('Receiving audio chunks:');
+        console.log('📡 Receiving audio chunks:');
         let chunkCount = 0;
         let totalAudioSize = 0;
         let firstChunkTime = null;
@@ -76,7 +76,7 @@ async function* streamTtsWithContext(
                 // Handle server errors
                 if (response.error) {
                     const errorMsg = response.error.message || 'Unknown error';
-                    console.log(`Server error: ${errorMsg}`);
+                    console.log(`❌ Server error: ${errorMsg}`);
                     break;
                 }
 
@@ -84,7 +84,7 @@ async function* streamTtsWithContext(
                 if (!result) {
                     // Non-result informational message
                     if (response.done) {
-                        console.log('Synthesis completed (done=true)');
+                        console.log('✅ Synthesis completed (done=true)');
                         break;
                     }
                     continue;
@@ -92,13 +92,13 @@ async function* streamTtsWithContext(
 
                 // Check for context close confirmation
                 if (result.contextClosed) {
-                    console.log('Context closed confirmation received');
+                    console.log('✅ Context closed confirmation received');
                     break;
                 }
 
                 // Status updates
                 if (result.status) {
-                    console.log(`Status: ${result.status}`);
+                    console.log(`ℹ️  Status: ${result.status}`);
                 }
 
                 // Audio chunk (new protocol)
@@ -112,9 +112,9 @@ async function* streamTtsWithContext(
                         totalAudioSize += audioBytes.length;
                         if (chunkCount === 1) {
                             firstChunkTime = (Date.now() - recvStart) / 1000;
-                            console.log(`   Time to first chunk: ${firstChunkTime.toFixed(2)} seconds`);
+                            console.log(`   ⏱️  Time to first chunk: ${firstChunkTime.toFixed(2)} seconds`);
                         }
-                        console.log(`   Chunk ${chunkCount}: ${audioBytes.length} bytes`);
+                        console.log(`   📦 Chunk ${chunkCount}: ${audioBytes.length} bytes`);
                         yield audioBytes;
                     }
 
@@ -123,33 +123,33 @@ async function* streamTtsWithContext(
                     if (tsInfo !== undefined) {
                         // Print a compact summary (count if array, else object keys)
                         if (Array.isArray(tsInfo)) {
-                            console.log(`    Timestamps: ${tsInfo.length} entries`);
+                            console.log(`   🕒 Timestamps: ${tsInfo.length} entries`);
                         } else if (typeof tsInfo === 'object' && tsInfo !== null) {
-                            console.log(`    Timestamp fields: ${Object.keys(tsInfo).join(', ')}`);
+                            console.log(`   🕒 Timestamp fields: ${Object.keys(tsInfo).join(', ')}`);
                         }
                     }
                 }
 
             } catch (error) {
                 if (error instanceof SyntaxError) {
-                    console.log(`   JSON decode error: ${error.message}`);
+                    console.log(`   ⚠️  JSON decode error: ${error.message}`);
                     continue;
                 } else {
-                    console.log(`   Missing key in response: ${error.message}`);
+                    console.log(`   ⚠️  Missing key in response: ${error.message}`);
                     continue;
                 }
             }
         }
 
-        console.log(`\nStream finished. Total chunks: ${chunkCount}, total bytes: ${totalAudioSize}`);
+        console.log(`\n✅ Stream finished. Total chunks: ${chunkCount}, total bytes: ${totalAudioSize}`);
         
         ws.close();
 
     } catch (error) {
         if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED') {
-            console.log(`WebSocket connection closed unexpectedly: ${error.message}`);
+            console.log(`❌ WebSocket connection closed unexpectedly: ${error.message}`);
         } else {
-            console.log(`WebSocket error: ${error.message}`);
+            console.log(`❌ WebSocket error: ${error.message}`);
         }
         throw error;
     }
@@ -212,7 +212,7 @@ async function* asyncIterateWebSocket(ws) {
  */
 async function saveWebsocketAudioToFile(audioChunksGenerator, outputFile) {
     try {
-        console.log(`Saving audio chunks to: ${outputFile}`);
+        console.log(`💾 Saving audio chunks to: ${outputFile}`);
         
         // Collect all raw audio data (skip WAV headers from chunks)
         const rawAudioData = [];
@@ -236,10 +236,10 @@ async function saveWebsocketAudioToFile(audioChunksGenerator, outputFile) {
         
         fs.writeFileSync(outputFile, wavFile);
         
-        console.log(`Audio saved successfully! Processed ${chunkCount} chunks`);
+        console.log(`✅ Audio saved successfully! Processed ${chunkCount} chunks`);
         
     } catch (error) {
-        console.log(`Error saving audio file: ${error.message}`);
+        console.log(`❌ Error saving audio file: ${error.message}`);
         throw error;
     }
 }
@@ -295,7 +295,7 @@ async function synthesizeAndSaveWithContext(apiKey, requests, outputFile) {
  * Main function to demonstrate WebSocket TTS synthesis.
  */
 async function main() {
-    console.log('Inworld TTS WebSocket Synthesis (Context Flow) Example');
+    console.log('🎵 Inworld TTS WebSocket Synthesis (Context Flow) Example');
     console.log('=' + '='.repeat(49));
     
     // Check API key
@@ -311,7 +311,7 @@ async function main() {
             context_id: 'ctx-1',
             create: {
                 voice_id: 'Ashley',
-                model_id: 'inworld-tts-1.5-mini',
+                model_id: 'inworld-tts-1',
                 audio_config: {
                     audio_encoding: 'LINEAR16',
                     sample_rate_hertz: 24000
@@ -337,11 +337,11 @@ async function main() {
         await synthesizeAndSaveWithContext(apiKey, requests, outputFile);
         
         const totalTime = (Date.now() - startTime) / 1000;
-        console.log(`Total synthesis time: ${totalTime.toFixed(2)} seconds`);
-        console.log(`WebSocket synthesis completed successfully! Audio file saved: ${outputFile}`);
+        console.log(`⏱️  Total synthesis time: ${totalTime.toFixed(2)} seconds`);
+        console.log(`🎉 WebSocket synthesis completed successfully! Audio file saved: ${outputFile}`);
         
     } catch (error) {
-        console.log(`\nWebSocket synthesis failed: ${error.message}`);
+        console.log(`\n❌ WebSocket synthesis failed: ${error.message}`);
         return 1;
     }
     
