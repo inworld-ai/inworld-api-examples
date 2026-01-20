@@ -2,12 +2,12 @@
 
 This directory contains Python examples demonstrating how to use the Inworld AI Text-to-Speech (TTS) API with different approaches and protocols.
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Python 3.7 or higher
 - Inworld AI API key
 
-## 🚀 Quick Start
+## Quick Start
 
 1. **Install dependencies:**
    ```bash
@@ -24,7 +24,7 @@ This directory contains Python examples demonstrating how to use the Inworld AI 
    python example_tts.py
    ```
 
-## 📁 Available Examples
+## Available Examples
 
 ### 1. `example_tts.py` - Basic HTTP Synthesis
 **Purpose:** Simple synchronous TTS synthesis using HTTP requests.
@@ -82,7 +82,42 @@ python example_tts_stream.py
 
 ---
 
-### 5. `example_websocket.py` - WebSocket Synthesis
+### 5. `example_tts_timestamps.py` - Synthesis with Timestamps
+**Purpose:** TTS synthesis with word-level timestamps, phoneme data, and viseme data.
+
+**Features:**
+- Word timing information (start/end times)
+- Phoneme-level breakdown for each word
+- Viseme data for lip-sync applications
+- Full response logging for debugging
+
+**Usage:**
+```bash
+python example_tts_timestamps.py
+```
+
+**Best for:** Lip-sync, animation, karaoke-style applications, or debugging TTS output.
+
+---
+
+### 6. `example_tts_stream_timestamps.py` - Streaming with Timestamps
+**Purpose:** Streaming TTS synthesis with timestamp, phoneme, and viseme data.
+
+**Features:**
+- Combines streaming audio with timestamp data
+- Real-time audio chunks
+- Word/phoneme/viseme breakdown after stream completes
+
+**Usage:**
+```bash
+python example_tts_stream_timestamps.py
+```
+
+**Best for:** Real-time applications needing both low latency and timing data.
+
+---
+
+### 7. `example_websocket.py` - WebSocket Synthesis
 **Purpose:** Real-time TTS synthesis using WebSocket connections.
 
 **Features:**
@@ -101,7 +136,7 @@ python example_websocket.py
 
 ---
 
-### 6. `tts_cli.py` - Command Line Interface
+### 8. `tts_cli.py` - Command Line Interface
 **Purpose:** Comprehensive CLI tool for TTS testing and batch processing.
 
 **Features:**
@@ -131,7 +166,7 @@ python tts_cli.py --text "Hello world" --voice Dennis --temperature 0.8 --timest
 
 ---
 
-### 7. `example_voice_clone.py` - Voice Cloning
+### 9. `example_voice_clone.py` - Voice Cloning
 **Purpose:** Clone a voice using audio samples via the Inworld Voice API.
 
 **Features:**
@@ -216,7 +251,7 @@ For batch testing with `tts_cli.py`, use this JSON format:
 }
 ```
 
-## 🌐 API docs
+## API docs
 
 - **HTTP Basic:** `https://docs.inworld.ai/api-reference/ttsAPI/texttospeech/synthesize-speech`
 - **HTTP Streaming:** `https://docs.inworld.ai/api-reference/ttsAPI/texttospeech/synthesize-speech-stream`
