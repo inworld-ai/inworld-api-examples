@@ -318,7 +318,7 @@ def main():
     
     # Configuration - modify these for your use case
     voice_id = "Edward"
-    model_id = "inworld-tts-1.5-max"
+    model_id = "inworld-tts-1-max"
     output_file = "synthesis_long_output.mp3"
     
     script_dir = Path(__file__).parent

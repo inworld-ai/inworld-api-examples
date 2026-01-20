@@ -1,3 +1,4 @@
+import axios from 'axios';
 
 /**
  * Inworld TTS Service
@@ -31,7 +32,7 @@ class InworldService {
         
         try {
             if (!this.hasValidApiKey()) {
-                console.log(' Inworld: Skipping - no valid API key (0ms)');
+                console.log('⏭️ Inworld: Skipping - no valid API key (0ms)');
                 return { timeToFirstByte: 99999, hasAudio: false };
             }
 
@@ -44,7 +45,7 @@ class InworldService {
                 timestamp: startTime
             });
 
-            console.log(' Inworld: Using real API');
+            console.log('🎙️ Inworld: Using real API');
             const result = await this.processReal(text, sendUpdate, sessionId);
 
             // Send completion
@@ -92,7 +93,7 @@ class InworldService {
         const requestBody = {
             text: text,
             voiceId: process.env.INWORLD_VOICE_ID || 'Alex', // Default voice, can be made configurable
-            modelId: 'inworld-tts-1.5-mini',
+            modelId: 'inworld-tts-1',
             audioConfig: {
                 audioEncoding: 'MP3',
                 sampleRateHertz: 44100  // Standardized to 44.1kHz for better browser compatibility
@@ -103,7 +104,7 @@ class InworldService {
         // Create Basic auth header - Inworld expects the API key directly, not base64 encoded
         const authHeader = `Basic ${process.env.INWORLD_API_KEY}`;
 
-        const response = await fetch(
+        const response = await axios.post(
             'https://api.inworld.ai/tts/v1/voice:stream',
             requestBody,
             {
@@ -140,7 +141,7 @@ class InworldService {
                         
                         // Debug: Log the full response structure to understand the format
                         // if (data.result) {
-                        //     console.log(' Inworld response structure:', JSON.stringify(data.result, null, 2));
+                        //     console.log('📊 Inworld response structure:', JSON.stringify(data.result, null, 2));
                         // }
                         
                         if (data.result && data.result.audioContent) {
@@ -152,7 +153,7 @@ class InworldService {
                             if (!firstAudioChunkReceived) {
                                 firstAudioChunkReceived = true;
                                 timeToFirstByte = Date.now() - requestStartTime;
-                                console.log(`Inworld: First chunk received after ${timeToFirstByte}ms - Size: ${audioData.length} bytes`);
+                                console.log(`🎵 Inworld: First chunk received after ${timeToFirstByte}ms - Size: ${audioData.length} bytes`);
                                 
                                 // Mark processing as complete when first chunk arrives
                                 sendUpdate({
@@ -169,7 +170,7 @@ class InworldService {
                                 }
                                 
                                 // Inworld goes straight to speech (no silent prefix)
-                                console.log(` Inworld: Starting speech generation`);
+                                console.log(`🗣️ Inworld: Starting speech generation`);
                                 sendUpdate({
                                     type: 'model_update',
                                     model: 'inworld',
@@ -202,7 +203,7 @@ class InworldService {
                                     const processedWords = words.length;
                                     const speechProgress = Math.min((processedWords / Math.max(totalWords, 1)) * 100, 95);
                                     
-                                    console.log(` Inworld: Processed ${processedWords}/${totalWords} words, duration: ${totalAudioDuration}ms`);
+                                    console.log(`📝 Inworld: Processed ${processedWords}/${totalWords} words, duration: ${totalAudioDuration}ms`);
                                     
                                     sendUpdate({
                                         type: 'model_update',
@@ -229,7 +230,7 @@ class InworldService {
                             // Update our duration estimate
                             if (totalAudioDuration === 0) {
                                 totalAudioDuration = estimatedDurationMs;
-                                console.log(` Inworld: Using estimated duration: ${estimatedDurationMs}ms for ${text.split(/\s+/).length} words`);
+                                console.log(`📝 Inworld: Using estimated duration: ${estimatedDurationMs}ms for ${text.split(/\s+/).length} words`);
                             }
                             
                             sendUpdate({
@@ -262,7 +263,7 @@ class InworldService {
                 const audioBuffer = Buffer.concat(audioChunks);
                 this.audioManager.storeAudio(sessionId, 'inworld', audioBuffer);
                 hasAudio = true;
-                    console.log(`Inworld: Total audio duration (estimated): ${totalAudioDuration}ms`);
+                    console.log(`✅ Inworld: Total audio duration (estimated): ${totalAudioDuration}ms`);
                     console.log(`Total chunks: ${totalAudioChunks}`);
                     
                     // NEW: Save complete audio file to disk for VAD and duration analysis
@@ -275,7 +276,7 @@ class InworldService {
                             const ffmpegDuration = await this.audioManager.getAudioDuration(sessionId, 'inworld', 'complete');
                             if (ffmpegDuration !== null) {
                                 accurateDuration = ffmpegDuration;
-                                console.log(` Inworld: Corrected duration from ${totalAudioDuration}ms to ${accurateDuration}ms (complete file)`);
+                                console.log(`📏 Inworld: Corrected duration from ${totalAudioDuration}ms to ${accurateDuration}ms (complete file)`);
                             }
                         } catch (error) {
                             console.warn(`Inworld: Could not get accurate duration from complete file, using estimated: ${error.message}`);
@@ -300,7 +301,7 @@ class InworldService {
                     // If we still don't have duration, estimate it one final time
                     if (totalAudioDuration === 0) {
                         totalAudioDuration = Math.round((text.split(/\s+/).length / 150) * 60 * 1000);
-                        console.log(` Inworld: Final fallback duration estimate: ${totalAudioDuration}ms`);
+                        console.log(`📝 Inworld: Final fallback duration estimate: ${totalAudioDuration}ms`);
                     }
                     
                     // Send final speech completion without audio
@@ -384,13 +385,13 @@ class InworldService {
      */
     async performVADAnalysisOnComplete(sessionId, model, sendUpdate) {
         try {
-            console.log(`${model}: Starting VAD analysis on complete audio...`);
+            console.log(`🔍 ${model}: Starting VAD analysis on complete audio...`);
             
             // Use the new method to analyze complete audio file
             const vadResult = await this.vadService.analyzeCompleteAudioFile(sessionId, model, this.audioManager);
             
             if (vadResult.success) {
-                console.log(`${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech (complete audio)`);
+                console.log(`🔍 ${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech (complete audio)`);
                 
                 // Send VAD results to frontend
                 sendUpdate({
@@ -400,11 +401,11 @@ class InworldService {
                     timestamp: Date.now()
                 });
             } else {
-                console.log(`${model}: VAD analysis failed - ${vadResult.message}`);
+                console.log(`🔍 ${model}: VAD analysis failed - ${vadResult.message}`);
             }
             
         } catch (error) {
-            console.error(`${model}: VAD analysis error:`, error);
+            console.error(`🔍 ${model}: VAD analysis error:`, error);
         }
     }
 
@@ -416,7 +417,7 @@ class InworldService {
      */
     async performVADAnalysis(sessionId, model, sendUpdate) {
         try {
-            console.log(`${model}: Starting VAD analysis...`);
+            console.log(`🔍 ${model}: Starting VAD analysis...`);
             
             // Get the first chunk file path
             const audioDir = this.audioManager.getAudioDirectory();
@@ -426,7 +427,7 @@ class InworldService {
             const vadResult = await this.vadService.analyzeAudioFile(audioFilePath, sessionId, model, this.audioManager);
             
             if (vadResult.success) {
-                console.log(`${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech`);
+                console.log(`🔍 ${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech`);
                 
                 // Send VAD results to frontend
                 sendUpdate({
@@ -436,11 +437,11 @@ class InworldService {
                     timestamp: Date.now()
                 });
             } else {
-                console.log(`${model}: VAD analysis failed - ${vadResult.message}`);
+                console.log(`🔍 ${model}: VAD analysis failed - ${vadResult.message}`);
             }
             
         } catch (error) {
-            console.error(`${model}: VAD analysis error:`, error);
+            console.error(`🔍 ${model}: VAD analysis error:`, error);
         }
     }
 }

@@ -77,34 +77,7 @@ node example_tts_stream.js
 
 **Output:** `synthesis_stream_output.wav`
 
-### 5. TTS with Timestamps (`example_tts_timestamps.js`)
-
-Demonstrates text-to-speech synthesis with word-level timestamps, phoneme data, and viseme data for lip-sync applications.
-
-**Usage:**
-```bash
-node example_tts_timestamps.js
-```
-
-**Output:** `synthesis_timestamps_output.wav`
-
-**Response includes:**
-- Word-level timing (start/end times for each word)
-- Phoneme data with timing
-- Viseme symbols for lip-sync animation
-
-### 6. Streaming TTS with Timestamps (`example_tts_stream_timestamps.js`)
-
-Demonstrates streaming text-to-speech synthesis with word-level timestamps accumulated across chunks.
-
-**Usage:**
-```bash
-node example_tts_stream_timestamps.js
-```
-
-**Output:** `synthesis_stream_timestamps_output.wav`
-
-### 7. WebSocket TTS Synthesis (`example_websocket.js`)
+### 5. WebSocket TTS Synthesis (`example_websocket.js`)
 
 Demonstrates WebSocket-based TTS synthesis with context management.
 
@@ -118,7 +91,7 @@ node example_websocket.js
 
 **Output:** `synthesis_websocket_output.wav`
 
-### 8. Voice Cloning (`example_voice_clone.js`)
+### 6. Voice Cloning (`example_voice_clone.js`)
 
 Demonstrates how to clone a voice using audio samples via the Inworld Voice API.
 
@@ -163,12 +136,11 @@ All examples use the following default configuration:
 const config = {
     text: "Hello, adventurer! What a beautiful day, isn't it?",
     voiceId: "Dennis", // or "Ashley" for WebSocket example
-    modelId: "inworld-tts-1.5-mini", // timestamp examples use "inworld-tts-1.5-max"
+    modelId: "inworld-tts-1",
     audioConfig: {
         audioEncoding: "LINEAR16",
         sampleRateHertz: 48000
-    },
-    timestamp_type: "WORD" // optional: enables word timestamps, phonemes, and visemes
+    }
 };
 ```
 
@@ -209,6 +181,7 @@ The examples provide timing information:
 
 ## Dependencies
 
+- **axios** (^1.6.0): HTTP client for REST API calls
 - **ws** (^8.14.0): WebSocket client for real-time streaming
 
 

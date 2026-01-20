@@ -10,6 +10,7 @@
  */
 
 const fs = require('fs');
+const axios = require('axios');
 const path = require('path');
 
 // Configuration
@@ -207,42 +208,14 @@ async function synthesizeSpeech(text, voiceId, modelId, apiKey, chunkIndex, tota
         try {
             console.log(`[${chunkIndex + 1}/${totalChunks}] Synthesizing chunk (${text.length} chars)...`);
             
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify(requestData)
-            });
-            
-            // Check for rate limit or other HTTP errors
-            if (!response.ok) {
-                const isRateLimit = response.status === 429;
-                const isLastAttempt = attempt === MAX_RETRIES - 1;
-                
-                if (isRateLimit && !isLastAttempt) {
-                    const delay = RETRY_BASE_DELAY * Math.pow(2, attempt);
-                    console.log(`[${chunkIndex + 1}/${totalChunks}] Rate limited, retrying in ${delay}ms...`);
-                    await sleep(delay);
-                    continue;
-                }
-                
-                let errorDetails = '';
-                try {
-                    const errorData = await response.json();
-                    errorDetails = JSON.stringify(errorData);
-                } catch {
-                    errorDetails = await response.text();
-                }
-                throw new Error(`HTTP ${response.status}: ${errorDetails}`);
-            }
-            
-            const result = await response.json();
-            const audioData = Buffer.from(result.audioContent, 'base64');
+            const response = await axios.post(url, requestData, { headers });
+            const audioData = Buffer.from(response.data.audioContent, 'base64');
             
             console.log(`[${chunkIndex + 1}/${totalChunks}] Done - ${audioData.length} bytes`);
             return audioData;
             
         } catch (error) {
-            const isRateLimit = error.message.includes('429');
+            const isRateLimit = error.response?.status === 429;
             const isLastAttempt = attempt === MAX_RETRIES - 1;
             
             if (isRateLimit && !isLastAttempt) {
@@ -253,7 +226,7 @@ async function synthesizeSpeech(text, voiceId, modelId, apiKey, chunkIndex, tota
             }
             
             console.log(`Error for chunk ${chunkIndex + 1}: ${error.message}`);
-            if (false) {
+            if (error.response) {
                 try {
                     console.log(`   Error details: ${JSON.stringify(error.response.data)}`);
                 } catch {
@@ -478,7 +451,7 @@ async function main() {
     
     // Configuration - modify these for your use case
     const voiceId = 'Edward';
-    const modelId = 'inworld-tts-1.5-max';
+    const modelId = 'inworld-tts-1-max';
     const outputFile = 'synthesis_long_output.wav';
     const inputFile = path.join(__dirname, INPUT_FILE_PATH);
     

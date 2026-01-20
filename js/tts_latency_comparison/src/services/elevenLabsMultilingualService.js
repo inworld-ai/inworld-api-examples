@@ -1,3 +1,4 @@
+import axios from 'axios';
 
 /**
  * ElevenLabs Multilingual TTS Service
@@ -31,7 +32,7 @@ class ElevenLabsMultilingualService {
         
         try {
             if (!this.hasValidApiKey()) {
-                console.log(' ElevenLabs Multilingual: Skipping - no valid API key (0ms)');
+                console.log('⏭️ ElevenLabs Multilingual: Skipping - no valid API key (0ms)');
                 return { timeToFirstByte: 99999, hasAudio: false };
             }
 
@@ -44,7 +45,7 @@ class ElevenLabsMultilingualService {
                 timestamp: startTime
             });
 
-            console.log(' ElevenLabs Multilingual: Using real API');
+            console.log('🎙️ ElevenLabs Multilingual: Using real API');
             const result = await this.processReal(text, sendUpdate, sessionId);
 
             // Send completion
@@ -95,7 +96,7 @@ class ElevenLabsMultilingualService {
         // Make actual API call to ElevenLabs with multilingual model and specific voice
         const voiceId = process.env.ELEVENLABS_MULTILINGUAL_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb';
 
-        const response = await fetch(
+        const response = await axios.post(
             `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream/with-timestamps`,
             {
                 text: text,
@@ -151,7 +152,7 @@ class ElevenLabsMultilingualService {
                             if (!firstAudioChunkReceived) {
                                 firstAudioChunkReceived = true;
                                 timeToFirstByte = Date.now() - requestStartTime;
-                                console.log(`ElevenLabs Multilingual: First chunk received after ${timeToFirstByte}ms - Size: ${audioData.length} bytes`);
+                                console.log(`🎵 ElevenLabs Multilingual: First chunk received after ${timeToFirstByte}ms - Size: ${audioData.length} bytes`);
                                 
                                 // Mark processing as complete when first chunk arrives
                                 sendUpdate({
@@ -185,7 +186,7 @@ class ElevenLabsMultilingualService {
                                     
                                     // ElevenLabs now goes straight to speech like Inworld (no silent prefix stage)
                                     // VAD analysis will handle actual silence detection
-                                    console.log(` ElevenLabs Multilingual: Starting speech generation`);
+                                    console.log(`🗣️ ElevenLabs Multilingual: Starting speech generation`);
                                     sendUpdate({
                                         type: 'model_update',
                                         model: 'elevenlabs-multilingual',
@@ -236,7 +237,7 @@ class ElevenLabsMultilingualService {
                 const audioBuffer = Buffer.concat(audioChunks);
                 this.audioManager.storeAudio(sessionId, 'elevenlabs-multilingual', audioBuffer);
                 hasAudio = true;
-                console.log(`ElevenLabs Multilingual: Total audio duration (estimated): ${totalAudioDuration}ms`);
+                console.log(`✅ ElevenLabs Multilingual: Total audio duration (estimated): ${totalAudioDuration}ms`);
                 console.log(`Total chunks: ${totalAudioChunks}`);
                 
                 // NEW: Save complete audio file to disk for VAD and duration analysis
@@ -249,7 +250,7 @@ class ElevenLabsMultilingualService {
                         const ffmpegDuration = await this.audioManager.getAudioDuration(sessionId, 'elevenlabs-multilingual', 'complete');
                         if (ffmpegDuration !== null) {
                             accurateDuration = ffmpegDuration;
-                            console.log(` ElevenLabs Multilingual: Corrected duration from ${totalAudioDuration}ms to ${accurateDuration}ms (complete file)`);
+                            console.log(`📏 ElevenLabs Multilingual: Corrected duration from ${totalAudioDuration}ms to ${accurateDuration}ms (complete file)`);
                         }
                     } catch (error) {
                         console.warn(`ElevenLabs Multilingual: Could not get accurate duration from complete file, using estimated: ${error.message}`);
@@ -347,13 +348,13 @@ class ElevenLabsMultilingualService {
      */
     async performVADAnalysisOnComplete(sessionId, model, sendUpdate) {
         try {
-            console.log(`${model}: Starting VAD analysis on complete audio...`);
+            console.log(`🔍 ${model}: Starting VAD analysis on complete audio...`);
             
             // Use the new method to analyze complete audio file
             const vadResult = await this.vadService.analyzeCompleteAudioFile(sessionId, model, this.audioManager);
             
             if (vadResult.success) {
-                console.log(`${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech (complete audio)`);
+                console.log(`🔍 ${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech (complete audio)`);
                 
                 // Send VAD results to frontend
                 sendUpdate({
@@ -363,11 +364,11 @@ class ElevenLabsMultilingualService {
                     timestamp: Date.now()
                 });
             } else {
-                console.log(`${model}: VAD analysis failed - ${vadResult.message}`);
+                console.log(`🔍 ${model}: VAD analysis failed - ${vadResult.message}`);
             }
             
         } catch (error) {
-            console.error(`${model}: VAD analysis error:`, error);
+            console.error(`🔍 ${model}: VAD analysis error:`, error);
         }
     }
 
@@ -379,7 +380,7 @@ class ElevenLabsMultilingualService {
      */
     async performVADAnalysis(sessionId, model, sendUpdate) {
         try {
-            console.log(`${model}: Starting VAD analysis...`);
+            console.log(`🔍 ${model}: Starting VAD analysis...`);
             
             // Get the first chunk file path
             const audioDir = this.audioManager.getAudioDirectory();
@@ -389,7 +390,7 @@ class ElevenLabsMultilingualService {
             const vadResult = await this.vadService.analyzeAudioFile(audioFilePath, sessionId, model, this.audioManager);
             
             if (vadResult.success) {
-                console.log(`${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech`);
+                console.log(`🔍 ${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech`);
                 
                 // Send VAD results to frontend
                 sendUpdate({
@@ -399,11 +400,11 @@ class ElevenLabsMultilingualService {
                     timestamp: Date.now()
                 });
             } else {
-                console.log(`${model}: VAD analysis failed - ${vadResult.message}`);
+                console.log(`🔍 ${model}: VAD analysis failed - ${vadResult.message}`);
             }
             
         } catch (error) {
-            console.error(`${model}: VAD analysis error:`, error);
+            console.error(`🔍 ${model}: VAD analysis error:`, error);
         }
     }
 }
