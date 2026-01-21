@@ -38,11 +38,11 @@ class AudioManager {
         
         // If we're overwriting existing audio, log it
         if (this.audioFiles.has(audioKey)) {
-            console.log(`🔄 ${model} audio replaced for session ${sessionId}`);
+            console.log(` ${model} audio replaced for session ${sessionId}`);
         }
         
         this.audioFiles.set(audioKey, audioBuffer);
-        console.log(`✅ ${model} audio stored: ${audioBuffer.length} bytes`);
+        console.log(`${model} audio stored: ${audioBuffer.length} bytes`);
     }
 
     /**
@@ -83,7 +83,7 @@ class AudioManager {
         
         try {
             fs.writeFileSync(filePath, chunk);
-            console.log(`💾 ${model}: ${suffix || `Chunk ${chunkNumber}`} saved - Size: ${chunk.length} bytes`);
+            console.log(`${model}: ${suffix || `Chunk ${chunkNumber}`} saved - Size: ${chunk.length} bytes`);
             return filePath;
         } catch (error) {
             console.error(`Error saving audio chunk: ${error.message}`);
@@ -111,7 +111,7 @@ class AudioManager {
         });
         
         if (keysToDelete.length > 0) {
-            console.log(`🧹 Cleaned up ${keysToDelete.length} audio files for session ${sessionId}`);
+            console.log(` Cleaned up ${keysToDelete.length} audio files for session ${sessionId}`);
         }
     }
 
@@ -152,7 +152,7 @@ class AudioManager {
         
         try {
             fs.writeFileSync(filePath, audioBuffer);
-            console.log(`💾 ${model}: Complete audio saved - Size: ${audioBuffer.length} bytes`);
+            console.log(`${model}: Complete audio saved - Size: ${audioBuffer.length} bytes`);
             return filePath;
         } catch (error) {
             console.error(`Error saving complete audio: ${error.message}`);
@@ -174,7 +174,7 @@ class AudioManager {
         try {
             const duration = await getAudioDurationWithRetry(filePath);
             if (duration !== null) {
-                console.log(`📏 ${model}: Accurate duration: ${duration}ms`);
+                console.log(` ${model}: Accurate duration: ${duration}ms`);
             }
             return duration;
         } catch (error) {
@@ -194,7 +194,7 @@ class AudioManager {
         const saveAudio = process.env.SAVE_AUDIO === 'true';
         
         if (saveAudio) {
-            console.log(`💾 ${model}: Keeping audio files for analysis (SAVE_AUDIO=true)`);
+            console.log(`${model}: Keeping audio files for analysis (SAVE_AUDIO=true)`);
             return true; // Return true to indicate "success" without actually deleting
         }
         
@@ -211,17 +211,17 @@ class AudioManager {
             try {
                 if (fs.existsSync(filePath)) {
                     fs.unlinkSync(filePath);
-                    console.log(`🗑️  ${model}: Deleted ${filename}`);
+                    console.log(`  ${model}: Deleted ${filename}`);
                     deletedCount++;
                 } else {
-                    console.log(`⚠️  ${model}: File not found for deletion: ${filename}`);
+                    console.log(`${model}: File not found for deletion: ${filename}`);
                 }
             } catch (error) {
-                console.error(`❌ ${model}: Error deleting ${filename}:`, error.message);
+                console.error(`${model}: Error deleting ${filename}:`, error.message);
             }
         }
         
-        console.log(`✅ ${model}: Cleanup complete - ${deletedCount}/${filesToDelete.length} files deleted`);
+        console.log(`${model}: Cleanup complete - ${deletedCount}/${filesToDelete.length} files deleted`);
         return deletedCount === filesToDelete.length;
     }
 }

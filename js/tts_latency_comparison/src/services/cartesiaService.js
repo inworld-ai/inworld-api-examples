@@ -1,4 +1,3 @@
-import axios from 'axios';
 
 /**
  * Cartesia TTS Service
@@ -32,7 +31,7 @@ class CartesiaService {
         
         try {
             if (!this.hasValidApiKey()) {
-                console.log('⏭️ Cartesia: Skipping - no valid API key (0ms)');
+                console.log(' Cartesia: Skipping - no valid API key (0ms)');
                 return { timeToFirstByte: 99999, hasAudio: false };
             }
 
@@ -45,7 +44,7 @@ class CartesiaService {
                 timestamp: startTime
             });
 
-            console.log('🎙️ Cartesia: Using real API');
+            console.log(' Cartesia: Using real API');
             const result = await this.processReal(text, sendUpdate, sessionId);
 
             // Send completion
@@ -89,7 +88,7 @@ class CartesiaService {
         // Make actual API call to Cartesia using streaming SSE endpoint
         const voiceId = process.env.CARTESIA_VOICE_ID || '694f9389-aac1-45b6-b726-9d9369183238';
 
-        const response = await axios.post(
+        const response = await fetch(
             'https://api.cartesia.ai/tts/sse',
             {
                 model_id: 'sonic-2',
@@ -156,7 +155,7 @@ class CartesiaService {
                                 if (!firstAudioChunkReceived) {
                                     firstAudioChunkReceived = true;
                                     timeToFirstByte = Date.now() - requestStartTime;
-                                    console.log(`🎵 Cartesia: First chunk received after ${timeToFirstByte}ms - Size: ${audioData.length} bytes`);
+                                    console.log(`Cartesia: First chunk received after ${timeToFirstByte}ms - Size: ${audioData.length} bytes`);
                                     
                                     // Mark processing as complete when first chunk arrives
                                     sendUpdate({
@@ -175,7 +174,7 @@ class CartesiaService {
                                     }
                                     
                                     // Cartesia goes straight to speech (no silent prefix)
-                                    console.log(`🗣️ Cartesia: Starting speech generation`);
+                                    console.log(` Cartesia: Starting speech generation`);
                                     sendUpdate({
                                         type: 'model_update',
                                         model: 'cartesia',
@@ -210,15 +209,15 @@ class CartesiaService {
                                     lastProgressSent = speechProgress;
                                 }
                                 
-                                console.log(`🎵 Cartesia: Chunk ${totalAudioChunks} received - Size: ${audioData.length} bytes, Progress: ${speechProgress}%`);
+                                console.log(`Cartesia: Chunk ${totalAudioChunks} received - Size: ${audioData.length} bytes, Progress: ${speechProgress}%`);
                             } else if (data.type === 'chunk' && data.done === true) {
                                 // Final chunk received - stream is complete
                                 isComplete = true;
-                                console.log(`🎵 Cartesia: Stream complete after ${totalAudioChunks} chunks`);
+                                console.log(`Cartesia: Stream complete after ${totalAudioChunks} chunks`);
                             } else if (data.type === 'done' && data.done === true && data.status_code === 200) {
                                 // Stream completion signal with successful status
                                 isComplete = true;
-                                console.log(`🎵 Cartesia: Stream done signal received after ${totalAudioChunks} chunks (status: ${data.status_code})`);
+                                console.log(`Cartesia: Stream done signal received after ${totalAudioChunks} chunks (status: ${data.status_code})`);
                             }
                         }
                         
@@ -238,7 +237,7 @@ class CartesiaService {
                 if (resolved) return;
                 resolved = true;
                 
-                console.log(`🎵 Cartesia: Processing completion with ${audioChunks.length} chunks`);
+                console.log(`Cartesia: Processing completion with ${audioChunks.length} chunks`);
                 let completeAudioPath = null; // Declare at proper scope
                 
                 let hasAudio = false;
@@ -247,7 +246,7 @@ class CartesiaService {
                     const audioBuffer = await this.convertPCMToMP3(audioChunks, sessionId);
                     this.audioManager.storeAudio(sessionId, 'cartesia', audioBuffer);
                     hasAudio = true;
-                    console.log(`✅ Cartesia: Total audio duration (estimated): ${totalAudioDuration}ms`);
+                    console.log(`Cartesia: Total audio duration (estimated): ${totalAudioDuration}ms`);
                     console.log(`Total chunks: ${totalAudioChunks}`);
                     
                     // Save complete audio file to disk for VAD and duration analysis
@@ -260,7 +259,7 @@ class CartesiaService {
                             const ffmpegDuration = await this.audioManager.getAudioDuration(sessionId, 'cartesia', 'complete');
                             if (ffmpegDuration !== null) {
                                 accurateDuration = ffmpegDuration;
-                                console.log(`📏 Cartesia: Corrected duration from ${totalAudioDuration}ms to ${accurateDuration}ms (complete file)`);
+                                console.log(` Cartesia: Corrected duration from ${totalAudioDuration}ms to ${accurateDuration}ms (complete file)`);
                             }
                         } catch (error) {
                             console.warn(`Cartesia: Could not get accurate duration from complete file, using estimated: ${error.message}`);
@@ -281,7 +280,7 @@ class CartesiaService {
                     // If we still don't have duration, estimate it one final time
                     if (totalAudioDuration === 0) {
                         totalAudioDuration = Math.round((text.split(/\s+/).length / 150) * 60 * 1000);
-                        console.log(`📝 Cartesia: Final fallback duration estimate: ${totalAudioDuration}ms`);
+                        console.log(` Cartesia: Final fallback duration estimate: ${totalAudioDuration}ms`);
                     }
                     
                     // Send final speech completion without audio
@@ -304,7 +303,7 @@ class CartesiaService {
             // Handle completion when done event is detected
             const checkCompletion = () => {
                 if (isComplete && !resolved) {
-                    console.log(`🎵 Cartesia: Triggering completion handler`);
+                    console.log(`Cartesia: Triggering completion handler`);
                     handleCompletion();
                 }
             };
@@ -319,7 +318,7 @@ class CartesiaService {
             
             // Also handle natural stream end
             response.data.on('end', async () => {
-                console.log(`🎵 Cartesia: Stream ended naturally`);
+                console.log(`Cartesia: Stream ended naturally`);
                 clearInterval(completionChecker);
                 await handleCompletion();
             });
@@ -332,7 +331,7 @@ class CartesiaService {
             // Timeout after 30 seconds to prevent hanging
             setTimeout(() => {
                 if (!resolved) {
-                    console.log(`🎵 Cartesia: Stream timeout after 30s, forcing completion`);
+                    console.log(`Cartesia: Stream timeout after 30s, forcing completion`);
                     clearInterval(completionChecker);
                     handleCompletion();
                 }
@@ -435,10 +434,10 @@ class CartesiaService {
                 
                 ffmpeg.on('close', (code) => {
                     if (code === 0) {
-                        console.log(`🔄 Cartesia: PCM to MP3 conversion successful`);
+                        console.log(` Cartesia: PCM to MP3 conversion successful`);
                         resolve();
                     } else {
-                        console.error(`🔄 Cartesia: FFmpeg failed with code ${code}`);
+                        console.error(` Cartesia: FFmpeg failed with code ${code}`);
                         console.error(`FFmpeg stderr: ${ffmpegError}`);
                         reject(new Error(`PCM conversion failed: ${ffmpegError}`));
                     }
@@ -458,12 +457,12 @@ class CartesiaService {
                 console.warn('Failed to clean up temp files:', cleanupError.message);
             }
             
-            console.log(`🔄 Cartesia: ${audioChunks.length} PCM chunks converted to MP3 (${pcmBuffer.length} -> ${convertedBuffer.length} bytes)`);
+            console.log(` Cartesia: ${audioChunks.length} PCM chunks converted to MP3 (${pcmBuffer.length} -> ${convertedBuffer.length} bytes)`);
             return convertedBuffer;
             
         } catch (error) {
             console.error('PCM to MP3 conversion failed:', error.message);
-            console.log('🔄 Cartesia: Falling back to raw PCM data');
+            console.log(' Cartesia: Falling back to raw PCM data');
             
             // Fallback to concatenated raw PCM data
             return Buffer.concat(audioChunks);
@@ -478,13 +477,13 @@ class CartesiaService {
      */
     async performVADAnalysisOnComplete(sessionId, model, sendUpdate) {
         try {
-            console.log(`🔍 ${model}: Starting VAD analysis on complete audio...`);
+            console.log(`${model}: Starting VAD analysis on complete audio...`);
             
             // Use the new method to analyze complete audio file
             const vadResult = await this.vadService.analyzeCompleteAudioFile(sessionId, model, this.audioManager);
             
             if (vadResult.success) {
-                console.log(`🔍 ${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech (complete audio)`);
+                console.log(`${model}: VAD detected ${vadResult.msBeforeVoice}ms of silence before speech (complete audio)`);
                 
                 // Send VAD results to frontend
                 sendUpdate({
@@ -494,11 +493,11 @@ class CartesiaService {
                     timestamp: Date.now()
                 });
             } else {
-                console.log(`🔍 ${model}: VAD analysis failed - ${vadResult.message}`);
+                console.log(`${model}: VAD analysis failed - ${vadResult.message}`);
             }
             
         } catch (error) {
-            console.error(`🔍 ${model}: VAD analysis error:`, error);
+            console.error(`${model}: VAD analysis error:`, error);
         }
     }
 }
