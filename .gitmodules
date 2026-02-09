@@ -1,3 +1,6 @@
 [submodule "integrations/pipecat/pipecat"]
 	path = integrations/pipecat/pipecat
 	url = https://github.com/ianbbqzy/pipecat
+[submodule "integrations/livekit/agents"]
+	path = integrations/livekit/agents
+	url = https://github.com/ianbbqzy/agents
