@@ -1,0 +1,3 @@
+[submodule "integrations/pipecat/pipecat"]
+	path = integrations/pipecat/pipecat
+	url = https://github.com/ianbbqzy/pipecat
