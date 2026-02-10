@@ -10,10 +10,10 @@
     "download": "tsx test_agent.ts download-files"
   },
   "devDependencies": {
-    "@livekit/agents": "file:../agents-js/agents",
-    "@livekit/agents-plugin-livekit": "file:../agents-js/plugins/livekit",
-    "@livekit/agents-plugin-silero": "file:../agents-js/plugins/silero",
-    "@livekit/rtc-node": "^0.13.24",
+    "@livekit/agents": "link:../agents-js/agents",
+    "@livekit/agents-plugin-livekit": "link:../agents-js/plugins/livekit",
+    "@livekit/agents-plugin-silero": "link:../agents-js/plugins/silero",
+    "@livekit/rtc-node": "link:../agents-js/node_modules/.pnpm/@livekit+rtc-node@0.13.24/node_modules/@livekit/rtc-node",
     "dotenv": "^16.4.5",
     "tsx": "^4.19.2",
     "typescript": "^5.0.0",
