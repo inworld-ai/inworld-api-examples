@@ -4,3 +4,6 @@
 [submodule "integrations/livekit/agents"]
 	path = integrations/livekit/agents
 	url = https://github.com/ianbbqzy/agents
+[submodule "integrations/livekit/agents-js"]
+	path = integrations/livekit/agents-js
+	url = https://github.com/ianbbqzy/agents-js

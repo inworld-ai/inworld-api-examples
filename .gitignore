@@ -333,4 +333,8 @@ public
 synthesis_*.wav
 synthesis_*.mp3
 
+# Tool versions
+.tool-versions
 
+# Benchmark audio
+benchmark_audio/
