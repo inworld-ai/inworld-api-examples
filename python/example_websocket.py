@@ -12,7 +12,6 @@ import base64
 import json
 import os
 import time
-import wave
 from typing import AsyncGenerator, Optional
 
 import websockets
@@ -37,7 +36,7 @@ async def stream_tts_with_context(
     """
     Stream TTS audio using multi-request context flow over WebSocket.
     Sends a sequence of messages (create/send_text/close_context) and yields
-    LINEAR16 audio bytes as they arrive.
+    OGG_OPUS audio bytes as they arrive.
     """
     uri = websocket_url
     headers = {"Authorization": f"Basic {api_key}"}
@@ -133,31 +132,22 @@ async def stream_tts_with_context(
 
 
 async def save_websocket_audio_to_file(audio_chunks_generator, output_file: str):
-    """Save WebSocket audio chunks to a WAV file."""
+    """Save WebSocket audio chunks to an OGG file."""
     try:
         print(f"Saving audio chunks to: {output_file}")
-        
-        # Collect all raw audio data (skip WAV headers from chunks)
-        raw_audio_data = bytearray()
+
+        audio_data = bytearray()
         chunk_count = 0
-        
+
         async for chunk in audio_chunks_generator:
             chunk_count += 1
-            # Skip WAV header if present (first 44 bytes)
-            if len(chunk) > 44 and chunk[:4] == b'RIFF':
-                raw_audio_data.extend(chunk[44:])
-            else:
-                raw_audio_data.extend(chunk)
-        
-        # Save as WAV file
-        with wave.open(output_file, "wb") as wf:
-            wf.setnchannels(1)  # Mono
-            wf.setsampwidth(2)  # 16-bit
-            wf.setframerate(24000)
-            wf.writeframes(raw_audio_data)
-        
+            audio_data.extend(chunk)
+
+        with open(output_file, "wb") as f:
+            f.write(audio_data)
+
         print(f"Audio saved successfully! Processed {chunk_count} chunks")
-        
+
     except Exception as e:
         print(f"Error saving audio file: {e}")
         raise
@@ -178,8 +168,9 @@ def create_websocket_requests(context_id: str, voice_id: str, model_id: str, tex
             "voice_id": voice_id,
             "model_id": model_id,
             "audio_config": {
-                "audio_encoding": "LINEAR16",
-                "sample_rate_hertz": 24000
+                "audio_encoding": "OGG_OPUS",
+                "sample_rate_hertz": 24000,
+                "bit_rate": 32000
             },
         },
     }
@@ -234,8 +225,8 @@ Examples:
                        help="Voice ID to use (default: Ashley)")
     parser.add_argument("--text", default="Hello, adventurer! What a beautiful day, isn't it?...",
                        help="Text to synthesize")
-    parser.add_argument("--output-file", default="synthesis_websocket_output.wav",
-                       help="Output WAV file path (default: synthesis_websocket_output.wav)")
+    parser.add_argument("--output-file", default="synthesis_websocket_output.ogg",
+                       help="Output OGG file path (default: synthesis_websocket_output.ogg)")
     
     args = parser.parse_args()
     

@@ -26,10 +26,33 @@ function checkApiKey() {
 }
 
 /**
+ * Split text into sentences using common end-of-sentence markers across languages.
+ * Handles: . ! ? 。 ！ ？ । ؟ ۔
+ *
+ * @param {string} text - Text to split
+ * @returns {string[]} Array of sentences
+ */
+function splitSentences(text) {
+    const regex = /[^.!?。！？।؟۔]*[.!?。！？।؟۔]+[\s]*/g;
+    const sentences = [];
+    let match;
+    let lastIndex = 0;
+    while ((match = regex.exec(text)) !== null) {
+        const s = match[0].trim();
+        if (s) sentences.push(s);
+        lastIndex = regex.lastIndex;
+    }
+    const remaining = text.slice(lastIndex).trim();
+    if (remaining) sentences.push(remaining);
+    return sentences;
+}
+
+/**
  * Measure low-latency TTS using WebSocket with pre-established context.
  *
  * Connects and creates the audio context before starting the timer,
- * then measures TTFB from text submission to first audio chunk.
+ * then sends text sentence-by-sentence with flush_context on each
+ * for lowest time-to-first-byte.
  *
  * @param {string} apiKey - API key for authentication
  * @param {string} text - Text to synthesize
@@ -71,8 +94,9 @@ async function websocketTts(apiKey, text, voiceId, modelId) {
                     voice_id: voiceId,
                     model_id: modelId,
                     audio_config: {
-                        audio_encoding: 'LINEAR16',
-                        sample_rate_hertz: 24000
+                        audio_encoding: 'OGG_OPUS',
+                        sample_rate_hertz: 24000,
+                        bit_rate: 32000
                     }
                 }
             }));
@@ -98,14 +122,17 @@ async function websocketTts(apiKey, text, voiceId, modelId) {
                         // Start timer - context ready, measure synthesis only
                         startTime = Date.now();
 
-                        // Send text with flush and close immediately
-                        ws.send(JSON.stringify({
-                            context_id: contextId,
-                            send_text: {
-                                text: text,
-                                flush_context: {}
-                            }
-                        }));
+                        // Send text sentence-by-sentence, flushing each for lowest TTFB
+                        const sentences = splitSentences(text);
+                        for (const sentence of sentences) {
+                            ws.send(JSON.stringify({
+                                context_id: contextId,
+                                send_text: {
+                                    text: sentence,
+                                    flush_context: {}
+                                }
+                            }));
+                        }
                         ws.send(JSON.stringify({
                             context_id: contextId,
                             close_context: {}

@@ -10,7 +10,6 @@ import base64
 import json
 import os
 import time
-import wave
 
 import requests
 
@@ -53,8 +52,9 @@ def synthesize_speech_stream(text: str, voice_id: str, model_id: str, api_key: s
         "voice_id": voice_id,
         "model_id": model_id,
         "audio_config": {
-            "audio_encoding": "LINEAR16",
-            "sample_rate_hertz": 48000
+            "audio_encoding": "OGG_OPUS",
+            "sample_rate_hertz": 24000,
+            "bit_rate": 32000
         }
     }
     
@@ -119,26 +119,16 @@ def synthesize_speech_stream(text: str, voice_id: str, model_id: str, api_key: s
 
 
 def save_streaming_audio_to_file(audio_chunks, output_file: str):
-    """Save streaming audio chunks to a WAV file."""
+    """Save streaming audio chunks to an OGG file."""
     try:
         print(f"Saving audio chunks to: {output_file}")
-        
-        # Collect all raw audio data (skip WAV headers from chunks)
-        raw_audio_data = bytearray()
-        
-        for i, chunk in enumerate(audio_chunks):
-            # Skip WAV header if present (first 44 bytes)
-            if len(chunk) > 44 and chunk[:4] == b'RIFF':
-                raw_audio_data.extend(chunk[44:])
-            else:
-                raw_audio_data.extend(chunk)
-        
-        # Save as WAV file
-        with wave.open(output_file, "wb") as wf:
-            wf.setnchannels(1)  # Mono
-            wf.setsampwidth(2)  # 16-bit
-            wf.setframerate(48000)
-            wf.writeframes(raw_audio_data)
+
+        audio_data = bytearray()
+        for chunk in audio_chunks:
+            audio_data.extend(chunk)
+
+        with open(output_file, "wb") as f:
+            f.write(audio_data)
     except Exception as e:
         print(f"Error saving audio file: {e}")
         raise
@@ -158,7 +148,7 @@ def main():
     text = "Hello, adventurer! What a beautiful day, isn't it?"
     voice_id = "Dennis"
     model_id = "inworld-tts-1.5-mini"
-    output_file = "synthesis_stream_output.wav"
+    output_file = "synthesis_stream_output.ogg"
     
     try:
         audio_chunks = list(synthesize_speech_stream(

@@ -49,8 +49,9 @@ async function httpStreamingTts(apiKey, text, voiceId, modelId) {
         voice_id: voiceId,
         model_id: modelId,
         audio_config: {
-            audio_encoding: 'LINEAR16',
-            sample_rate_hertz: 24000
+            audio_encoding: 'OGG_OPUS',
+            sample_rate_hertz: 24000,
+            bit_rate: 32000
         }
     };
 
@@ -61,8 +62,9 @@ async function httpStreamingTts(apiKey, text, voiceId, modelId) {
             voice_id: voiceId,
             model_id: modelId,
             audio_config: {
-                audio_encoding: 'LINEAR16',
-                sample_rate_hertz: 24000
+                audio_encoding: 'OGG_OPUS',
+                sample_rate_hertz: 24000,
+                bit_rate: 32000
             }
         };
 

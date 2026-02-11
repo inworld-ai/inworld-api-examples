@@ -13,10 +13,23 @@ import asyncio
 import base64
 import json
 import os
+import re
 import time
 
 import websockets
 from websockets.exceptions import WebSocketException
+
+
+def split_sentences(text):
+    """Split text into sentences using common end-of-sentence markers across languages.
+    Handles: . ! ? 。 ！ ？ । ؟ ۔"""
+    parts = re.findall(r'[^.!?。！？।؟۔]*[.!?。！？।؟۔]+[\s]*', text)
+    sentences = [s.strip() for s in parts if s.strip()]
+    matched_len = sum(len(p) for p in parts)
+    remaining = text[matched_len:].strip()
+    if remaining:
+        sentences.append(remaining)
+    return sentences
 
 
 def check_api_key():
@@ -58,8 +71,9 @@ async def websocket_tts(api_key, text, voice_id, model_id):
                     "voice_id": voice_id,
                     "model_id": model_id,
                     "audio_config": {
-                        "audio_encoding": "LINEAR16",
-                        "sample_rate_hertz": 24000
+                        "audio_encoding": "OGG_OPUS",
+                        "sample_rate_hertz": 24000,
+                        "bit_rate": 32000
                     }
                 }
             }
@@ -79,17 +93,19 @@ async def websocket_tts(api_key, text, voice_id, model_id):
             # Start timer - context is ready, measure synthesis latency only
             start_time = time.time()
 
-            text_msg = {
-                "context_id": context_id,
-                "send_text": {
-                    "text": text,
-                    "flush_context": {}
+            # Send text sentence-by-sentence, flushing each for lowest TTFB
+            sentences = split_sentences(text)
+            for sentence in sentences:
+                text_msg = {
+                    "context_id": context_id,
+                    "send_text": {
+                        "text": sentence,
+                        "flush_context": {}
+                    }
                 }
-            }
-            close_msg = {"context_id": context_id, "close_context": {}}
+                await ws.send(json.dumps(text_msg))
 
-            # Send both immediately - server needs close_context to finalize
-            await ws.send(json.dumps(text_msg))
+            close_msg = {"context_id": context_id, "close_context": {}}
             await ws.send(json.dumps(close_msg))
 
             # Receive audio chunks

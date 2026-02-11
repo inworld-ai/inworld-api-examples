@@ -26,7 +26,7 @@ function checkApiKey() {
 /**
  * Stream TTS audio using multi-request context flow over WebSocket.
  * Sends a sequence of messages (create/send_text/close_context) and yields
- * LINEAR16 audio bytes as they arrive.
+ * OGG_OPUS audio bytes as they arrive.
  * 
  * @param {string} apiKey - API key for authentication
  * @param {Array} requests - Array of request objects
@@ -206,78 +206,30 @@ async function* asyncIterateWebSocket(ws) {
 }
 
 /**
- * Save WebSocket audio chunks to a WAV file.
+ * Save WebSocket audio chunks to an OGG file.
  * @param {AsyncGenerator<Buffer>} audioChunksGenerator - Audio chunks generator
  * @param {string} outputFile - Output file path
  */
 async function saveWebsocketAudioToFile(audioChunksGenerator, outputFile) {
     try {
         console.log(`Saving audio chunks to: ${outputFile}`);
-        
-        // Collect all raw audio data (skip WAV headers from chunks)
-        const rawAudioData = [];
+
+        const audioData = [];
         let chunkCount = 0;
-        
+
         for await (const chunk of audioChunksGenerator) {
             chunkCount++;
-            // Skip WAV header if present (first 44 bytes)
-            if (chunk.length > 44 && chunk.subarray(0, 4).equals(Buffer.from('RIFF'))) {
-                rawAudioData.push(chunk.subarray(44));
-            } else {
-                rawAudioData.push(chunk);
-            }
+            audioData.push(chunk);
         }
-        
-        const combinedAudio = Buffer.concat(rawAudioData);
-        
-        // Create WAV header and save file
-        const wavHeader = createWavHeader(combinedAudio.length, 1, 24000, 16);
-        const wavFile = Buffer.concat([wavHeader, combinedAudio]);
-        
-        fs.writeFileSync(outputFile, wavFile);
-        
+
+        fs.writeFileSync(outputFile, Buffer.concat(audioData));
+
         console.log(`Audio saved successfully! Processed ${chunkCount} chunks`);
-        
+
     } catch (error) {
         console.log(`Error saving audio file: ${error.message}`);
         throw error;
     }
-}
-
-/**
- * Create WAV file header.
- * @param {number} dataSize - Size of audio data
- * @param {number} channels - Number of channels
- * @param {number} sampleRate - Sample rate
- * @param {number} bitsPerSample - Bits per sample
- * @returns {Buffer} WAV header
- */
-function createWavHeader(dataSize, channels, sampleRate, bitsPerSample) {
-    const header = Buffer.alloc(44);
-    const bytesPerSample = bitsPerSample / 8;
-    const blockAlign = channels * bytesPerSample;
-    const byteRate = sampleRate * blockAlign;
-    
-    // RIFF header
-    header.write('RIFF', 0);
-    header.writeUInt32LE(36 + dataSize, 4);
-    header.write('WAVE', 8);
-    
-    // fmt chunk
-    header.write('fmt ', 12);
-    header.writeUInt32LE(16, 16); // chunk size
-    header.writeUInt16LE(1, 20);  // audio format (PCM)
-    header.writeUInt16LE(channels, 22);
-    header.writeUInt32LE(sampleRate, 24);
-    header.writeUInt32LE(byteRate, 28);
-    header.writeUInt16LE(blockAlign, 32);
-    header.writeUInt16LE(bitsPerSample, 34);
-    
-    // data chunk
-    header.write('data', 36);
-    header.writeUInt32LE(dataSize, 40);
-    
-    return header;
 }
 
 /**
@@ -305,7 +257,7 @@ async function main() {
     }
     
     // Example multi-request flow sharing a single context
-    const outputFile = 'synthesis_websocket_output.wav';
+    const outputFile = 'synthesis_websocket_output.ogg';
     const requests = [
         {
             context_id: 'ctx-1',
@@ -313,8 +265,9 @@ async function main() {
                 voice_id: 'Ashley',
                 model_id: 'inworld-tts-1.5-mini',
                 audio_config: {
-                    audio_encoding: 'LINEAR16',
-                    sample_rate_hertz: 24000
+                    audio_encoding: 'OGG_OPUS',
+                    sample_rate_hertz: 24000,
+                    bit_rate: 32000
                 }
             }
         },
