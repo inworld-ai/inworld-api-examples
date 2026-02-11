@@ -1,19 +1,18 @@
 /**
- * Benchmark script for measuring TTFB with WebSocket-based TTS (stream API).
+ * Benchmark script for measuring TTFB with HTTP-based TTS (synthesize API).
  *
- * Compares TTFB across TTS providers using LiveKit JS Agents' stream() API:
- * - Inworld (WebSocket)
- * - ElevenLabs (WebSocket)
- * - Cartesia (WebSocket)
+ * Compares TTFB across TTS providers using LiveKit JS Agents' synthesize() API:
+ * - Inworld (HTTP)
+ * - ElevenLabs (HTTP)
+ * - Cartesia (HTTP)
  *
- * Simulates an LLM returning tokens one at a time. The TTS service's internal
- * sentence tokenizer aggregates tokens into complete sentences before sending
- * to the provider. TTFB is measured per-segment via the built-in metrics system.
+ * For each sentence in the input text, calls synthesize() and measures
+ * the time to first audio frame (TTFB).
  *
  * Usage:
- *   cd integrations/livekit/benchmarks-js
- *   npx tsx benchmark_websocket_ttfb.ts --services inworld -n 5
- *   npx tsx benchmark_websocket_ttfb.ts --services all --token-delay 50
+ *   cd integrations/livekit/js/benchmarks
+ *   npx tsx benchmark_http_ttfb.ts --services inworld -n 5
+ *   npx tsx benchmark_http_ttfb.ts --services all -n 20
  */
 
 import { config } from 'dotenv';
@@ -69,6 +68,17 @@ function saveWav(
 }
 
 // ---------------------------------------------------------------------------
+// Sentence splitter
+// ---------------------------------------------------------------------------
+
+function splitSentences(text: string): string[] {
+  return text
+    .trim()
+    .split(/(?<=[.!?])\s+/)
+    .filter((s) => s.trim().length > 0);
+}
+
+// ---------------------------------------------------------------------------
 // TTS service factory functions
 // ---------------------------------------------------------------------------
 
@@ -118,20 +128,18 @@ interface BenchmarkResult {
   ttfb_min: number | null;
   ttfb_max: number | null;
   ttfb_values: number[];
-  wall_clock_ttfb: number | null;
   audio_bytes: number;
   error?: string;
 }
 
-async function benchmarkStream(
+async function benchmarkSynthesize(
   ttsInstance: tts.TTS,
   text: string,
   serviceName: string,
-  tokenDelayMs = 50,
   doSaveAudio = false,
   outputDir = 'benchmark_audio',
 ): Promise<BenchmarkResult> {
-  const tokenDelayS = tokenDelayMs / 1000;
+  const sentences = splitSentences(text);
   const ttfbValues: number[] = [];
   const allAudio: Buffer[] = [];
   let firstChunkBytes: Buffer | null = null;
@@ -146,79 +154,36 @@ async function benchmarkStream(
   };
   ttsInstance.on('metrics_collected', onMetrics);
 
-  let wallClockTtfb: number | null = null;
-
   try {
-    const stream = ttsInstance.stream();
+    for (const sentence of sentences) {
+      const stream = ttsInstance.synthesize(sentence);
 
-    // Simulate LLM token-by-token output
-    let firstPushTime: number | null = null;
-
-    const pushTokens = async () => {
-      const words = text.split(/\s+/);
-      for (let i = 0; i < words.length; i++) {
-        const token = i === 0 ? words[i]! : ' ' + words[i]!;
-        stream.pushText(token);
-        if (firstPushTime === null) {
-          firstPushTime = performance.now();
-        }
-        await delay(tokenDelayS * 1000);
-      }
-      stream.endInput();
-    };
-
-    const pushPromise = pushTokens();
-
-    // Consume audio from the stream with a timeout
-    const streamTimeout = 30_000; // ms
-
-    const consumeAudio = async () => {
       for await (const audio of stream) {
-        if (audio === tts.SynthesizeStream.END_OF_STREAM) continue;
-        if (wallClockTtfb === null && firstPushTime !== null) {
-          wallClockTtfb = (performance.now() - firstPushTime) / 1000;
-        }
-
-        const frameData = Buffer.from(audio.frame.data.buffer, audio.frame.data.byteOffset, audio.frame.data.byteLength);
+        const frameData = Buffer.from(
+          audio.frame.data.buffer,
+          audio.frame.data.byteOffset,
+          audio.frame.data.byteLength,
+        );
         allAudio.push(frameData);
 
         if (firstChunkBytes === null) {
           firstChunkBytes = frameData;
         }
       }
-    };
 
-    try {
-      await Promise.race([
-        consumeAudio(),
-        delay(streamTimeout).then(() => {
-          throw new Error(`stream timed out after ${streamTimeout / 1000}s`);
-        }),
-      ]);
-    } catch (err) {
-      if (err instanceof Error && err.message.includes('timed out')) {
-        console.log(`\n⚠️  ${serviceName}: ${err.message} (possible auth or connection issue)`);
-      } else {
-        throw err;
-      }
+      // Allow a moment for metrics events to fire
+      await delay(100);
     }
-
-    // Clean up
-    try { await pushPromise; } catch { /* cancelled */ }
-    stream.close();
 
     // Save audio files on request
     if (doSaveAudio && allAudio.length > 0) {
       const safeName = serviceName.toLowerCase().replace(/ /g, '_');
       const fullAudio = Buffer.concat(allAudio);
-      saveWav(fullAudio, `${safeName}_ws_full.wav`, sampleRate, outputDir);
+      saveWav(fullAudio, `${safeName}_http_full.wav`, sampleRate, outputDir);
       if (firstChunkBytes) {
-        saveWav(firstChunkBytes, `${safeName}_ws_first_chunk.wav`, sampleRate, outputDir);
+        saveWav(firstChunkBytes, `${safeName}_http_first_chunk.wav`, sampleRate, outputDir);
       }
     }
-
-    // Allow a moment for metrics events to fire
-    await delay(200);
   } finally {
     ttsInstance.off('metrics_collected', onMetrics);
   }
@@ -231,7 +196,6 @@ async function benchmarkStream(
       ttfb_min: Math.min(...ttfbValues),
       ttfb_max: Math.max(...ttfbValues),
       ttfb_values: ttfbValues,
-      wall_clock_ttfb: wallClockTtfb,
       audio_bytes: allAudio.reduce((sum, buf) => sum + buf.length, 0),
     };
   }
@@ -243,7 +207,6 @@ async function benchmarkStream(
     ttfb_min: null,
     ttfb_max: null,
     ttfb_values: [],
-    wall_clock_ttfb: wallClockTtfb,
     audio_bytes: allAudio.reduce((sum, buf) => sum + buf.length, 0),
   };
 }
@@ -253,20 +216,12 @@ async function runServiceBenchmark(
   createTtsFn: (apiKey: string) => Promise<tts.TTS>,
   apiKey: string,
   text: string,
-  tokenDelayMs = 50,
   doSaveAudio = true,
   outputDir = 'benchmark_audio',
 ): Promise<BenchmarkResult> {
   const ttsInstance = await createTtsFn(apiKey);
   try {
-    return await benchmarkStream(
-      ttsInstance,
-      text,
-      serviceName,
-      tokenDelayMs,
-      doSaveAudio,
-      outputDir,
-    );
+    return await benchmarkSynthesize(ttsInstance, text, serviceName, doSaveAudio, outputDir);
   } finally {
     await ttsInstance.close();
   }
@@ -277,14 +232,14 @@ async function runServiceBenchmark(
 // ---------------------------------------------------------------------------
 
 function printComparisonTable(results: BenchmarkResult[]): void {
-  console.log('\n' + '='.repeat(80));
-  console.log('WEBSOCKET TTS BENCHMARK RESULTS (stream API) — JS');
-  console.log('='.repeat(80));
+  console.log('\n' + '='.repeat(70));
+  console.log('HTTP TTS BENCHMARK RESULTS (synthesize API) — JS');
+  console.log('='.repeat(70));
 
   console.log(
     `${'Service'.padEnd(20)} ${'Avg TTFB'.padEnd(12)} ${'Min TTFB'.padEnd(12)} ${'Max TTFB'.padEnd(12)} ${'Samples'.padEnd(10)}`,
   );
-  console.log('-'.repeat(80));
+  console.log('-'.repeat(70));
 
   const sorted = [...results].sort(
     (a, b) => (a.ttfb_avg ?? Infinity) - (b.ttfb_avg ?? Infinity),
@@ -304,37 +259,12 @@ function printComparisonTable(results: BenchmarkResult[]): void {
     }
   }
 
-  console.log('='.repeat(80));
+  console.log('='.repeat(70));
 
   if (sorted.length > 0 && sorted[0]!.ttfb_avg !== null) {
     console.log(
       `\n🏆 Fastest average TTFB: ${sorted[0]!.service} (${sorted[0]!.ttfb_avg!.toFixed(3)}s)`,
     );
-  }
-
-  // Per-segment breakdown
-  const hasValues = results.filter((r) => r.ttfb_values.length > 0);
-  if (hasValues.length > 0) {
-    const maxSegments = Math.max(...hasValues.map((r) => r.ttfb_values.length));
-    if (maxSegments > 1) {
-      console.log('\n' + '-'.repeat(80));
-      console.log('Per-Segment TTFB Breakdown:');
-      console.log('-'.repeat(80));
-
-      for (let i = 0; i < maxSegments; i++) {
-        console.log(`\nSegment ${i + 1}:`);
-        const segmentResults: [string, number][] = [];
-        for (const r of results) {
-          if (i < r.ttfb_values.length) {
-            segmentResults.push([r.service, r.ttfb_values[i]!]);
-          }
-        }
-        segmentResults.sort((a, b) => a[1] - b[1]);
-        for (const [service, ttfb] of segmentResults) {
-          console.log(`  ${service.padEnd(20)} ${ttfb.toFixed(3)}s`);
-        }
-      }
-    }
   }
 }
 
@@ -361,16 +291,13 @@ async function main() {
 
   const { values } = parseArgs({
     options: {
-      'token-delay': { type: 'string', default: '50' },
       text: { type: 'string' },
-      iterations: { type: 'string', short: 'n', default: '1' },
+      iterations: { type: 'string', short: 'n', default: '20' },
       services: { type: 'string', default: 'all' },
       'no-save-audio': { type: 'boolean', default: false },
-      debug: { type: 'boolean', default: false },
     },
   });
 
-  const tokenDelay = parseFloat(values['token-delay']!);
   const iterations = parseInt(values['iterations']!, 10);
   const noSaveAudio = values['no-save-audio'] ?? false;
 
@@ -391,17 +318,17 @@ async function main() {
   // Service configurations
   const serviceConfigs: Record<string, ServiceConfig> = {
     inworld: {
-      name: 'Inworld WS',
+      name: 'Inworld HTTP',
       create_fn: createInworldTTS,
       api_key_env: 'INWORLD_API_KEY',
     },
     elevenlabs: {
-      name: 'ElevenLabs WS',
+      name: 'ElevenLabs HTTP',
       create_fn: createElevenLabsTTS,
       api_key_env: 'ELEVEN_API_KEY',
     },
     cartesia: {
-      name: 'Cartesia WS',
+      name: 'Cartesia HTTP',
       create_fn: createCartesiaTTS,
       api_key_env: 'CARTESIA_API_KEY',
     },
@@ -434,11 +361,10 @@ async function main() {
   }
 
   console.log(
-    `\n🚀 Benchmarking ${availableServices.length} WebSocket TTS service(s): ` +
+    `\n🚀 Benchmarking ${availableServices.length} HTTP TTS service(s): ` +
       availableServices.map((s) => s.config.name).join(', '),
   );
   console.log(text.length > 50 ? `📝 Text: ${text.slice(0, 50)}...` : `📝 Text: ${text}`);
-  console.log(`⏱️  Token delay: ${tokenDelay}ms`);
   console.log(`🔄 Iterations: ${iterations}`);
   console.log();
 
@@ -448,13 +374,8 @@ async function main() {
   }
 
   for (let iteration = 0; iteration < iterations; iteration++) {
-    if (iterations > 1) {
-      console.log(`\n${'='.repeat(60)}`);
-      console.log(`ITERATION ${iteration + 1} of ${iterations}`);
-      console.log('='.repeat(60));
-    } else {
-      process.stdout.write('\rProgress: running...');
-    }
+    // Print progress
+    process.stdout.write(`\rProgress: ${iteration + 1}/${iterations}`);
 
     for (const { id, config: cfg, apiKey } of availableServices) {
       try {
@@ -463,8 +384,7 @@ async function main() {
           cfg.create_fn,
           apiKey,
           text,
-          tokenDelay,
-          !noSaveAudio && iteration === 0,
+          !noSaveAudio && iteration === 0, // Only save audio on first run
         );
         allResults[id]!.push(result);
       } catch (err) {
@@ -475,38 +395,26 @@ async function main() {
           ttfb_min: null,
           ttfb_max: null,
           ttfb_values: [],
-          wall_clock_ttfb: null,
           audio_bytes: 0,
           error: String(err),
         });
       }
 
       // Small delay between services
-      await delay(1000);
-    }
-
-    // Small delay between iterations
-    if (iteration < iterations - 1) {
-      await delay(2000);
+      await delay(500);
     }
   }
 
-  if (iterations === 1) {
-    console.log(); // New line after progress
-  }
+  console.log(); // New line after progress
 
   // Aggregate results across iterations
   const aggregatedResults: BenchmarkResult[] = [];
   for (const { id, config: cfg } of availableServices) {
     const resultsList = allResults[id]!;
     const allTtfb: number[] = [];
-    const wallClockTtfbs: number[] = [];
 
     for (const r of resultsList) {
       allTtfb.push(...r.ttfb_values);
-      if (r.wall_clock_ttfb !== null) {
-        wallClockTtfbs.push(r.wall_clock_ttfb);
-      }
     }
 
     if (allTtfb.length > 0) {
@@ -517,10 +425,6 @@ async function main() {
         ttfb_min: Math.min(...allTtfb),
         ttfb_max: Math.max(...allTtfb),
         ttfb_values: allTtfb,
-        wall_clock_ttfb:
-          wallClockTtfbs.length > 0
-            ? wallClockTtfbs.reduce((a, b) => a + b, 0) / wallClockTtfbs.length
-            : null,
         audio_bytes: 0,
       });
     } else {
@@ -531,7 +435,6 @@ async function main() {
         ttfb_min: null,
         ttfb_max: null,
         ttfb_values: [],
-        wall_clock_ttfb: null,
         audio_bytes: 0,
       });
     }
@@ -541,9 +444,9 @@ async function main() {
 
   // Print aggregate stats if multiple iterations
   if (iterations > 1) {
-    console.log('\n' + '='.repeat(80));
+    console.log('\n' + '='.repeat(70));
     console.log(`AGGREGATE STATISTICS (${iterations} iterations)`);
-    console.log('='.repeat(80));
+    console.log('='.repeat(70));
 
     const sorted = [...aggregatedResults].sort(
       (a, b) => (a.ttfb_avg ?? Infinity) - (b.ttfb_avg ?? Infinity),
@@ -556,19 +459,16 @@ async function main() {
           r.ttfb_values.reduce((sum, x) => sum + (x - mean) ** 2, 0) / r.ttfb_values.length;
         const stdDev = Math.sqrt(variance);
         console.log(`\n${r.service}:`);
-        console.log(`  Total samples:     ${r.ttfb_count}`);
-        console.log(`  Avg provider TTFB: ${r.ttfb_avg.toFixed(3)}s`);
-        console.log(`  Min provider TTFB: ${r.ttfb_min!.toFixed(3)}s`);
-        console.log(`  Max provider TTFB: ${r.ttfb_max!.toFixed(3)}s`);
-        console.log(`  Std Dev:           ${stdDev.toFixed(3)}s`);
-        if (r.wall_clock_ttfb !== null) {
-          console.log(`  Avg wall-clock:    ${r.wall_clock_ttfb.toFixed(3)}s (includes token delay)`);
-        }
+        console.log(`  Total samples: ${r.ttfb_count}`);
+        console.log(`  Average TTFB:  ${r.ttfb_avg.toFixed(3)}s`);
+        console.log(`  Min TTFB:      ${r.ttfb_min!.toFixed(3)}s`);
+        console.log(`  Max TTFB:      ${r.ttfb_max!.toFixed(3)}s`);
+        console.log(`  Std Dev:       ${stdDev.toFixed(3)}s`);
       }
     }
   }
 
-  // Force exit since WebSocket connections may keep the event loop alive
+  // Force exit since connections may keep the event loop alive
   process.exit(0);
 }
 

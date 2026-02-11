@@ -10,7 +10,7 @@ For each sentence in the input text, calls synthesize() and measures
 the time to first audio frame (TTFB).
 
 Usage:
-    cd integrations/livekit/agents
+    cd integrations/livekit/python/agents
     uv run python ../benchmarks/benchmark_http_ttfb.py --services inworld -n 5
     uv run python ../benchmarks/benchmark_http_ttfb.py --services all -n 20
 """
@@ -92,6 +92,8 @@ def create_inworld_tts(session: aiohttp.ClientSession, api_key: str):
         encoding="LINEAR16",
         sample_rate=24000,
         http_session=session,
+        timestamp_type="TIMESTAMP_TYPE_UNSPECIFIED",
+        base_url="https://api.dev.inworld.ai/",
     )
 
 

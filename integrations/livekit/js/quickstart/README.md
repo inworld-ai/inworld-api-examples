@@ -33,7 +33,7 @@ INWORLD_API_KEY=your-inworld-key
 From the repository root:
 
 ```bash
-cd integrations/livekit/agents-js
+cd integrations/livekit/js/agents-js
 pnpm install
 pnpm build
 ```
@@ -41,7 +41,7 @@ pnpm build
 ### 4. Install quickstart dependencies
 
 ```bash
-cd ../js-quickstart
+cd ../quickstart
 pnpm install
 ```
 
@@ -80,12 +80,3 @@ Go to https://agents-playground.livekit.io, select your project, and click "Conn
 | `INWORLD_BASE_URL` | No | Custom HTTP endpoint |
 | `INWORLD_WS_URL` | No | Custom WebSocket endpoint |
 | `INWORLD_VOICE` | No | Voice name (default: `Alex`) |
-
-## Testing Against Dev/Staging API
-
-Add to your `.env`:
-
-```bash
-INWORLD_BASE_URL=https://api.dev.inworld.ai/
-INWORLD_WS_URL=wss://api.dev.inworld.ai/
-```

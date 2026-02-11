@@ -27,16 +27,16 @@ INWORLD_API_KEY=your-inworld-key
 ### Step 3: Download required models (first time only)
 
 ```bash
-cd integrations/livekit/agents
-uv run python ../python-quickstart/test_inworld_voice_agent.py download-files
+cd integrations/livekit/python/agents
+uv run python ../quickstart/test_inworld_voice_agent.py download-files
 ```
 
 ### Step 4: Start the agent in dev mode
 
 ```bash
-cd integrations/livekit/agents
+cd integrations/livekit/python/agents
 uv sync
-uv run python ../python-quickstart/test_inworld_voice_agent.py dev
+uv run python ../quickstart/test_inworld_voice_agent.py dev
 ```
 
 ### Step 5: Use a Frontend

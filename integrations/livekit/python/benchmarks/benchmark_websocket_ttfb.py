@@ -11,7 +11,7 @@ sentence tokenizer aggregates tokens into complete sentences before sending
 to the provider. TTFB is measured per-segment via the built-in metrics system.
 
 Usage:
-    cd integrations/livekit/agents
+    cd integrations/livekit/python/agents
     uv run python ../benchmarks/benchmark_websocket_ttfb.py --services inworld -n 5
     uv run python ../benchmarks/benchmark_websocket_ttfb.py --services all --token-delay 50
 """

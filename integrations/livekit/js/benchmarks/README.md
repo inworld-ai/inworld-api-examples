@@ -1,5 +1,5 @@
 ```
-cd integrations/livekit/agents-js
+cd integrations/livekit/js/agents-js
 ```
 
 # Prerequisites: build agents-js monorepo (needed once)
@@ -7,7 +7,7 @@ cd integrations/livekit/agents-js
 pnpm install
 pnpm build
 
-cd ../benchmarks-js
+cd ../benchmarks
 ```
 
 # Install benchmark dependencies

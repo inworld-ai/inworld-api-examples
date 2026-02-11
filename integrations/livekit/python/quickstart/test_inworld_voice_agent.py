@@ -1,6 +1,7 @@
 """Quick test agent for Inworld TTS plugin development"""
 import logging
 import os
+from collections.abc import AsyncGenerator, AsyncIterable
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -17,6 +18,8 @@ from livekit.agents import (
     JobProcess,
     cli,
 )
+from livekit.agents.voice.agent import ModelSettings
+from livekit.agents.voice.io import TimedString
 from livekit.plugins import assemblyai, inworld, openai, silero
 
 logger = logging.getLogger("inworld-test-agent")
@@ -33,6 +36,20 @@ class TestAgent(Agent):
 
     async def on_enter(self):
         self.session.generate_reply(allow_interruptions=False)
+
+    async def transcription_node(
+        self, text: AsyncIterable[str | TimedString], model_settings: ModelSettings
+    ) -> AsyncGenerator[str | TimedString, None]:
+        """Log timed transcript chunks to verify timestamps are arriving."""
+        async for chunk in text:
+            if isinstance(chunk, TimedString):
+                logger.info(
+                    "TimedString: '%s' (%.3fs - %.3fs)",
+                    chunk,
+                    chunk.start_time if chunk.start_time else 0,
+                    chunk.end_time if chunk.end_time else 0,
+                )
+            yield chunk
 
 
 server = AgentServer()
@@ -55,8 +72,10 @@ async def entrypoint(ctx: JobContext):
         # OpenAI for LLM
         llm=openai.LLM(model="gpt-4o-mini"),
         # Inworld for text-to-speech (using your local plugin!)
-        tts=inworld.TTS(voice="Alex", timestamp_type="WORD", ws_url="wss://api.inworld.ai/"),
+        tts=inworld.TTS(voice="Alex", timestamp_type="WORD", ws_url="wss://api.dev.inworld.ai/", model="inworld-tts-1.5-max"),
         vad=ctx.proc.userdata["vad"],
+        # Enable TTS-aligned transcript so timestamps flow to transcription_node
+        use_tts_aligned_transcript=True,
     )
 
     await session.start(agent=TestAgent(), room=ctx.room)

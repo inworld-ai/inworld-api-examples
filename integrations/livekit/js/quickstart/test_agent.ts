@@ -50,6 +50,8 @@ export default defineAgent({
 Keep your responses concise and to the point.
 Do not use emojis, asterisks, or markdown.
 You are friendly and have a sense of humor.`,
+        // Use TTS word-level timestamps for transcript sync & interruption trimming
+        useTtsAlignedTranscript: true,
       });
 
       // Create TTS instance
@@ -58,7 +60,7 @@ You are friendly and have a sense of humor.`,
         voice: process.env.INWORLD_VOICE || 'Alex',
         model: 'inworld-tts-1.5-max',
         encoding: 'LINEAR16',
-        timestampType: 'WORD',
+        timestampType: 'CHARACTER',
         textNormalization: 'ON',
         bitRate: 64000,
         sampleRate: 24000,
