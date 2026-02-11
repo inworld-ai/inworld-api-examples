@@ -31,6 +31,7 @@ from pipecat.frames.frames import (
     TTSAudioRawFrame,
     TTSStartedFrame,
     TTSStoppedFrame,
+    TTSTextFrame,
 )
 from pipecat.metrics.metrics import TTFBMetricsData
 from pipecat.pipeline.pipeline import Pipeline
@@ -105,6 +106,8 @@ class TTFBCollector(FrameProcessor):
         self.save_audio = save_audio
         self.output_dir = output_dir
         self.ttfb_values = []
+        self.ttft_values = []  # Time to first timestamp per TTS request
+        self.tt700_values = []  # Time to first 700ms of audio per TTS request
         self.audio_frame_count = 0
         self.total_audio_bytes = 0
         self.first_audio_time = None
@@ -113,6 +116,10 @@ class TTFBCollector(FrameProcessor):
         self.all_audio_chunks = []  # Accumulate all audio
         self.start_time = None
         self.last_audio_time = None
+        self._current_request_start = None  # Wall-clock start of current TTS request
+        self._current_request_got_timestamp = False  # Whether we got a timestamp for current request
+        self._current_request_audio_bytes = 0  # Bytes received so far in current request
+        self._current_request_got_700ms = False  # Whether we've hit 700ms of audio this request
         self._done_event = asyncio.Event()
         self._check_task = None
 
@@ -133,9 +140,22 @@ class TTFBCollector(FrameProcessor):
                         logger.debug(f"📊 Ignoring spurious TTFB: {data.value:.3f}s")
         elif isinstance(frame, TTSStartedFrame):
             self.start_time = time.time()
+            self._current_request_start = time.time()
+            self._current_request_got_timestamp = False
+            self._current_request_audio_bytes = 0
+            self._current_request_got_700ms = False
             logger.info(f"🎤 [{self.service_name}] TTS Started")
         elif isinstance(frame, TTSStoppedFrame):
+            self._current_request_start = None
             logger.info(f"🎤 [{self.service_name}] TTS Stopped")
+        elif isinstance(frame, TTSTextFrame):
+            # Measure time from the start of the current TTS request to first timestamp frame
+            if self._current_request_start is not None and not self._current_request_got_timestamp:
+                self._current_request_got_timestamp = True
+                ttft = time.time() - self._current_request_start
+                if ttft > 0.01:  # Filter out spurious near-zero values (< 10ms)
+                    logger.info(f"⏱️  [{self.service_name}] TTFT: {ttft:.3f}s")
+                    self.ttft_values.append(ttft)
         elif isinstance(frame, TTSAudioRawFrame):
             if self.first_audio_time is None:
                 self.first_audio_time = time.time()
@@ -143,12 +163,24 @@ class TTFBCollector(FrameProcessor):
                 logger.info(f"🔊 [{self.service_name}] First audio frame (elapsed: {elapsed:.3f}s, size: {len(frame.audio)} bytes)")
                 self.first_chunk_bytes = frame.audio
                 self.sample_rate = frame.sample_rate
-                
+
             # Accumulate all audio chunks
             self.all_audio_chunks.append(frame.audio)
             self.audio_frame_count += 1
             self.total_audio_bytes += len(frame.audio)
             self.last_audio_time = time.time()
+
+            # Track time to first 700ms of audio per request
+            if self._current_request_start is not None and not self._current_request_got_700ms:
+                self._current_request_audio_bytes += len(frame.audio)
+                sr = frame.sample_rate or self.sample_rate or 24000
+                threshold = int(sr * 0.7 * 2)  # 700ms of 16-bit mono PCM
+                if self._current_request_audio_bytes >= threshold:
+                    self._current_request_got_700ms = True
+                    tt700 = time.time() - self._current_request_start
+                    if tt700 > 0.01:
+                        logger.info(f"🎵 [{self.service_name}] TT700: {tt700:.3f}s")
+                        self.tt700_values.append(tt700)
 
         await self.push_frame(frame, direction)
 
@@ -234,6 +266,42 @@ class TTFBCollector(FrameProcessor):
         """Return benchmark results as a dictionary."""
         first_chunk_size = len(self.first_chunk_bytes) if self.first_chunk_bytes else 0
         
+        ttft_stats = (
+            {
+                "ttft_count": len(self.ttft_values),
+                "ttft_avg": sum(self.ttft_values) / len(self.ttft_values),
+                "ttft_min": min(self.ttft_values),
+                "ttft_max": max(self.ttft_values),
+                "ttft_values": self.ttft_values,
+            }
+            if self.ttft_values
+            else {
+                "ttft_count": 0,
+                "ttft_avg": None,
+                "ttft_min": None,
+                "ttft_max": None,
+                "ttft_values": [],
+            }
+        )
+
+        tt700_stats = (
+            {
+                "tt700_count": len(self.tt700_values),
+                "tt700_avg": sum(self.tt700_values) / len(self.tt700_values),
+                "tt700_min": min(self.tt700_values),
+                "tt700_max": max(self.tt700_values),
+                "tt700_values": self.tt700_values,
+            }
+            if self.tt700_values
+            else {
+                "tt700_count": 0,
+                "tt700_avg": None,
+                "tt700_min": None,
+                "tt700_max": None,
+                "tt700_values": [],
+            }
+        )
+
         if self.ttfb_values:
             return {
                 "service": self.service_name,
@@ -245,6 +313,8 @@ class TTFBCollector(FrameProcessor):
                 "audio_frames": self.audio_frame_count,
                 "audio_bytes": self.total_audio_bytes,
                 "first_chunk_size": first_chunk_size,
+                **ttft_stats,
+                **tt700_stats,
             }
         return {
             "service": self.service_name,
@@ -256,6 +326,8 @@ class TTFBCollector(FrameProcessor):
             "audio_frames": self.audio_frame_count,
             "audio_bytes": self.total_audio_bytes,
             "first_chunk_size": first_chunk_size,
+            **ttft_stats,
+            **tt700_stats,
         }
 
 
@@ -266,7 +338,7 @@ def create_inworld_tts(api_key: str):
     return InworldTTSService(
         api_key=api_key,
         voice_id="Ashley",
-        model="inworld-tts-1.5-max",
+        model="inworld-tts-1.5-mini",
         aggregate_sentences=True,
     )
 
@@ -378,48 +450,87 @@ async def benchmark_service(
 
 def print_comparison_table(results: List[Dict]):
     """Print a comparison table of benchmark results."""
-    print("\n" + "=" * 80)
+    print("\n" + "=" * 90)
     print("TTS BENCHMARK COMPARISON")
-    print("=" * 80)
-    
-    # Header
+    print("=" * 90)
+
+    # --- TTFB section ---
+    print("\n📊 Time to First Audio Byte (TTFB)")
     print(f"{'Service':<20} {'Avg TTFB':<12} {'Min TTFB':<12} {'Max TTFB':<12} {'Samples':<10}")
-    print("-" * 80)
-    
-    # Sort by average TTFB (fastest first)
-    sorted_results = sorted(results, key=lambda x: x.get("ttfb_avg") or float('inf'))
-    
-    for r in sorted_results:
-        if r["ttfb_avg"] is not None:
-            print(f"{r['service']:<20} {r['ttfb_avg']:.3f}s{'':<6} {r['ttfb_min']:.3f}s{'':<6} {r['ttfb_max']:.3f}s{'':<6} {r['ttfb_count']:<10}")
+    print("-" * 70)
+
+    sorted_by_ttfb = sorted(results, key=lambda x: x.get("ttfb_avg") or float("inf"))
+    for r in sorted_by_ttfb:
+        if r.get("ttfb_avg") is not None:
+            print(
+                f"{r['service']:<20} {r['ttfb_avg']:.3f}s{'':<6} {r['ttfb_min']:.3f}s{'':<6} "
+                f"{r['ttfb_max']:.3f}s{'':<6} {r['ttfb_count']:<10}"
+            )
         else:
             print(f"{r['service']:<20} {'N/A':<12} {'N/A':<12} {'N/A':<12} {0:<10}")
-    
-    print("=" * 80)
-    
-    # Winner announcement
-    if sorted_results and sorted_results[0]["ttfb_avg"] is not None:
-        winner = sorted_results[0]
-        print(f"\n🏆 Fastest average TTFB: {winner['service']} ({winner['ttfb_avg']:.3f}s)")
-    
-    # Individual sentence breakdown
-    print("\n" + "-" * 80)
+
+    if sorted_by_ttfb and sorted_by_ttfb[0].get("ttfb_avg") is not None:
+        winner = sorted_by_ttfb[0]
+        print(f"\n🏆 Fastest avg TTFB: {winner['service']} ({winner['ttfb_avg']:.3f}s)")
+
+    # --- TTFT section ---
+    print("\n📊 Time to First Timestamp (TTFT)")
+    print(f"{'Service':<20} {'Avg TTFT':<12} {'Min TTFT':<12} {'Max TTFT':<12} {'Samples':<10}")
+    print("-" * 70)
+
+    sorted_by_ttft = sorted(results, key=lambda x: x.get("ttft_avg") or float("inf"))
+    has_ttft = any(r.get("ttft_avg") is not None for r in results)
+    for r in sorted_by_ttft:
+        if r.get("ttft_avg") is not None:
+            print(
+                f"{r['service']:<20} {r['ttft_avg']:.3f}s{'':<6} {r['ttft_min']:.3f}s{'':<6} "
+                f"{r['ttft_max']:.3f}s{'':<6} {r['ttft_count']:<10}"
+            )
+        else:
+            print(f"{r['service']:<20} {'N/A (no timestamps)':<12}")
+
+    if has_ttft and sorted_by_ttft[0].get("ttft_avg") is not None:
+        winner = sorted_by_ttft[0]
+        print(f"\n🏆 Fastest avg TTFT: {winner['service']} ({winner['ttft_avg']:.3f}s)")
+
+    # --- TT700 section ---
+    print("\n📊 Time to First 700ms of Audio (TT700)")
+    print(f"{'Service':<20} {'Avg TT700':<12} {'Min TT700':<12} {'Max TT700':<12} {'Samples':<10}")
+    print("-" * 70)
+
+    sorted_by_tt700 = sorted(results, key=lambda x: x.get("tt700_avg") or float("inf"))
+    for r in sorted_by_tt700:
+        if r.get("tt700_avg") is not None:
+            print(
+                f"{r['service']:<20} {r['tt700_avg']:.3f}s{'':<6} {r['tt700_min']:.3f}s{'':<6} "
+                f"{r['tt700_max']:.3f}s{'':<6} {r['tt700_count']:<10}"
+            )
+        else:
+            print(f"{r['service']:<20} {'N/A':<12} {'N/A':<12} {'N/A':<12} {0:<10}")
+
+    if sorted_by_tt700 and sorted_by_tt700[0].get("tt700_avg") is not None:
+        winner = sorted_by_tt700[0]
+        print(f"\n🏆 Fastest avg TT700: {winner['service']} ({winner['tt700_avg']:.3f}s)")
+
+    print("\n" + "=" * 90)
+
+    # Individual sentence breakdown (TTFB)
+    print("\n" + "-" * 90)
     print("Per-Sentence TTFB Breakdown:")
-    print("-" * 80)
-    
-    max_sentences = max(len(r["ttfb_values"]) for r in results if r["ttfb_values"])
-    
-    for i in range(max_sentences):
-        print(f"\nSentence {i + 1}:")
-        sentence_results = []
-        for r in results:
-            if i < len(r["ttfb_values"]):
-                sentence_results.append((r["service"], r["ttfb_values"][i]))
-        
-        # Sort by TTFB for this sentence
-        sentence_results.sort(key=lambda x: x[1])
-        for service, ttfb in sentence_results:
-            print(f"  {service:<20} {ttfb:.3f}s")
+    print("-" * 90)
+
+    ttfb_results_with_data = [r for r in results if r.get("ttfb_values")]
+    if ttfb_results_with_data:
+        max_sentences = max(len(r["ttfb_values"]) for r in ttfb_results_with_data)
+        for i in range(max_sentences):
+            print(f"\nSentence {i + 1}:")
+            sentence_results = []
+            for r in results:
+                if i < len(r.get("ttfb_values", [])):
+                    sentence_results.append((r["service"], r["ttfb_values"][i]))
+            sentence_results.sort(key=lambda x: x[1])
+            for service, ttfb in sentence_results:
+                print(f"  {service:<20} {ttfb:.3f}s")
 
 
 async def main():
@@ -450,15 +561,22 @@ async def main():
         default="all",
         help="Comma-separated list of services to benchmark: inworld,elevenlabs,cartesia or 'all' (default: all)",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging from pipecat internals",
+    )
     args = parser.parse_args()
+
+    if not args.verbose:
+        logger.remove()
+        logger.add(lambda msg: None)  # Suppress all logging
 
     # Default text with multiple sentences
     if args.text is None:
         text = (
             "Hello! Welcome to the TTS benchmark. "
             "This is a test of the text-to-speech system. "
-            "Each sentence should trigger a separate TTS request. "
-            "Let's see how fast the first audio byte arrives!"
         )
     else:
         text = args.text
@@ -479,7 +597,7 @@ async def main():
         "elevenlabs": {
             "name": "ElevenLabs",
             "create_fn": create_elevenlabs_tts,
-            "api_key_env": "XI_API_KEY",
+            "api_key_env": "ELEVEN_API_KEY",
         },
         "cartesia": {
             "name": "Cartesia",
@@ -507,7 +625,7 @@ async def main():
     if not available_services:
         print("No services available to benchmark. Please set the required API keys:")
         print("  - INWORLD_API_KEY for Inworld")
-        print("  - XI_API_KEY for ElevenLabs")
+        print("  - ELEVEN_API_KEY for ElevenLabs")
         print("  - CARTESIA_API_KEY for Cartesia")
         return
 
@@ -560,48 +678,81 @@ async def main():
     aggregated_results = []
     for service_id, results_list in all_results.items():
         all_ttfb = []
+        all_ttft = []
+        all_tt700 = []
         for r in results_list:
-            all_ttfb.extend(r["ttfb_values"])
-        
-        if all_ttfb:
-            aggregated_results.append({
-                "service": results_list[0]["service"],
-                "ttfb_count": len(all_ttfb),
-                "ttfb_avg": sum(all_ttfb) / len(all_ttfb),
-                "ttfb_min": min(all_ttfb),
-                "ttfb_max": max(all_ttfb),
-                "ttfb_values": all_ttfb,
-            })
-        else:
-            aggregated_results.append({
-                "service": service_configs[service_id]["name"],
-                "ttfb_count": 0,
-                "ttfb_avg": None,
-                "ttfb_min": None,
-                "ttfb_max": None,
-                "ttfb_values": [],
-            })
+            all_ttfb.extend(r.get("ttfb_values", []))
+            all_ttft.extend(r.get("ttft_values", []))
+            all_tt700.extend(r.get("tt700_values", []))
+
+        def _agg(values, prefix):
+            if values:
+                return {
+                    f"{prefix}_count": len(values),
+                    f"{prefix}_avg": sum(values) / len(values),
+                    f"{prefix}_min": min(values),
+                    f"{prefix}_max": max(values),
+                    f"{prefix}_values": values,
+                }
+            return {
+                f"{prefix}_count": 0,
+                f"{prefix}_avg": None,
+                f"{prefix}_min": None,
+                f"{prefix}_max": None,
+                f"{prefix}_values": [],
+            }
+
+        service_name = results_list[0]["service"] if results_list else service_configs[service_id]["name"]
+        aggregated_results.append({
+            "service": service_name,
+            **_agg(all_ttfb, "ttfb"),
+            **_agg(all_ttft, "ttft"),
+            **_agg(all_tt700, "tt700"),
+        })
 
     # Print comparison
     print_comparison_table(aggregated_results)
 
     # Print aggregate stats if multiple iterations
     if args.iterations > 1:
-        print("\n" + "=" * 80)
+        print("\n" + "=" * 90)
         print(f"AGGREGATE STATISTICS ({args.iterations} iterations)")
-        print("=" * 80)
-        for r in sorted(aggregated_results, key=lambda x: x.get("ttfb_avg") or float('inf')):
-            if r["ttfb_avg"] is not None:
-                # Calculate std dev
+        print("=" * 90)
+        for r in sorted(aggregated_results, key=lambda x: x.get("ttfb_avg") or float("inf")):
+            print(f"\n{r['service']}:")
+            if r.get("ttfb_avg") is not None:
                 mean = r["ttfb_avg"]
                 variance = sum((x - mean) ** 2 for x in r["ttfb_values"]) / len(r["ttfb_values"])
                 std_dev = variance ** 0.5
-                print(f"\n{r['service']}:")
-                print(f"  Total samples: {r['ttfb_count']}")
-                print(f"  Average TTFB:  {r['ttfb_avg']:.3f}s")
+                print(f"  TTFB samples:  {r['ttfb_count']}")
+                print(f"  Avg TTFB:      {r['ttfb_avg']:.3f}s")
                 print(f"  Min TTFB:      {r['ttfb_min']:.3f}s")
                 print(f"  Max TTFB:      {r['ttfb_max']:.3f}s")
-                print(f"  Std Dev:       {std_dev:.3f}s")
+                print(f"  Std Dev TTFB:  {std_dev:.3f}s")
+            else:
+                print(f"  TTFB:          N/A")
+            if r.get("ttft_avg") is not None:
+                mean = r["ttft_avg"]
+                variance = sum((x - mean) ** 2 for x in r["ttft_values"]) / len(r["ttft_values"])
+                std_dev = variance ** 0.5
+                print(f"  TTFT samples:  {r['ttft_count']}")
+                print(f"  Avg TTFT:      {r['ttft_avg']:.3f}s")
+                print(f"  Min TTFT:      {r['ttft_min']:.3f}s")
+                print(f"  Max TTFT:      {r['ttft_max']:.3f}s")
+                print(f"  Std Dev TTFT:  {std_dev:.3f}s")
+            else:
+                print(f"  TTFT:          N/A (service does not emit timestamps)")
+            if r.get("tt700_avg") is not None:
+                mean = r["tt700_avg"]
+                variance = sum((x - mean) ** 2 for x in r["tt700_values"]) / len(r["tt700_values"])
+                std_dev = variance ** 0.5
+                print(f"  TT700 samples: {r['tt700_count']}")
+                print(f"  Avg TT700:     {r['tt700_avg']:.3f}s")
+                print(f"  Min TT700:     {r['tt700_min']:.3f}s")
+                print(f"  Max TT700:     {r['tt700_max']:.3f}s")
+                print(f"  Std Dev TT700: {std_dev:.3f}s")
+            else:
+                print(f"  TT700:         N/A")
 
 
 if __name__ == "__main__":

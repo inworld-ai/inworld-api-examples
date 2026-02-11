@@ -124,9 +124,10 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     stt = AssemblyAISTTService(api_key=os.getenv("ASSEMBLYAI_API_KEY"))
 
     tts = InworldTTSService(
-        api_key=os.getenv("BASE64_SECRET_KEY"),
+        api_key=os.getenv("INWORLD_API_KEY"),
         voice_id="Ashley",  # Default Inworld voice
-        url="wss://api.dev.inworld.ai/tts/v1/voice:streamBidirectional",
+        url="wss://api.inworld.ai/tts/v1/voice:streamBidirectional",
+        params=InworldTTSService.InputParams(timestamp_transport_strategy="ASYNC")
     )
 
     llm = OpenAILLMService(api_key=os.getenv("OPENAI_API_KEY"))
