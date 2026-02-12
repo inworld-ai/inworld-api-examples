@@ -27,7 +27,6 @@ def load_audio_file(audio_path: str) -> bytes:
 
 
 def clone_voice(
-    workspace: str,
     display_name: str,
     audio_paths: list[str],
     lang_code: str,
@@ -41,7 +40,6 @@ def clone_voice(
     Clone a voice using the Inworld Voice API.
     
     Args:
-        workspace: Workspace ID (without 'workspaces/' prefix)
         display_name: Human-readable name for the voice
         audio_paths: List of paths to audio files (WAV or MP3)
         lang_code: Language code (e.g., EN_US, ZH_CN, JA_JP)
@@ -54,7 +52,7 @@ def clone_voice(
     Returns:
         dict: Response containing the cloned voice details
     """
-    url = f"https://api.inworld.ai/voices/v1/workspaces/{workspace}/voices:clone"
+    url = "https://api.inworld.ai/voices/v1/voices:clone"
     
     headers = {
         "Content-Type": "application/json",
@@ -178,11 +176,6 @@ Examples:
         print("Error: INWORLD_API_KEY environment variable is not set.")
         return 1
     
-    workspace = os.getenv("INWORLD_WORKSPACE")
-    if not workspace:
-        print("Error: INWORLD_WORKSPACE environment variable is not set.")
-        return 1
-    
     audio_paths = args.audio
     if not audio_paths:
         if DEFAULT_AUDIO_PATH.exists():
@@ -196,7 +189,6 @@ Examples:
     
     try:
         result = clone_voice(
-            workspace=workspace,
             display_name=args.name,
             audio_paths=audio_paths,
             lang_code=args.lang,

@@ -219,8 +219,9 @@ python tts_cli.py --output-file output.wav --voice-id Dennis --model-id inworld-
 **Setup:**
 ```bash
 export INWORLD_API_KEY=your_api_key_here
-export INWORLD_WORKSPACE=your_workspace_id
 ```
+
+**Voice Clone Endpoint:** `https://api.inworld.ai/voices/v1/voices:clone`
 
 **Usage:**
 ```bash

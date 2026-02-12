@@ -35,20 +35,6 @@ function checkApiKey() {
 }
 
 /**
- * Check if INWORLD_WORKSPACE environment variable is set.
- * @returns {string|null} Workspace or null if not set
- */
-function checkWorkspace() {
-    const workspace = process.env.INWORLD_WORKSPACE;
-    if (!workspace) {
-        console.log('Error: INWORLD_WORKSPACE environment variable is not set.');
-        console.log('Please set it with: export INWORLD_WORKSPACE=your_workspace_id');
-        return null;
-    }
-    return workspace;
-}
-
-/**
  * Load audio data from a file.
  * @param {string} audioPath - Path to audio file (WAV or MP3)
  * @returns {Buffer} Audio data
@@ -61,7 +47,6 @@ function loadAudioFile(audioPath) {
  * Clone a voice using the Inworld Voice API.
  * 
  * @param {Object} options - Clone options
- * @param {string} options.workspace - Workspace ID (without 'workspaces/' prefix)
  * @param {string} options.displayName - Human-readable name for the voice
  * @param {string[]} options.audioPaths - List of paths to audio files (WAV or MP3)
  * @param {string} options.langCode - Language code (e.g., EN_US, ZH_CN, JA_JP)
@@ -73,7 +58,6 @@ function loadAudioFile(audioPath) {
  * @returns {Promise<Object>} Response containing the cloned voice details
  */
 async function cloneVoice({
-    workspace,
     displayName,
     audioPaths,
     langCode,
@@ -83,7 +67,7 @@ async function cloneVoice({
     transcriptions,
     removeBackgroundNoise
 }) {
-    const url = `https://api.inworld.ai/voices/v1/workspaces/${workspace}/voices:clone`;
+    const url = 'https://api.inworld.ai/voices/v1/voices:clone';
     
     const headers = {
         'Content-Type': 'application/json',
@@ -314,7 +298,6 @@ Supported Languages:
 
 Environment Variables:
   INWORLD_API_KEY      API key for authentication (required)
-  INWORLD_WORKSPACE    Workspace ID (required)
 
 Examples:
   node example_voice_clone.js --name "My Voice" --audio sample.wav
@@ -346,11 +329,6 @@ async function main() {
     // Check environment variables
     const apiKey = checkApiKey();
     if (!apiKey) {
-        return 1;
-    }
-    
-    const workspace = checkWorkspace();
-    if (!workspace) {
         return 1;
     }
     
@@ -387,7 +365,6 @@ async function main() {
     
     try {
         const result = await cloneVoice({
-            workspace,
             displayName: args.name,
             audioPaths,
             langCode: args.lang,
