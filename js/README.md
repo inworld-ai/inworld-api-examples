@@ -20,11 +20,6 @@ This directory contains JavaScript/Node.js examples demonstrating how to use the
    export INWORLD_API_KEY=your_api_key_here
    ```
 
-3. **Set your workspace ID (required for voice cloning):**
-   ```bash
-   export INWORLD_WORKSPACE=your_workspace_id
-   ```
-
 ## Examples
 
 ### 1. Basic TTS Synthesis (`example_tts.js`)
@@ -205,7 +200,7 @@ You can modify these values in each example file to test different voices, model
 - **Basic TTS:** `https://api.inworld.ai/tts/v1/voice`
 - **Streaming TTS:** `https://api.inworld.ai/tts/v1/voice:stream`
 - **WebSocket TTS:** `wss://api.inworld.ai/tts/v1/voice:streamBidirectional`
-- **Voice Cloning:** `https://api.inworld.ai/voices/v1/workspaces/{workspace}/voices:clone`
+- **Voice Cloning:** `https://api.inworld.ai/voices/v1/voices:clone`
 
 ## Audio Output
 
