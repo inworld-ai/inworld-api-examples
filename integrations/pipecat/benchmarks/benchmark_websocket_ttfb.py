@@ -116,10 +116,11 @@ class TTFBCollector(FrameProcessor):
         self.all_audio_chunks = []  # Accumulate all audio
         self.start_time = None
         self.last_audio_time = None
-        self._current_request_start = None  # Wall-clock start of current TTS request
-        self._current_request_got_timestamp = False  # Whether we got a timestamp for current request
-        self._current_request_audio_bytes = 0  # Bytes received so far in current request
-        self._current_request_got_700ms = False  # Whether we've hit 700ms of audio this request
+        # Per-context_id tracking (keyed by context_id string)
+        self._ctx_start: dict = {}       # context_id -> wall-clock start time
+        self._ctx_got_ts: dict = {}      # context_id -> bool: first TTSTextFrame recorded
+        self._ctx_audio_bytes: dict = {} # context_id -> bytes accumulated for TT700
+        self._ctx_got_700ms: dict = {}   # context_id -> bool: 700ms threshold reached
         self._done_event = asyncio.Event()
         self._check_task = None
 
@@ -140,21 +141,22 @@ class TTFBCollector(FrameProcessor):
                         logger.debug(f"📊 Ignoring spurious TTFB: {data.value:.3f}s")
         elif isinstance(frame, TTSStartedFrame):
             self.start_time = time.time()
-            self._current_request_start = time.time()
-            self._current_request_got_timestamp = False
-            self._current_request_audio_bytes = 0
-            self._current_request_got_700ms = False
-            logger.info(f"🎤 [{self.service_name}] TTS Started")
+            ctx = frame.context_id
+            self._ctx_start[ctx] = time.time()
+            self._ctx_got_ts[ctx] = False
+            self._ctx_audio_bytes[ctx] = 0
+            self._ctx_got_700ms[ctx] = False
+            logger.info(f"🎤 [{self.service_name}] TTS Started (ctx={ctx})")
         elif isinstance(frame, TTSStoppedFrame):
-            self._current_request_start = None
+            # Don't clean up yet — TTSTextFrame may still arrive after stop (async words queue)
             logger.info(f"🎤 [{self.service_name}] TTS Stopped")
         elif isinstance(frame, TTSTextFrame):
-            # Measure time from the start of the current TTS request to first timestamp frame
-            if self._current_request_start is not None and not self._current_request_got_timestamp:
-                self._current_request_got_timestamp = True
-                ttft = time.time() - self._current_request_start
-                if ttft > 0.01:  # Filter out spurious near-zero values (< 10ms)
-                    logger.info(f"⏱️  [{self.service_name}] TTFT: {ttft:.3f}s")
+            ctx = frame.context_id
+            if ctx in self._ctx_start and not self._ctx_got_ts.get(ctx, True):
+                self._ctx_got_ts[ctx] = True
+                ttft = time.time() - self._ctx_start[ctx]
+                if ttft > 0.01:
+                    logger.info(f"⏱️  [{self.service_name}] TTFT: {ttft:.3f}s (ctx={ctx})")
                     self.ttft_values.append(ttft)
         elif isinstance(frame, TTSAudioRawFrame):
             if self.first_audio_time is None:
@@ -170,16 +172,17 @@ class TTFBCollector(FrameProcessor):
             self.total_audio_bytes += len(frame.audio)
             self.last_audio_time = time.time()
 
-            # Track time to first 700ms of audio per request
-            if self._current_request_start is not None and not self._current_request_got_700ms:
-                self._current_request_audio_bytes += len(frame.audio)
+            # Track time to first 700ms of audio per context
+            ctx = frame.context_id
+            if ctx in self._ctx_start and not self._ctx_got_700ms.get(ctx, True):
+                self._ctx_audio_bytes[ctx] = self._ctx_audio_bytes.get(ctx, 0) + len(frame.audio)
                 sr = frame.sample_rate or self.sample_rate or 24000
                 threshold = int(sr * 0.7 * 2)  # 700ms of 16-bit mono PCM
-                if self._current_request_audio_bytes >= threshold:
-                    self._current_request_got_700ms = True
-                    tt700 = time.time() - self._current_request_start
+                if self._ctx_audio_bytes[ctx] >= threshold:
+                    self._ctx_got_700ms[ctx] = True
+                    tt700 = time.time() - self._ctx_start[ctx]
                     if tt700 > 0.01:
-                        logger.info(f"🎵 [{self.service_name}] TT700: {tt700:.3f}s")
+                        logger.info(f"🎵 [{self.service_name}] TT700: {tt700:.3f}s (ctx={ctx})")
                         self.tt700_values.append(tt700)
 
         await self.push_frame(frame, direction)

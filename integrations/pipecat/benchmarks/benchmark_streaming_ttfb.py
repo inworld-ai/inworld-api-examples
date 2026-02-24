@@ -104,10 +104,11 @@ class TTFBCollector(FrameProcessor):
         self.all_audio_chunks = []  # Accumulate all audio
         self.start_time = None
         self.last_audio_time = None
-        self._current_request_start = None  # Wall-clock start of current TTS request
-        self._current_request_got_timestamp = False  # Whether we got a timestamp for current request
-        self._current_request_audio_bytes = 0  # Bytes received so far in current request
-        self._current_request_got_700ms = False  # Whether we've hit 700ms of audio this request
+        # Per-context_id tracking (keyed by context_id string)
+        self._ctx_start: dict = {}       # context_id -> wall-clock start time
+        self._ctx_got_ts: dict = {}      # context_id -> bool: first TTSTextFrame recorded
+        self._ctx_audio_bytes: dict = {} # context_id -> bytes accumulated for TT700
+        self._ctx_got_700ms: dict = {}   # context_id -> bool: 700ms threshold reached
         self._done_event = asyncio.Event()
         self._check_task = None
 
@@ -125,18 +126,20 @@ class TTFBCollector(FrameProcessor):
                         self.ttfb_values.append(data.value)
         elif isinstance(frame, TTSStartedFrame):
             self.start_time = time.time()
-            self._current_request_start = time.time()
-            self._current_request_got_timestamp = False
-            self._current_request_audio_bytes = 0
-            self._current_request_got_700ms = False
+            ctx = frame.context_id
+            self._ctx_start[ctx] = time.time()
+            self._ctx_got_ts[ctx] = False
+            self._ctx_audio_bytes[ctx] = 0
+            self._ctx_got_700ms[ctx] = False
         elif isinstance(frame, TTSStoppedFrame):
-            self._current_request_start = None
+            # Don't clean up yet — TTSTextFrame may still arrive after stop (async words queue)
+            pass
         elif isinstance(frame, TTSTextFrame):
-            # Measure time from the start of the current TTS request to first timestamp frame
-            if self._current_request_start is not None and not self._current_request_got_timestamp:
-                self._current_request_got_timestamp = True
-                ttft = time.time() - self._current_request_start
-                if ttft > 0.01:  # Filter out spurious near-zero values (< 10ms)
+            ctx = frame.context_id
+            if ctx in self._ctx_start and not self._ctx_got_ts.get(ctx, True):
+                self._ctx_got_ts[ctx] = True
+                ttft = time.time() - self._ctx_start[ctx]
+                if ttft > 0.01:
                     self.ttft_values.append(ttft)
         elif isinstance(frame, TTSAudioRawFrame):
             if self.first_audio_time is None:
@@ -150,14 +153,15 @@ class TTFBCollector(FrameProcessor):
             self.total_audio_bytes += len(frame.audio)
             self.last_audio_time = time.time()
 
-            # Track time to first 700ms of audio per request
-            if self._current_request_start is not None and not self._current_request_got_700ms:
-                self._current_request_audio_bytes += len(frame.audio)
+            # Track time to first 700ms of audio per context
+            ctx = frame.context_id
+            if ctx in self._ctx_start and not self._ctx_got_700ms.get(ctx, True):
+                self._ctx_audio_bytes[ctx] = self._ctx_audio_bytes.get(ctx, 0) + len(frame.audio)
                 sr = frame.sample_rate or self.sample_rate or 24000
                 threshold = int(sr * 0.7 * 2)  # 700ms of 16-bit mono PCM
-                if self._current_request_audio_bytes >= threshold:
-                    self._current_request_got_700ms = True
-                    tt700 = time.time() - self._current_request_start
+                if self._ctx_audio_bytes[ctx] >= threshold:
+                    self._ctx_got_700ms[ctx] = True
+                    tt700 = time.time() - self._ctx_start[ctx]
                     if tt700 > 0.01:
                         self.tt700_values.append(tt700)
 
@@ -314,7 +318,7 @@ def create_inworld_http_tts(api_key: str, session: aiohttp.ClientSession):
         api_key=api_key,
         aiohttp_session=session,
         voice_id="Ashley",
-        model="inworld-tts-1.5-max",
+        model="inworld-tts-1.5-mini",
         streaming=True,
         aggregate_sentences=True,
     )
@@ -545,7 +549,7 @@ async def main():
         "inworld": {
             "name": "Inworld HTTP",
             "create_fn": create_inworld_http_tts,
-            "api_key_env": "INWORLD_API_KEY",
+            "api_key_env": "BASE64_SECRET_KEY",
             "extra_env": {},
         },
         "elevenlabs": {
