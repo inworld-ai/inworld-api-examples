@@ -199,7 +199,7 @@ python tts_cli.py --json-example ../tests-data/tts/tts_marketing_samples.json
 python tts_cli.py --json-example ../tests-data/tts/tts_marketing_samples.json --stream --timestamp character
 
 # Custom voice and model with all options
-python tts_cli.py --output-file output.wav --voice-id Dennis --model-id inworld-tts-1.5-mini --temperature 1.2 --timestamp word --text-normalization on
+python tts_cli.py --output-file output.wav --voice-id Dennis --model-id inworld-tts-1.5-max --temperature 1.2 --timestamp word --text-normalization on
 ```
 
 **Best for:** Testing, development, batch processing, and performance analysis.
@@ -262,7 +262,7 @@ python example_voice_clone.py \
 All examples support the following configuration through code modification:
 
 - **Voice ID:** Choose from available voices (default: "Dennis")
-- **Model ID:** TTS model to use (default: "inworld-tts-1.5-mini")
+- **Model ID:** TTS model to use (default: "inworld-tts-1.5-max")
 - **Audio Format:** LINEAR16, 48kHz (configurable in code)
 - **Output File:** Customize output filename and location
 - **Temperature:** Control voice variation (0.0-1.0)
