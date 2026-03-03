@@ -166,7 +166,7 @@ async function main() {
     // Configuration
     const text = "Hello, adventurer! What a beautiful day, isn't it?";
     const voiceId = 'Dennis';
-    const modelId = 'inworld-tts-1.5-mini';
+    const modelId = 'inworld-tts-1.5-max';
     const outputFile = 'synthesis_output.wav';
     
     try {

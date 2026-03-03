@@ -184,7 +184,7 @@ All examples use the following default configuration:
 const config = {
     text: "Hello, adventurer! What a beautiful day, isn't it?",
     voiceId: "Dennis", // or "Ashley" for WebSocket example
-    modelId: "inworld-tts-1.5-mini", // timestamp examples use "inworld-tts-1.5-max"
+    modelId: "inworld-tts-1.5-max", // timestamp examples use "inworld-tts-1.5-max"
     audioConfig: {
         audioEncoding: "LINEAR16",
         sampleRateHertz: 48000
