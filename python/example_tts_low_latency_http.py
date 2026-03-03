@@ -132,7 +132,7 @@ def main():
     # Configuration
     text = "Life moves pretty fast. Look around once in a while, or you might miss it."
     voice_id = "Dennis"
-    model_id = "inworld-tts-1.5-max"
+    model_id = "inworld-tts-1.5-mini"
 
     print(f"   Text: \"{text}\"")
     print(f"  Voice: {voice_id}")

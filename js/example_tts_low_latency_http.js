@@ -153,7 +153,7 @@ async function main() {
     // Configuration
     const text = "Life moves pretty fast. Look around once in a while, or you might miss it.";
     const voiceId = 'Dennis';
-    const modelId = 'inworld-tts-1.5-max';
+    const modelId = 'inworld-tts-1.5-mini';
 
     console.log(`   Text: "${text}"`);
     console.log(`  Voice: ${voiceId}`);
