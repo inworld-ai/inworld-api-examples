@@ -1,0 +1,9 @@
+[submodule "integrations/pipecat/pipecat"]
+	path = integrations/pipecat/pipecat
+	url = https://github.com/ianbbqzy/pipecat
+[submodule "integrations/livekit/python/agents"]
+	path = integrations/livekit/python/agents
+	url = https://github.com/ianbbqzy/agents
+[submodule "integrations/livekit/js/agents-js"]
+	path = integrations/livekit/js/agents-js
+	url = https://github.com/ianbbqzy/agents-js

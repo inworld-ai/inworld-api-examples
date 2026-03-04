@@ -333,4 +333,5 @@ public
 synthesis_*.wav
 synthesis_*.mp3
 
-
+# Benchmark audio
+benchmark_audio/
