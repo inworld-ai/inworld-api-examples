@@ -65,7 +65,7 @@ python example_tts_long_input_compressed.py
 ---
 
 ### 4. `example_tts_stream.py` - HTTP Streaming Synthesis
-**Purpose:** Streaming TTS synthesis using HTTP with chunked responses. Output is MP3.
+**Purpose:** Streaming TTS synthesis using HTTP with chunked responses.
 
 **Features:**
 - Real-time audio chunk streaming
@@ -103,7 +103,7 @@ python example_tts_timestamps.py
 ---
 
 ### 6. `example_tts_stream_timestamps.py` - Streaming with Timestamps
-**Purpose:** Streaming TTS synthesis with timestamp, phoneme, and viseme data. Output is MP3.
+**Purpose:** Streaming TTS synthesis with timestamp, phoneme, and viseme data.
 
 **Features:**
 - Combines streaming audio with timestamp data

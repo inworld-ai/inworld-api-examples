@@ -61,7 +61,7 @@ node example_tts_long_input_compressed.js
 
 ### 4. Streaming TTS Synthesis (`example_tts_stream.js`)
 
-Demonstrates streaming text-to-speech synthesis for real-time audio generation. Output is MP3.
+Demonstrates streaming text-to-speech synthesis for real-time audio generation.
 
 **Usage:**
 ```bash
@@ -90,7 +90,7 @@ node example_tts_timestamps.js
 
 ### 6. Streaming TTS with Timestamps (`example_tts_stream_timestamps.js`)
 
-Demonstrates streaming text-to-speech synthesis with word-level timestamps accumulated across chunks. Output is MP3.
+Demonstrates streaming text-to-speech synthesis with word-level timestamps accumulated across chunks.
 
 **Usage:**
 ```bash
