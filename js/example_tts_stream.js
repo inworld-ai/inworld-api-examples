@@ -47,7 +47,7 @@ async function* synthesizeSpeechStream(text, voiceId, modelId, apiKey) {
         voice_id: voiceId,
         model_id: modelId,
         audio_config: {
-            audio_encoding: 'OGG_OPUS',
+            audio_encoding: 'MP3',
             sample_rate_hertz: 24000,
             bit_rate: 32000
         }
@@ -143,7 +143,7 @@ async function* synthesizeSpeechStream(text, voiceId, modelId, apiKey) {
 }
 
 /**
- * Save streaming audio chunks to an OGG file.
+ * Save streaming audio chunks to an MP3 file.
  * @param {AsyncGenerator<Buffer>} audioChunks - Audio chunks generator
  * @param {string} outputFile - Output file path
  */
@@ -181,7 +181,7 @@ async function main() {
     const text = "Hello, adventurer! What a beautiful day, isn't it?";
     const voiceId = 'Dennis';
     const modelId = 'inworld-tts-1.5-mini';
-    const outputFile = 'synthesis_stream_output.ogg';
+    const outputFile = 'synthesis_stream_output.mp3';
     
     try {
         const audioChunks = synthesizeSpeechStream(text, voiceId, modelId, apiKey);

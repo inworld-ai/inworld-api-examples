@@ -70,7 +70,7 @@ npm run tts-stream
 node example_tts_stream.js
 ```
 
-**Output:** `synthesis_stream_output.wav`
+**Output:** `synthesis_stream_output.mp3`
 
 ### 5. TTS with Timestamps (`example_tts_timestamps.js`)
 
@@ -97,7 +97,7 @@ Demonstrates streaming text-to-speech synthesis with word-level timestamps accum
 node example_tts_stream_timestamps.js
 ```
 
-**Output:** `synthesis_stream_timestamps_output.wav`
+**Output:** `synthesis_stream_timestamps_output.mp3`
 
 ### 7. Low-Latency HTTP Streaming (`example_tts_low_latency_http.js`)
 
@@ -186,7 +186,7 @@ const config = {
     voiceId: "Dennis", // or "Ashley" for WebSocket example
     modelId: "inworld-tts-1.5-max", // timestamp examples use "inworld-tts-1.5-max"
     audioConfig: {
-        audioEncoding: "LINEAR16",
+        audioEncoding: "LINEAR16",  // use "MP3" for streaming examples (example_tts_stream.js, example_tts_stream_timestamps.js)
         sampleRateHertz: 48000
     },
     timestamp_type: "WORD" // optional: enables word timestamps, phonemes, and visemes
@@ -204,12 +204,13 @@ You can modify these values in each example file to test different voices, model
 
 ## Audio Output
 
-All examples generate WAV files with the following specifications:
-- **Format:** WAV (RIFF)
-- **Encoding:** LINEAR16 (PCM)
-- **Sample Rate:** 48,000 Hz
-- **Channels:** 1 (Mono)
-- **Bit Depth:** 16-bit
+- **Streaming examples** (`example_tts_stream.js`, `example_tts_stream_timestamps.js`): Output **MP3** (as configured by `audio_encoding: 'MP3'`).
+- **Other examples:** Generate WAV with:
+  - **Format:** WAV (RIFF)
+  - **Encoding:** LINEAR16 (PCM)
+  - **Sample Rate:** 48,000 Hz
+  - **Channels:** 1 (Mono)
+  - **Bit Depth:** 16-bit
 
 ## Error Handling
 

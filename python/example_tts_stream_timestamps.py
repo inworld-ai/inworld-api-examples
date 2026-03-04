@@ -10,7 +10,6 @@ import base64
 import json
 import os
 import time
-import wave
 
 import requests
 
@@ -106,7 +105,7 @@ def synthesize_stream_with_timestamps(text: str, voice_id: str, model_id: str, a
         "voice_id": voice_id,
         "model_id": model_id,
         "audio_config": {
-            "audio_encoding": "LINEAR16",
+            "audio_encoding": "MP3",
             "sample_rate_hertz": 48000
         },
         "timestamp_type": "WORD"
@@ -200,26 +199,16 @@ def synthesize_stream_with_timestamps(text: str, voice_id: str, model_id: str, a
 
 
 def save_streaming_audio_to_file(audio_chunks, output_file: str):
-    """Save streaming audio chunks to a WAV file."""
+    """Save streaming audio chunks to an MP3 file."""
     try:
         print(f"Saving audio chunks to: {output_file}")
 
-        # Collect all raw audio data (skip WAV headers from chunks)
-        raw_audio_data = bytearray()
-
+        audio_data = bytearray()
         for chunk in audio_chunks:
-            # Skip WAV header if present (first 44 bytes)
-            if len(chunk) > 44 and chunk[:4] == b'RIFF':
-                raw_audio_data.extend(chunk[44:])
-            else:
-                raw_audio_data.extend(chunk)
+            audio_data.extend(chunk)
 
-        # Save as WAV file
-        with wave.open(output_file, "wb") as wf:
-            wf.setnchannels(1)  # Mono
-            wf.setsampwidth(2)  # 16-bit
-            wf.setframerate(48000)
-            wf.writeframes(raw_audio_data)
+        with open(output_file, "wb") as f:
+            f.write(audio_data)
 
         print(f"Audio saved to: {output_file}")
     except Exception as e:
@@ -241,7 +230,7 @@ def main():
     text = "Hello, adventurer! What a beautiful day, isn't it?"
     voice_id = "Dennis"
     model_id = "inworld-tts-1.5-max"
-    output_file = "synthesis_stream_timestamps_output.wav"
+    output_file = "synthesis_stream_timestamps_output.mp3"
 
     try:
         start_time = time.time()

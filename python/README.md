@@ -78,6 +78,8 @@ python example_tts_long_input_compressed.py
 python example_tts_stream.py
 ```
 
+**Output:** `synthesis_stream_output.mp3`
+
 **Best for:** Applications requiring lower latency and real-time audio processing.
 
 ---
@@ -112,6 +114,8 @@ python example_tts_timestamps.py
 ```bash
 python example_tts_stream_timestamps.py
 ```
+
+**Output:** `synthesis_stream_timestamps_output.mp3`
 
 **Best for:** Real-time applications needing both low latency and timing data.
 
@@ -263,7 +267,7 @@ All examples support the following configuration through code modification:
 
 - **Voice ID:** Choose from available voices (default: "Dennis")
 - **Model ID:** TTS model to use (default: "inworld-tts-1.5-max")
-- **Audio Format:** LINEAR16, 48kHz (configurable in code)
+- **Audio Format:** LINEAR16, 48kHz for non-streaming; streaming examples (`example_tts_stream.py`, `example_tts_stream_timestamps.py`) use MP3
 - **Output File:** Customize output filename and location
 - **Temperature:** Control voice variation (0.0-1.0)
 - **Timestamps:** Get word-level timing information
