@@ -65,7 +65,7 @@ python example_tts_long_input_compressed.py
 ---
 
 ### 4. `example_tts_stream.py` - HTTP Streaming Synthesis
-**Purpose:** Streaming TTS synthesis using HTTP with chunked responses.
+**Purpose:** Streaming TTS synthesis using HTTP with chunked responses. Output is MP3.
 
 **Features:**
 - Real-time audio chunk streaming
@@ -77,6 +77,8 @@ python example_tts_long_input_compressed.py
 ```bash
 python example_tts_stream.py
 ```
+
+**Output:** `synthesis_stream_output.mp3`
 
 **Best for:** Applications requiring lower latency and real-time audio processing.
 
@@ -101,7 +103,7 @@ python example_tts_timestamps.py
 ---
 
 ### 6. `example_tts_stream_timestamps.py` - Streaming with Timestamps
-**Purpose:** Streaming TTS synthesis with timestamp, phoneme, and viseme data.
+**Purpose:** Streaming TTS synthesis with timestamp, phoneme, and viseme data. Output is MP3.
 
 **Features:**
 - Combines streaming audio with timestamp data
@@ -112,6 +114,8 @@ python example_tts_timestamps.py
 ```bash
 python example_tts_stream_timestamps.py
 ```
+
+**Output:** `synthesis_stream_timestamps_output.mp3`
 
 **Best for:** Real-time applications needing both low latency and timing data.
 
@@ -263,7 +267,7 @@ All examples support the following configuration through code modification:
 
 - **Voice ID:** Choose from available voices (default: "Dennis")
 - **Model ID:** TTS model to use (default: "inworld-tts-1.5-max")
-- **Audio Format:** LINEAR16, 48kHz (configurable in code)
+- **Audio Format:** LINEAR16, 48kHz for non-streaming; streaming examples (`example_tts_stream.py`, `example_tts_stream_timestamps.py`) use MP3
 - **Output File:** Customize output filename and location
 - **Temperature:** Control voice variation (0.0-1.0)
 - **Timestamps:** Get word-level timing information

@@ -52,7 +52,7 @@ def synthesize_speech_stream(text: str, voice_id: str, model_id: str, api_key: s
         "voice_id": voice_id,
         "model_id": model_id,
         "audio_config": {
-            "audio_encoding": "OGG_OPUS",
+            "audio_encoding": "MP3",
             "sample_rate_hertz": 24000,
             "bit_rate": 32000
         }
@@ -119,7 +119,7 @@ def synthesize_speech_stream(text: str, voice_id: str, model_id: str, api_key: s
 
 
 def save_streaming_audio_to_file(audio_chunks, output_file: str):
-    """Save streaming audio chunks to an OGG file."""
+    """Save streaming audio chunks to an MP3 file."""
     try:
         print(f"Saving audio chunks to: {output_file}")
 
@@ -148,7 +148,7 @@ def main():
     text = "Hello, adventurer! What a beautiful day, isn't it?"
     voice_id = "Dennis"
     model_id = "inworld-tts-1.5-mini"
-    output_file = "synthesis_stream_output.ogg"
+    output_file = "synthesis_stream_output.mp3"
     
     try:
         audio_chunks = list(synthesize_speech_stream(

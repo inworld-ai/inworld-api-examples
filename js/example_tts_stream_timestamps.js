@@ -107,7 +107,7 @@ async function* synthesizeSpeechStreamWithTimestamps(text, voiceId, modelId, api
         voice_id: voiceId,
         model_id: modelId,
         audio_config: {
-            audio_encoding: 'LINEAR16',
+            audio_encoding: 'MP3',
             sample_rate_hertz: 48000
         },
         timestamp_type: 'WORD'
@@ -236,7 +236,7 @@ async function* synthesizeSpeechStreamWithTimestamps(text, voiceId, modelId, api
 }
 
 /**
- * Save streaming audio chunks to a WAV file.
+ * Save streaming audio chunks to an MP3 file.
  * @param {AsyncGenerator<Buffer>} audioChunks - Audio chunks generator
  * @param {string} outputFile - Output file path
  */
@@ -244,66 +244,17 @@ async function saveStreamingAudioToFile(audioChunks, outputFile) {
     try {
         console.log(`Saving audio chunks to: ${outputFile}`);
 
-        // Collect all raw audio data (skip WAV headers from chunks)
-        const rawAudioData = [];
-
+        const audioData = [];
         for await (const chunk of audioChunks) {
-            // Skip WAV header if present (first 44 bytes)
-            if (chunk.length > 44 && chunk.subarray(0, 4).equals(Buffer.from('RIFF'))) {
-                rawAudioData.push(chunk.subarray(44));
-            } else {
-                rawAudioData.push(chunk);
-            }
+            audioData.push(chunk);
         }
 
-        const combinedAudio = Buffer.concat(rawAudioData);
-
-        // Create WAV header and save file
-        const wavHeader = createWavHeader(combinedAudio.length, 1, 48000, 16);
-        const wavFile = Buffer.concat([wavHeader, combinedAudio]);
-
-        fs.writeFileSync(outputFile, wavFile);
+        fs.writeFileSync(outputFile, Buffer.concat(audioData));
 
     } catch (error) {
         console.log(`Error saving audio file: ${error.message}`);
         throw error;
     }
-}
-
-/**
- * Create WAV file header.
- * @param {number} dataSize - Size of audio data
- * @param {number} channels - Number of channels
- * @param {number} sampleRate - Sample rate
- * @param {number} bitsPerSample - Bits per sample
- * @returns {Buffer} WAV header
- */
-function createWavHeader(dataSize, channels, sampleRate, bitsPerSample) {
-    const header = Buffer.alloc(44);
-    const bytesPerSample = bitsPerSample / 8;
-    const blockAlign = channels * bytesPerSample;
-    const byteRate = sampleRate * blockAlign;
-
-    // RIFF header
-    header.write('RIFF', 0);
-    header.writeUInt32LE(36 + dataSize, 4);
-    header.write('WAVE', 8);
-
-    // fmt chunk
-    header.write('fmt ', 12);
-    header.writeUInt32LE(16, 16); // chunk size
-    header.writeUInt16LE(1, 20);  // audio format (PCM)
-    header.writeUInt16LE(channels, 22);
-    header.writeUInt32LE(sampleRate, 24);
-    header.writeUInt32LE(byteRate, 28);
-    header.writeUInt16LE(blockAlign, 32);
-    header.writeUInt16LE(bitsPerSample, 34);
-
-    // data chunk
-    header.write('data', 36);
-    header.writeUInt32LE(dataSize, 40);
-
-    return header;
 }
 
 /**
@@ -323,7 +274,7 @@ async function main() {
     const text = "Hello, adventurer! What a beautiful day, isn't it?";
     const voiceId = 'Dennis';
     const modelId = 'inworld-tts-1.5-max';
-    const outputFile = 'synthesis_stream_timestamps_output.wav';
+    const outputFile = 'synthesis_stream_timestamps_output.mp3';
 
     try {
         const startTime = Date.now();
