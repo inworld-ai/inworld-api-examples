@@ -1,6 +1,5 @@
 """Quick test agent for Inworld TTS plugin development"""
 import logging
-import os
 from collections.abc import AsyncGenerator, AsyncIterable
 from pathlib import Path
 
@@ -72,7 +71,7 @@ async def entrypoint(ctx: JobContext):
         # OpenAI for LLM
         llm=openai.LLM(model="gpt-4o-mini"),
         # Inworld for text-to-speech (using your local plugin!)
-        tts=inworld.TTS(voice="Alex", timestamp_type="WORD", ws_url="wss://api.dev.inworld.ai/", model="inworld-tts-1.5-max"),
+        tts=inworld.TTS(voice="Alex", timestamp_type="WORD", model="inworld-tts-1.5-max"),
         vad=ctx.proc.userdata["vad"],
         # Enable TTS-aligned transcript so timestamps flow to transcription_node
         use_tts_aligned_transcript=True,
