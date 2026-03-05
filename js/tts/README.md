@@ -125,6 +125,32 @@ node example_tts_low_latency_ws.js
 
 **Output:** TTFB (ms), total time (ms), and audio bytes.
 
+### 9. Voice Cloning (`example_voice_clone.js`)
+
+Clone a voice using audio samples via the Inworld Voice API. Returns voice details and validated sample info.
+
+**Usage:**
+```bash
+npm run voice-clone
+# or
+node example_voice_clone.js --name "My Voice" --audio sample.wav
+```
+
+**Output:** API response with `voiceId`, `displayName`, and validated samples; no local file by default.
+
+### 10. Voice Design & Publish (`example_voice_design_publish.js`)
+
+Design a voice from a text description (no audio required), then optionally publish a preview to your library. Preview audio is saved and opened for playback; you are prompted to publish (Y or n).
+
+**Usage:**
+```bash
+npm run voice-design-publish
+# or
+node example_voice_design_publish.js
+```
+
+**Output:** `design_preview_1.wav` (and `design_preview_2.wav`, `design_preview_3.wav` if multiple samples); optionally published voice in your library.
+
 ## Configuration
 
 All examples use the following default configuration:
@@ -149,6 +175,9 @@ You can modify these values in each example file to test different voices, model
 - **Basic TTS:** `https://api.inworld.ai/tts/v1/voice`
 - **Streaming TTS:** `https://api.inworld.ai/tts/v1/voice:stream`
 - **WebSocket TTS:** `wss://api.inworld.ai/tts/v1/voice:streamBidirectional`
+- **Voice Cloning:** `https://api.inworld.ai/voices/v1/voices:clone`
+- **Voice Design:** `https://api.inworld.ai/voices/v1/voices:design`
+- **Voice Publish:** `https://api.inworld.ai/voices/v1/voices/{voiceId}:publish`
 
 ## Audio Output
 
