@@ -164,7 +164,7 @@ def open_audio_file(file_path: str) -> None:
 
 def ask_publish_choice(count: int, default_display_name: str) -> tuple:
     """Ask user whether to publish (Y or n to skip). If Y and multiple previews, ask which one. Returns (choice 0 or 1..count, display_name)."""
-    raw = input("\nPublish a voice? (Y or n to skip): ").strip().lower()
+    raw = input("\nPublish voice? (Y or n to skip): ").strip().lower()
     if raw not in ("y", "yes"):
         return 0, ""
     choice = 1

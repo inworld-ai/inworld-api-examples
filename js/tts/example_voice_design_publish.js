@@ -210,7 +210,7 @@ function openAudioFile(filePath) {
 function askPublishChoice(count, defaultDisplayName) {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     return new Promise((resolve) => {
-        rl.question('\nPublish a voice? (Y or n to skip): ', (answer) => {
+        rl.question('\nPublish voice? (Y or n to skip): ', (answer) => {
             const trimmed = answer.trim().toLowerCase();
             if (trimmed !== 'y' && trimmed !== 'yes') {
                 rl.close();
