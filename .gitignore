@@ -332,5 +332,5 @@ public
 *.mp3
 synthesis_*.wav
 synthesis_*.mp3
-
+.claude
 

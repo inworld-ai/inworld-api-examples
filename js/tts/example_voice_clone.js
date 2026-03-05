@@ -11,7 +11,7 @@ const path = require('path');
 // ============================================================================
 // CONFIGURATION - Modify this path to use your own audio file
 // ============================================================================
-const DEFAULT_AUDIO_PATH = path.join(__dirname, '..', 'tests-data', 'audio', 'english_british_1.wav');
+const DEFAULT_AUDIO_PATH = path.join(__dirname, '..', '..', 'tests-data', 'audio', 'english_british_1.wav');
 
 // Supported language codes
 const SUPPORTED_LANGUAGES = [
