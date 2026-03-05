@@ -280,10 +280,14 @@ def synthesize_all_chunks(
 
 def combine_audio_buffers(audio_buffers: list[bytes]) -> bytes:
     """
-    Combine multiple MP3 audio buffers into one.
+    Combine multiple MP3 audio buffers into one by raw concatenation.
     Note: Each API response is a complete MP3 file (with its own header/duration). Raw concat
-    produces a file that players and duration tools interpret as only the first segment.
-    Use merge_mp3_segments_with_ffmpeg() to get correct duration and playback.
+    produces a file that players and duration tools interpret as only the first segment,
+    so the reported duration/playback metadata may be incorrect.
+
+    Prefer merge_mp3_segments_with_ffmpeg() when ffmpeg is available, as it produces a single
+    MP3 with correct duration and playback. This function is intended as a fallback when ffmpeg
+    is not available or cannot be used.
     """
     return b''.join(audio_buffers)
 
@@ -305,7 +309,8 @@ def merge_mp3_segments_with_ffmpeg(audio_buffers: list[bytes], output_file: str)
             seg_paths.append(seg_path)
         with open(list_path, "w") as f:
             for p in seg_paths:
-                f.write(f"file '{p}'\n")
+                escaped_p = p.replace("'", "'\\''")
+                f.write(f"file '{escaped_p}'\n")
         result = subprocess.run(
             ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c", "copy", output_file],
             capture_output=True,
@@ -389,7 +394,7 @@ def main():
         print("\nMerging audio...")
         merged_with_ffmpeg = merge_mp3_segments_with_ffmpeg(audio_buffers, output_file)
         if not merged_with_ffmpeg:
-            print("   (ffmpeg not found; saving raw concatenation — duration may show as first segment only)")
+            print("   (ffmpeg unavailable or failed; saving raw concatenation — duration may show as first segment only)")
             combined_audio = combine_audio_buffers(audio_buffers)
             save_audio_to_file(combined_audio, output_file)
         else:

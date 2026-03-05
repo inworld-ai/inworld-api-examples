@@ -10,7 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execFileSync, spawnSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const os = require('os');
 
 // Configuration
@@ -301,10 +301,14 @@ async function synthesizeAllChunks(chunks, voiceId, modelId, apiKey) {
 }
 
 /**
- * Combine multiple audio buffers into one.
+ * Combine multiple audio buffers into one by raw concatenation.
  * Note: Each API response is a complete MP3 file (with its own header/duration). Raw concat
- * produces a file that players and duration tools interpret as only the first segment (e.g. 1:00).
- * Use mergeMp3SegmentsWithFfmpeg() after this to get correct duration and playback.
+ * produces a file that players and duration tools interpret as only the first segment (e.g. 1:00),
+ * so the reported duration/playback metadata may be incorrect.
+ *
+ * Prefer mergeMp3SegmentsWithFfmpeg() when ffmpeg is available, as it produces a single MP3 with
+ * correct duration and playback. This function is intended as a fallback when ffmpeg is not
+ * available or cannot be used.
  * @param {Array<Buffer>} audioBuffers - Audio buffers to combine
  * @returns {Buffer} Combined audio
  */
@@ -338,8 +342,20 @@ function mergeMp3SegmentsWithFfmpeg(audioBuffers, outputFile) {
         });
         return true;
     } catch (e) {
-        if (e.code === 'ENOENT' || e.message && e.message.includes('ffmpeg')) {
+        const ffmpegNotFound = e && (e.code === 'ENOENT' || (e.message && e.message.includes('ffmpeg')));
+        if (ffmpegNotFound) {
             console.log('   (ffmpeg not found; saving raw concatenation — duration may show as first segment only)');
+        } else {
+            console.error('   (ffmpeg failed while merging MP3 segments; falling back to raw concatenation)');
+            console.error('   Error:', e && e.message ? e.message : e);
+            if (e && e.stderr) {
+                try {
+                    const stderrStr = typeof e.stderr === 'string' ? e.stderr : e.stderr.toString();
+                    if (stderrStr) {
+                        console.error('   ffmpeg stderr:\n' + stderrStr);
+                    }
+                } catch (_) {}
+            }
         }
         return false;
     } finally {
