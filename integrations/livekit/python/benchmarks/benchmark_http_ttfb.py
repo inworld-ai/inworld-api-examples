@@ -93,7 +93,6 @@ def create_inworld_tts(session: aiohttp.ClientSession, api_key: str):
         sample_rate=24000,
         http_session=session,
         timestamp_type="TIMESTAMP_TYPE_UNSPECIFIED",
-        base_url="https://api.dev.inworld.ai/",
     )
 
 

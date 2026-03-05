@@ -389,7 +389,7 @@ async def main():
     # Default text with multiple sentences
     if args.text is None:
         text = (
-            "Hello Ian, this is Livekit! Welcome to the TTS benchmark. "
+            "Hello, this is Livekit! Welcome to the TTS benchmark. "
             # "This is a test of the text-to-speech system. "
             # "Each sentence should trigger a separate TTS request. "
             # "Let's see how fast the first audio byte arrives!"
