@@ -1,4 +1,4 @@
-# Inworld Realtime API — Python Quick-Start
+# Inworld Realtime API — Python Quick-Start Examples
 
 Minimal Python examples for the Inworld Realtime API using WebSockets and WebRTC.
 
@@ -13,7 +13,7 @@ Edit `.env` with your credentials from the [Inworld Portal](https://studio.inwor
 
 | Variable | Description |
 |---|---|
-| `INWORLD_API_KEY` | Base64-encoded API key (used by `basic` and `bearer` examples) |
+| `INWORLD_API_KEY` | Base64-encoded API key (used by `basic` examples) |
 | `INWORLD_KEY` | API key ID (used by `jwt` examples to mint tokens) |
 | `INWORLD_SECRET` | API key secret (used by `jwt` examples to mint tokens) |
 | `INWORLD_WORKSPACE` | Workspace resource name, e.g. `workspaces/my-workspace` |

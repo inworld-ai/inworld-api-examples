@@ -17,7 +17,7 @@ import requests
 # ============================================================================
 # CONFIGURATION - Modify this path to use your own audio file
 # ============================================================================
-DEFAULT_AUDIO_PATH = Path(__file__).parent.parent / "tests-data" / "audio" / "english_british_1.wav"
+DEFAULT_AUDIO_PATH = Path(__file__).parent.parent.parent / "tests-data" / "audio" / "english_british_1.wav"
 
 
 def load_audio_file(audio_path: str) -> bytes:
