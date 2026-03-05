@@ -5,11 +5,13 @@
  * This script demonstrates how to synthesize speech from long text by:
  * 1. Chunking text at natural boundaries (paragraphs → newlines → sentences)
  * 2. Processing chunks through the TTS API with controlled concurrency
- * 3. Stitching all MP3 audio outputs together
+ * 3. Merging segment outputs with ffmpeg so duration/playback are correct
  */
 
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
+const os = require('os');
 
 // Configuration
 const INPUT_FILE_PATH = '../tests-data/text/chapter1.txt';  // Path to input text file (relative to this script)
@@ -299,12 +301,70 @@ async function synthesizeAllChunks(chunks, voiceId, modelId, apiKey) {
 }
 
 /**
- * Combine multiple audio buffers into one.
+ * Combine multiple audio buffers into one by raw concatenation.
+ * Note: Each API response is a complete MP3 file (with its own header/duration). Raw concat
+ * produces a file that players and duration tools interpret as only the first segment (e.g. 1:00),
+ * so the reported duration/playback metadata may be incorrect.
+ *
+ * Prefer mergeMp3SegmentsWithFfmpeg() when ffmpeg is available, as it produces a single MP3 with
+ * correct duration and playback. This function is intended as a fallback when ffmpeg is not
+ * available or cannot be used.
  * @param {Array<Buffer>} audioBuffers - Audio buffers to combine
  * @returns {Buffer} Combined audio
  */
 function combineAudioBuffers(audioBuffers) {
     return Buffer.concat(audioBuffers);
+}
+
+/**
+ * Merge multiple MP3 buffers into one file with correct duration using ffmpeg.
+ * Each non-streaming API response is a full MP3; raw concat makes duration/show length wrong.
+ * @param {Array<Buffer>} audioBuffers - One MP3 buffer per segment
+ * @param {string} outputFile - Output path for merged MP3
+ * @returns {boolean} true if merged with ffmpeg, false if ffmpeg unavailable (caller should fall back)
+ */
+function mergeMp3SegmentsWithFfmpeg(audioBuffers, outputFile) {
+    const tmpDir = path.join(os.tmpdir(), `inworld-tts-long-${Date.now()}`);
+    fs.mkdirSync(tmpDir, { recursive: true });
+    try {
+        const listPath = path.join(tmpDir, 'list.txt');
+        const segPaths = [];
+        for (let i = 0; i < audioBuffers.length; i++) {
+            const segPath = path.join(tmpDir, `seg_${i}.mp3`);
+            fs.writeFileSync(segPath, audioBuffers[i]);
+            segPaths.push(segPath);
+        }
+        // ffmpeg concat demuxer: paths must be escaped for ' in file names
+        const listContent = segPaths.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join('\n');
+        fs.writeFileSync(listPath, listContent);
+        execFileSync('ffmpeg', ['-y', '-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', outputFile], {
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+        return true;
+    } catch (e) {
+        const ffmpegNotFound = e && (e.code === 'ENOENT' || (e.message && e.message.includes('ffmpeg')));
+        if (ffmpegNotFound) {
+            console.log('   (ffmpeg not found; saving raw concatenation — duration may show as first segment only)');
+        } else {
+            console.error('   (ffmpeg failed while merging MP3 segments; falling back to raw concatenation)');
+            console.error('   Error:', e && e.message ? e.message : e);
+            if (e && e.stderr) {
+                try {
+                    const stderrStr = typeof e.stderr === 'string' ? e.stderr : e.stderr.toString();
+                    if (stderrStr) {
+                        console.error('   ffmpeg stderr:\n' + stderrStr);
+                    }
+                } catch (_) {}
+            }
+        }
+        return false;
+    } finally {
+        try {
+            const files = fs.readdirSync(tmpDir);
+            for (const f of files) fs.unlinkSync(path.join(tmpDir, f));
+            fs.rmdirSync(tmpDir);
+        } catch (_) {}
+    }
 }
 
 /**
@@ -364,15 +424,17 @@ async function main() {
         console.log(`Synthesizing with ${MAX_CONCURRENT_REQUESTS} concurrent requests...\n`);
         const audioBuffers = await synthesizeAllChunks(chunks, voiceId, modelId, apiKey);
         
-        // Combine audio
-        console.log('\nCombining audio...');
-        const combinedAudio = combineAudioBuffers(audioBuffers);
-        
-        // Save output
-        saveAudioToFile(combinedAudio, outputFile);
-        
-        // Report
-        const fileSizeKB = (combinedAudio.length / 1024).toFixed(1);
+        // Merge audio (ffmpeg gives correct duration; raw concat would show first segment only)
+        console.log('\nMerging audio...');
+        const mergedWithFfmpeg = mergeMp3SegmentsWithFfmpeg(audioBuffers, outputFile);
+        if (!mergedWithFfmpeg) {
+            const combinedAudio = combineAudioBuffers(audioBuffers);
+            saveAudioToFile(combinedAudio, outputFile);
+        } else {
+            console.log(`Audio saved to: ${outputFile}`);
+        }
+
+        const fileSizeKB = (fs.statSync(outputFile).size / 1024).toFixed(1);
         const elapsed = (Date.now() - startTime) / 1000;
         console.log(`Output size: ${fileSizeKB} KB`);
         console.log(`Completed in ${elapsed.toFixed(2)}s`);
@@ -389,4 +451,4 @@ if (require.main === module) {
     main().then(process.exit);
 }
 
-module.exports = { chunkText, synthesizeSpeech, combineAudioBuffers, synthesizeAllChunks };
+module.exports = { chunkText, synthesizeSpeech, combineAudioBuffers, mergeMp3SegmentsWithFfmpeg, synthesizeAllChunks };
