@@ -5,12 +5,14 @@ Example script for Inworld TTS synthesis with long text input (MP3 compressed).
 This script demonstrates how to synthesize speech from long text by:
 1. Chunking text at natural boundaries (paragraphs → newlines → sentences)
 2. Processing chunks through the TTS API with controlled concurrency
-3. Stitching all MP3 audio outputs together
+3. Merging segment outputs with ffmpeg so duration/playback are correct.
 """
 
 import base64
 import os
 import re
+import subprocess
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -279,14 +281,50 @@ def synthesize_all_chunks(
 def combine_audio_buffers(audio_buffers: list[bytes]) -> bytes:
     """
     Combine multiple MP3 audio buffers into one.
-    
-    Args:
-        audio_buffers: List of MP3 audio data buffers
-        
-    Returns:
-        Combined audio buffer
+    Note: Each API response is a complete MP3 file (with its own header/duration). Raw concat
+    produces a file that players and duration tools interpret as only the first segment.
+    Use merge_mp3_segments_with_ffmpeg() to get correct duration and playback.
     """
     return b''.join(audio_buffers)
+
+
+def merge_mp3_segments_with_ffmpeg(audio_buffers: list[bytes], output_file: str) -> bool:
+    """
+    Merge multiple MP3 buffers into one file with correct duration using ffmpeg.
+    Each non-streaming API response is a full MP3; raw concat makes duration/show length wrong.
+    Returns True if merged with ffmpeg, False if ffmpeg unavailable (caller should fall back).
+    """
+    tmp_dir = tempfile.mkdtemp(prefix="inworld-tts-long-")
+    try:
+        list_path = os.path.join(tmp_dir, "list.txt")
+        seg_paths = []
+        for i, buf in enumerate(audio_buffers):
+            seg_path = os.path.join(tmp_dir, f"seg_{i}.mp3")
+            with open(seg_path, "wb") as f:
+                f.write(buf)
+            seg_paths.append(seg_path)
+        with open(list_path, "w") as f:
+            for p in seg_paths:
+                f.write(f"file '{p}'\n")
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_path, "-c", "copy", output_file],
+            capture_output=True,
+            timeout=120,
+        )
+        if result.returncode == 0:
+            return True
+        return False
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+    except Exception:
+        return False
+    finally:
+        try:
+            for f in os.listdir(tmp_dir):
+                os.unlink(os.path.join(tmp_dir, f))
+            os.rmdir(tmp_dir)
+        except OSError:
+            pass
 
 
 def save_audio_to_file(audio_data: bytes, output_file: str):
@@ -347,15 +385,18 @@ def main():
         print(f"Synthesizing with {MAX_CONCURRENT_REQUESTS} concurrent requests...\n")
         audio_buffers = synthesize_all_chunks(chunks, config)
         
-        # Combine audio
-        print("\nCombining audio...")
-        combined_audio = combine_audio_buffers(audio_buffers)
-        
-        # Save output
-        save_audio_to_file(combined_audio, output_file)
+        # Merge audio (ffmpeg gives correct duration; raw concat would show first segment only)
+        print("\nMerging audio...")
+        merged_with_ffmpeg = merge_mp3_segments_with_ffmpeg(audio_buffers, output_file)
+        if not merged_with_ffmpeg:
+            print("   (ffmpeg not found; saving raw concatenation — duration may show as first segment only)")
+            combined_audio = combine_audio_buffers(audio_buffers)
+            save_audio_to_file(combined_audio, output_file)
+        else:
+            print(f"Audio saved to: {output_file}")
         
         # Report
-        file_size_kb = len(combined_audio) / 1024
+        file_size_kb = os.path.getsize(output_file) / 1024
         elapsed = time.time() - start_time
         print(f"Output size: {file_size_kb:.1f} KB")
         print(f"Completed in {elapsed:.2f}s")
