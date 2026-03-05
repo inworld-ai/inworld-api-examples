@@ -178,10 +178,10 @@ python tts_cli.py --output-file output.wav --text "Hello world" --stream --times
 python tts_cli.py --output-file output.wav --temperature 0.8 --text-normalization off
 
 # Batch testing with JSON samples
-python tts_cli.py --json-example ../../tests-data/tts/tts_marketing_samples.json
+python tts_cli.py --json-example ../tests-data/tts/tts_marketing_samples.json
 
 # Batch testing with streaming and character-level timestamps
-python tts_cli.py --json-example ../../tests-data/tts/tts_marketing_samples.json --stream --timestamp character
+python tts_cli.py --json-example ../tests-data/tts/tts_marketing_samples.json --stream --timestamp character
 
 # Custom voice and model with all options
 python tts_cli.py --output-file output.wav --voice-id Dennis --model-id inworld-tts-1.5-max --temperature 1.2 --timestamp word --text-normalization on

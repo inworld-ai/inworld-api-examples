@@ -15,5 +15,5 @@ These examples are short snippets that demonstrate best-practices in using Inwor
 
 ## Getting Started
 
-- **[Python Examples](./python/)** - Complete examples for Python integration
-- **[JavaScript Examples](./js/)** - Complete examples for JavaScript integration
+- **[TTS Examples](./tts/)** - Text-to-speech synthesis examples (Python & JavaScript)
+- **[Realtime Examples](./realtime/)** - Realtime voice agent examples (Python & JavaScript)
