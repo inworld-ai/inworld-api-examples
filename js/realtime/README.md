@@ -1,6 +1,6 @@
 # Inworld Realtime API — Quick-Start Examples
 
-Minimal Node.js examples for the Inworld Realtime and TTS APIs using WebSockets, WebRTC, and REST.
+Minimal Node.js examples for the Inworld Realtime API using WebSockets and WebRTC.
 
 ## Setup
 
@@ -26,7 +26,6 @@ Each example starts a local server at `http://localhost:3000`.
 
 ```bash
 npm run websockets:basic   # Basic auth
-npm run websockets:bearer  # Bearer auth (Base64 key)
 npm run websockets:jwt     # JWT auth
 ```
 
@@ -36,26 +35,14 @@ Proxies a browser WebSocket through the server to the Inworld Realtime API. The 
 
 ```bash
 npm run webrtc:basic       # Basic auth
-npm run webrtc:bearer      # Bearer auth (Base64 key)
 npm run webrtc:jwt         # JWT auth
 ```
 
 Browser-native WebRTC connection to the Inworld Realtime API. The server provides credentials and ICE servers; the browser handles the peer connection directly.
 
-### Text-to-Speech
-
-```bash
-npm run tts:basic          # Basic auth
-npm run tts:bearer         # Bearer auth (Base64 key)
-npm run tts:jwt            # JWT auth
-```
-
-Streams synthesized audio from the Inworld TTS API. Type text, pick a voice and model, and hear it played back with streaming chunk stats.
-
 ## Auth Modes
 
-- **Basic** — sends the Base64 API key with the Basic scheme (`Authorization: Basic $INWORLD_API_KEY`). Simple, but don't expose this in client-side code.
-- **Bearer** — sends the same Base64 API key with the Bearer scheme (`Authorization: Bearer $INWORLD_API_KEY`). Same key, different header format.
+- **Basic** — sends the Base64 API key with the Basic scheme (`Authorization: Basic $INWORLD_API_KEY`). Simple, but keep server-side only.
 - **JWT** — the server mints a short-lived token using `INWORLD_KEY` + `INWORLD_SECRET`, then uses it with `Authorization: Bearer $JWT`. Safer for client-facing apps.
 
 ## Project Structure
@@ -68,8 +55,5 @@ Streams synthesized audio from the Inworld TTS API. Type text, pick a voice and 
 ├── webrtc/
 │   ├── basic/               # WebRTC + Basic auth
 │   └── jwt/                 # WebRTC + JWT auth
-├── tts/
-│   ├── basic/               # TTS + Basic auth
-│   └── jwt/                 # TTS + JWT auth
 └── .env.example
 ```

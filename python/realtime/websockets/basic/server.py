@@ -10,7 +10,6 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 API_KEY = os.environ.get("INWORLD_API_KEY", "")
-AUTH_PREFIX = "Bearer" if os.environ.get("AUTH_TYPE") == "bearer" else "Basic"
 HTML = (Path(__file__).parent / "index.html").read_bytes()
 
 
@@ -24,7 +23,7 @@ async def ws_proxy(request):
 
     url = f"wss://api.inworld.ai/api/v1/realtime/session?key=voice-{int(time.time()*1000)}&protocol=realtime"
     session = aiohttp.ClientSession()
-    api = await session.ws_connect(url, headers={"Authorization": f"{AUTH_PREFIX} {API_KEY}"})
+    api = await session.ws_connect(url, headers={"Authorization": f"Basic {API_KEY}"})
 
     async def api_to_browser():
         async for msg in api:
@@ -52,5 +51,21 @@ app = web.Application()
 app.router.add_get("/", index)
 app.router.add_get("/ws", ws_proxy)
 
+MAX_HEADER = 32768
+
+def find_port(start=3000):
+    import socket
+    port = start
+    while port < start + 100:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(("localhost", port)) != 0:
+                return port
+        print(f"Port {port} in use, trying {port + 1}...")
+        port += 1
+    raise RuntimeError("No free port found")
+
+
 if __name__ == "__main__":
-    web.run_app(app, port=int(os.environ.get("PORT", 3000)))
+    port = find_port(int(os.environ.get("PORT", 3000)))
+    web.run_app(app, port=port, print=lambda _: print(f"Open http://localhost:{port}"),
+                handler_cancellation=True, max_field_size=MAX_HEADER)

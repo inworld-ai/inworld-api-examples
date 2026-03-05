@@ -9,7 +9,6 @@ dotenv.config({ path: resolve(__dirname, '../../.env') });
 
 const html = readFileSync(resolve(__dirname, 'index.html'));
 const API_KEY = process.env.INWORLD_API_KEY || '';
-const AUTH_PREFIX = process.env.AUTH_TYPE === 'bearer' ? 'Bearer' : 'Basic';
 const PROXY = 'https://api.inworld.ai';
 
 const server = createServer(async (req, res) => {
@@ -20,7 +19,7 @@ const server = createServer(async (req, res) => {
       const iceUrl = `${PROXY}/v1/realtime/ice-servers`;
       console.log('[config] fetching ICE servers →', iceUrl);
       const r = await fetch(iceUrl, {
-        headers: { Authorization: `${AUTH_PREFIX} ${API_KEY}` },
+        headers: { Authorization: `Basic ${API_KEY}` },
       });
       if (r.ok) {
         ice = (await r.json()).ice_servers || [];
@@ -33,7 +32,7 @@ const server = createServer(async (req, res) => {
       console.error('[config] ICE fetch error:', e.message);
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ api_key: API_KEY, auth_prefix: AUTH_PREFIX, ice_servers: ice, url: `${PROXY}/v1/realtime/calls` }));
+    res.end(JSON.stringify({ api_key: API_KEY, auth_prefix: 'Basic', ice_servers: ice, url: `${PROXY}/v1/realtime/calls` }));
     return;
   }
   res.writeHead(200, { 'Content-Type': 'text/html' });

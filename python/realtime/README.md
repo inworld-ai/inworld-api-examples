@@ -1,6 +1,6 @@
 # Inworld Realtime API — Python Quick-Start
 
-Minimal Python examples for the Inworld Realtime and TTS APIs using WebSockets, WebRTC, and REST.
+Minimal Python examples for the Inworld Realtime API using WebSockets and WebRTC.
 
 ## Setup
 
@@ -26,7 +26,6 @@ Each example starts a local server at `http://localhost:3000`.
 
 ```bash
 python websockets/basic/server.py          # Basic auth
-AUTH_TYPE=bearer python websockets/basic/server.py  # Bearer auth
 python websockets/jwt/server.py            # JWT auth
 ```
 
@@ -34,31 +33,19 @@ python websockets/jwt/server.py            # JWT auth
 
 ```bash
 python webrtc/basic/server.py              # Basic auth
-AUTH_TYPE=bearer python webrtc/basic/server.py      # Bearer auth
 python webrtc/jwt/server.py                # JWT auth
-```
-
-### Text-to-Speech
-
-```bash
-python tts/basic/server.py                 # Basic auth
-AUTH_TYPE=bearer python tts/basic/server.py         # Bearer auth
-python tts/jwt/server.py                   # JWT auth
 ```
 
 ## Project Structure
 
 ```
-├── jwt/mint_jwt.py          # JWT minting helper
+├── auth/mint_jwt.py         # JWT minting helper
 ├── websockets/
 │   ├── basic/               # WS + Basic auth
 │   └── jwt/                 # WS + JWT auth
 ├── webrtc/
 │   ├── basic/               # WebRTC + Basic auth
 │   └── jwt/                 # WebRTC + JWT auth
-├── tts/
-│   ├── basic/               # TTS + Basic auth
-│   └── jwt/                 # TTS + JWT auth
 ├── requirements.txt
 └── .env.example
 ```

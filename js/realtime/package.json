@@ -4,14 +4,9 @@
   "description": "",
   "scripts": {
     "websockets:basic": "node websockets/basic/server.js",
-    "websockets:bearer": "AUTH_TYPE=bearer node websockets/basic/server.js",
     "websockets:jwt": "node websockets/jwt/server.js",
     "webrtc:basic": "node webrtc/basic/server.js",
-    "webrtc:bearer": "AUTH_TYPE=bearer node webrtc/basic/server.js",
-    "webrtc:jwt": "node webrtc/jwt/server.js",
-    "tts:basic": "node tts/basic/server.js",
-    "tts:bearer": "AUTH_TYPE=bearer node tts/basic/server.js",
-    "tts:jwt": "node tts/jwt/server.js"
+    "webrtc:jwt": "node webrtc/jwt/server.js"
   },
   "keywords": [],
   "author": "",

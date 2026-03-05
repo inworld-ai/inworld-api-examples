@@ -9,7 +9,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, '../../.env') });
 
 const API_KEY = process.env.INWORLD_API_KEY || '';
-const AUTH_PREFIX = process.env.AUTH_TYPE === 'bearer' ? 'Bearer' : 'Basic';
 
 const html = readFileSync(resolve(__dirname, 'index.html'));
 const server = createServer((req, res) => {
@@ -21,7 +20,7 @@ const wss = new WebSocketServer({ server, path: '/ws' });
 wss.on('connection', (browser) => {
   const api = new WebSocket(
     `wss://api.inworld.ai/api/v1/realtime/session?key=voice-${Date.now()}&protocol=realtime`,
-    { headers: { Authorization: `${AUTH_PREFIX} ${API_KEY}` } }
+    { headers: { Authorization: `Basic ${API_KEY}` } }
   );
 
   api.on('message', (raw) => {
