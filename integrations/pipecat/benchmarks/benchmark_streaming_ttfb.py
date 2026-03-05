@@ -549,7 +549,7 @@ async def main():
         "inworld": {
             "name": "Inworld HTTP",
             "create_fn": create_inworld_http_tts,
-            "api_key_env": "BASE64_SECRET_KEY",
+            "api_key_env": "INWORLD_API_KEY",
             "extra_env": {},
         },
         "elevenlabs": {
