@@ -11,7 +11,8 @@
     "tts-low-latency-http": "node example_tts_low_latency_http.js",
     "tts-low-latency-ws": "node example_tts_low_latency_ws.js",
     "tts-websocket": "node example_websocket.js",
-    "voice-clone": "node example_voice_clone.js"
+    "voice-clone": "node example_voice_clone.js",
+    "voice-design-publish": "node example_voice_design_publish.js"
   },
   "keywords": [
     "inworld",

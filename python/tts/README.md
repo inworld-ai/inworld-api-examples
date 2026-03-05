@@ -189,6 +189,43 @@ python tts_cli.py --output-file output.wav --voice-id Dennis --model-id inworld-
 
 **Best for:** Testing, development, batch processing, and performance analysis.
 
+---
+
+### 10. `example_voice_clone.py` - Voice Cloning
+**Purpose:** Clone a voice using audio samples via the Inworld Voice API.
+
+**Features:**
+- Clone voices from WAV or MP3 audio samples
+- Support for multiple audio samples and optional transcriptions
+- Background noise removal and tag/description support
+- Returns voice details and validated sample info
+
+**Usage:**
+```bash
+python example_voice_clone.py
+```
+
+**Best for:** Creating custom voices from existing voice recordings.
+
+---
+
+### 11. `example_voice_design_publish.py` - Voice Design & Publish
+**Purpose:** Design a voice from a text description (no audio required), then optionally publish a preview to your library.
+
+**Features:**
+- No audio files required; uses a text description and preview script
+- Voice description 30–250 characters; script 50–200 chars recommended
+- Saves preview audio to `design_preview_1.wav` (etc.) and opens for playback
+- Interactive prompt to publish (Y or n) with optional display name, description, tags
+
+**Usage:**
+```bash
+python example_voice_design_publish.py
+```
+
+**Best for:** Creating custom voices without audio samples; use Publish Voice to save a preview to your library.
+
+
 ## Configuration Options
 
 All examples support the following configuration through code modification:
