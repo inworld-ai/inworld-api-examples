@@ -99,7 +99,7 @@ class InworldMaxService {
                 audioEncoding: 'MP3',
                 sampleRateHertz: 44100  // Standardized to 44.1kHz for better browser compatibility
             },
-            temperature: 1.1
+            temperature: 1.0
         };
 
         // Create Basic auth header - Inworld expects the API key directly, not base64 encoded
