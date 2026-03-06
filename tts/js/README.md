@@ -4,7 +4,7 @@ This directory contains JavaScript/Node.js examples demonstrating how to use the
 
 ## Prerequisites
 
-- Node.js 18.0.0 or higher (recommended: 24.7.0 as specified in `.tool-versions`)
+- Node.js 20.0.0 or higher
 - npm or yarn package manager
 - Inworld API key
 

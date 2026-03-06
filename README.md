@@ -9,7 +9,7 @@
 
 </div>
 
-This repository contains examples to help you get started with the [Inworld APIs](https://docs.inworld.ai/api-reference/introduction). 
+This repository contains examples to help you get started with the [Inworld APIs](https://docs.inworld.ai/api-reference/introduction).
 These examples are short snippets that demonstrate best-practices in using Inworld and accelerating your development process.
 
 
@@ -17,8 +17,8 @@ These examples are short snippets that demonstrate best-practices in using Inwor
 
 | | Requirement |
 |---|---|
-| **Python** | 3.7+ |
-| **Node.js** | 18+ |
+| **Python** | 3.10+ |
+| **Node.js** | 20+ |
 | **API key** | [Get one at inworld.ai](https://platform.inworld.ai/api-keys) |
 
 
@@ -26,24 +26,27 @@ These examples are short snippets that demonstrate best-practices in using Inwor
 
 ```
 inworld-api-examples/
-├── tts/                             # Text-to-speech examples
-│   ├── python/                      # Basic synthesis, HTTP streaming, WebSocket streaming,
-│   │                                # word/phoneme timestamps, long-text chunking,
-│   │                                # low-latency benchmarks, voice cloning, voice design,
-│   │                                # and a batch-testing CLI (tts_cli.py)
-│   ├── js/                          # Basic synthesis, HTTP streaming, WebSocket streaming,
-│   │                                # word/phoneme timestamps, long-text chunking,
-│   │                                # low-latency benchmarks, voice cloning, voice design
-│   │   └── tts_latency_comparison/  # Interactive web app: compare TTS latency across providers
-│   └── tests-data/                  # Shared sample audio and text fixtures
-│
-└── realtime/                        # Real-time voice agent examples
-    ├── python/                      # WebSocket & WebRTC servers, basic and JWT auth
-    │   ├── websockets/
-    │   └── webrtc/
-    └── js/                          # WebSocket & WebRTC servers, basic and JWT auth
-        ├── websockets/
-        └── webrtc/
+├── tts/
+│   ├── python/
+│   └── js/
+└── realtime/
+    ├── python/
+    └── js/
 ```
 
-Each subdirectory has its own `README.md` with setup instructions and usage examples.
+## Getting Started
+
+### [TTS](./tts)
+
+Covers synthesis, HTTP & WebSocket streaming, word/phoneme timestamps, long-text chunking, low-latency benchmarks, voice cloning, and voice design.
+
+- **[Python](./tts/python/)** — Text-to-speech examples in Python
+- **[JavaScript](./tts/js/)** — Text-to-speech examples in JavaScript
+
+
+### [Realtime](./realtime/)
+
+Covers WebSocket and WebRTC-based real-time voice agents with both basic and JWT authentication.
+
+- **[Python](./realtime/python/)** — Real-time voice agent examples in Python
+- **[JavaScript](./realtime/js/)** — Real-time voice agent examples in JavaScript
