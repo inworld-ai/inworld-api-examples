@@ -1,0 +1,33 @@
+{
+  "name": "inworld-tts-examples",
+  "version": "1.0.0",
+  "description": "Inworld TTS API examples in JavaScript/Node.js",
+  "main": "index.js",
+  "scripts": {
+    "tts": "node example_tts.js",
+    "tts-long": "node example_tts_long_input.js",
+    "tts-long-compressed": "node example_tts_long_input_compressed.js",
+    "tts-stream": "node example_tts_stream.js",
+    "tts-low-latency-http": "node example_tts_low_latency_http.js",
+    "tts-low-latency-ws": "node example_tts_low_latency_ws.js",
+    "tts-websocket": "node example_websocket.js",
+    "voice-clone": "node example_voice_clone.js",
+    "voice-design-publish": "node example_voice_design_publish.js"
+  },
+  "keywords": [
+    "inworld",
+    "tts",
+    "text-to-speech",
+    "api",
+    "examples"
+  ],
+  "author": "Inworld AI",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "ws": "^8.14.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
