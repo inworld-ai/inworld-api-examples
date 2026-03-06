@@ -9,6 +9,8 @@
  * then measure only the synthesis latency on the reused connection.
  */
 
+try { require('dotenv').config(); } catch (_) {}
+
 /**
  * Check if INWORLD_API_KEY environment variable is set.
  * @returns {string|null} API key or null if not set
@@ -153,7 +155,7 @@ async function main() {
     // Configuration
     const text = "Life moves pretty fast. Look around once in a while, or you might miss it.";
     const voiceId = 'Dennis';
-    const modelId = 'inworld-tts-1.5-mini';
+    const modelId = 'inworld-tts-1.5-mini'; // mini model for streaming: lower latency
 
     console.log(`   Text: "${text}"`);
     console.log(`  Voice: ${voiceId}`);

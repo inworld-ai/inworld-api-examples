@@ -7,6 +7,7 @@
  */
 
 const fs = require('fs');
+try { require('dotenv').config(); } catch (_) {}
 
 /**
  * Check if INWORLD_API_KEY environment variable is set.
@@ -273,7 +274,7 @@ async function main() {
     // Configuration
     const text = "Hello, adventurer! What a beautiful day, isn't it?";
     const voiceId = 'Dennis';
-    const modelId = 'inworld-tts-1.5-max';
+    const modelId = 'inworld-tts-1.5-mini'; // mini model for streaming: lower latency
     const outputFile = 'synthesis_stream_timestamps_output.mp3';
 
     try {

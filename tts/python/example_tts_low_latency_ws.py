@@ -16,6 +16,12 @@ import os
 import re
 import time
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv is optional; INWORLD_API_KEY can also be set via export
+
 import websockets
 from websockets.exceptions import WebSocketException
 
@@ -161,7 +167,7 @@ async def main():
     # Configuration
     text = "Life moves pretty fast. Look around once in a while, or you might miss it."
     voice_id = "Dennis"
-    model_id = "inworld-tts-1.5-mini"
+    model_id = "inworld-tts-1.5-mini"  # mini model for WebSocket: lower latency
 
     print(f"   Text: \"{text}\"")
     print(f"  Voice: {voice_id}")

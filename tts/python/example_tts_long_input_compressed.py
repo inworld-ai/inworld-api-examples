@@ -19,6 +19,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv is optional; INWORLD_API_KEY can also be set via export
+
 import requests
 
 # Configuration
@@ -361,7 +367,7 @@ def main():
     
     # Configuration - modify these for your use case
     voice_id = "Edward"
-    model_id = "inworld-tts-1.5-max"
+    model_id = "inworld-tts-1.5-max"  # max model for non-streaming: higher quality
     output_file = "synthesis_long_output.mp3"
     
     script_dir = Path(__file__).parent

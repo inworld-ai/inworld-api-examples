@@ -10,6 +10,7 @@
  */
 
 const WebSocket = require('ws');
+try { require('dotenv').config(); } catch (_) {}
 
 /**
  * Check if INWORLD_API_KEY environment variable is set.
@@ -195,7 +196,7 @@ async function main() {
     // Configuration
     const text = "Life moves pretty fast. Look around once in a while, or you might miss it.";
     const voiceId = 'Dennis';
-    const modelId = 'inworld-tts-1.5-mini';
+    const modelId = 'inworld-tts-1.5-mini'; // mini model for WebSocket: lower latency
 
     console.log(`   Text: "${text}"`);
     console.log(`  Voice: ${voiceId}`);

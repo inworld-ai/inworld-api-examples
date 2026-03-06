@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const os = require('os');
+try { require('dotenv').config(); } catch (_) {}
 
 // Configuration
 const INPUT_FILE_PATH = '../tests-data/text/chapter1.txt';  // Path to input text file (relative to this script)
@@ -405,7 +406,7 @@ async function main() {
     
     // Configuration - modify these for your use case
     const voiceId = 'Edward';
-    const modelId = 'inworld-tts-1.5-max';
+    const modelId = 'inworld-tts-1.5-max'; // max model for non-streaming: higher quality
     const outputFile = 'synthesis_long_output.mp3';
     const inputFile = path.join(__dirname, INPUT_FILE_PATH);
     

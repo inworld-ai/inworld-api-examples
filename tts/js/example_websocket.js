@@ -8,6 +8,7 @@
 
 const fs = require('fs');
 const WebSocket = require('ws');
+try { require('dotenv').config(); } catch (_) {}
 
 /**
  * Check if INWORLD_API_KEY environment variable is set.
@@ -263,7 +264,7 @@ async function main() {
             context_id: 'ctx-1',
             create: {
                 voice_id: 'Ashley',
-                model_id: 'inworld-tts-1.5-mini',
+                model_id: 'inworld-tts-1.5-mini', // mini model for WebSocket: lower latency
                 audio_config: {
                     audio_encoding: 'OGG_OPUS',
                     sample_rate_hertz: 24000,

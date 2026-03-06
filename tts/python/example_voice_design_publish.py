@@ -18,6 +18,12 @@ import time
 from pathlib import Path
 from urllib.parse import quote
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv is optional; INWORLD_API_KEY can also be set via export
+
 import requests
 
 # ============================================================================
@@ -360,8 +366,6 @@ Examples:
         print(f"  langCode: {v['langCode']}")
     if v.get("source"):
         print(f"  source: {v['source']}")
-    if v.get("name"):
-        print(f"  name: {v['name']}")
 
     return 0
 

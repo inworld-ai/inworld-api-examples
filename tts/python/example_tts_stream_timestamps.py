@@ -11,6 +11,12 @@ import json
 import os
 import time
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv is optional; INWORLD_API_KEY can also be set via export
+
 import requests
 
 
@@ -229,7 +235,7 @@ def main():
     # Configuration
     text = "Hello, adventurer! What a beautiful day, isn't it?"
     voice_id = "Dennis"
-    model_id = "inworld-tts-1.5-max"
+    model_id = "inworld-tts-1.5-mini"  # mini model for streaming: lower latency
     output_file = "synthesis_stream_timestamps_output.mp3"
 
     try:

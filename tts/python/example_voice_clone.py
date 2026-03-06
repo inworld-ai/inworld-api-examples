@@ -12,6 +12,12 @@ import os
 import time
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv is optional; INWORLD_API_KEY can also be set via export
+
 import requests
 
 # ============================================================================

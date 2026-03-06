@@ -4,6 +4,8 @@
  * Handles Inworld text-to-speech processing
  */
 
+import { Readable } from 'stream';
+
 class InworldService {
     constructor(audioManager, vadService = null) {
         this.audioManager = audioManager;
@@ -105,15 +107,25 @@ class InworldService {
 
         const response = await fetch(
             'https://api.inworld.ai/tts/v1/voice:stream',
-            requestBody,
             {
+                method: 'POST',
                 headers: {
                     'Authorization': authHeader,
                     'Content-Type': 'application/json'
                 },
-                responseType: 'stream'
+                body: JSON.stringify(requestBody)
             }
         );
+
+        if (!response.ok) {
+            throw new Error(`Inworld TTS request failed: ${response.status} ${response.statusText}`);
+        }
+        if (!response.body) {
+            throw new Error('Inworld TTS response has no body');
+        }
+
+        // Convert Web ReadableStream to Node.js stream for .on('data'/'end'/'error')
+        const stream = Readable.fromWeb(response.body);
 
         // Handle streaming response
         let bytesReceived = 0;
@@ -125,7 +137,7 @@ class InworldService {
         let firstWordTimestamp = null;
         let lastWordTimestamp = 0;
         
-        response.data.on('data', (chunk) => {
+        stream.on('data', (chunk) => {
             bytesReceived += chunk.length;
             buffer += chunk.toString();
             
@@ -253,7 +265,7 @@ class InworldService {
         });
 
         await new Promise((resolve, reject) => {
-        response.data.on('end', async () => {
+        stream.on('end', async () => {
             let completeAudioPath = null; // Declare at proper scope
             let hasAudio = false;
             
@@ -323,7 +335,7 @@ class InworldService {
                 
                 resolve();
             });
-            response.data.on('error', reject);
+            stream.on('error', reject);
         });
 
         // Return the time to first byte and whether audio was generated

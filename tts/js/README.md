@@ -17,6 +17,11 @@ This directory contains JavaScript/Node.js examples demonstrating how to use the
 
 2. **Set your API key:**
    ```bash
+   cp .env.example .env
+   # Edit .env and set INWORLD_API_KEY=your_api_key_here
+   ```
+   Or via shell export:
+   ```bash
    export INWORLD_API_KEY=your_api_key_here
    ```
 

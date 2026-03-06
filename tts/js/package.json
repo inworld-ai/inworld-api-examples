@@ -24,6 +24,7 @@
   "author": "Inworld AI",
   "license": "MIT",
   "dependencies": {
+    "dotenv": "^16.0.0",
     "ws": "^8.14.0"
   },
   "engines": {

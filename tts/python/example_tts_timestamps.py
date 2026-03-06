@@ -12,6 +12,12 @@ import os
 import time
 import wave
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv is optional; INWORLD_API_KEY can also be set via export
+
 import requests
 
 
@@ -183,7 +189,7 @@ def main():
     # Configuration
     text = "Hello, adventurer! What a beautiful day, isn't it?"
     voice_id = "Dennis"
-    model_id = "inworld-tts-1.5-max"
+    model_id = "inworld-tts-1.5-max"  # max model for non-streaming: higher quality
     output_file = "synthesis_timestamps_output.wav"
 
     try:

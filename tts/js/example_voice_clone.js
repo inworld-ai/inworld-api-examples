@@ -7,6 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
+try { require('dotenv').config(); } catch (_) {}
 
 // ============================================================================
 // CONFIGURATION - Modify this path to use your own audio file

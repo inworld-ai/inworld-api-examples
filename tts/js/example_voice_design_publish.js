@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const { execSync } = require('child_process');
+try { require('dotenv').config(); } catch (_) {}
 
 // ============================================================================
 // CONFIGURATION - Default voice description (must be 30-250 characters)
@@ -451,7 +452,6 @@ async function main() {
         if (v.tags && v.tags.length) console.log(`  tags: ${v.tags.join(', ')}`);
         if (v.langCode) console.log(`  langCode: ${v.langCode}`);
         if (v.source) console.log(`  source: ${v.source}`);
-        if (v.name) console.log(`  name: ${v.name}`);
 
         return 0;
     } catch (error) {

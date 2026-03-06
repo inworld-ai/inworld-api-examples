@@ -14,6 +14,12 @@ import os
 import time
 from typing import AsyncGenerator, Optional
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv is optional; INWORLD_API_KEY can also be set via export
+
 import websockets
 from websockets.exceptions import ConnectionClosedError, WebSocketException
 
