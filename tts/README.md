@@ -8,7 +8,7 @@
 
 See each subdirectory's README for setup and usage.
 
-## TTS API options: when to use which
+## TTS example options: when to use which
 
 For real-time use cases, minimizing latency is critical. Inworld offers three ways to synthesize speech; choose based on your latency and integration needs:
 
