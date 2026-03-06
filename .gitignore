@@ -327,6 +327,8 @@ public
 
 .DS_Store
 
+.claude
+
 # Audio output files from examples
 *.wav
 *.mp3
