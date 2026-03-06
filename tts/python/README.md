@@ -4,7 +4,7 @@ This directory contains Python examples demonstrating how to use the Inworld AI 
 
 ## Prerequisites
 
-- Python 3.7 or higher
+- Python 3.10 or higher
 - Inworld AI API key
 
 ## Quick Start
