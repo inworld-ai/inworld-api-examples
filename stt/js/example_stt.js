@@ -93,7 +93,7 @@ async function main() {
     const audioPath = process.argv[2] || DEFAULT_AUDIO_PATH;
     if (!fs.existsSync(audioPath)) {
         console.log(`Error: Audio file not found: ${audioPath}`);
-        console.log('Usage: node example_stt_sync.js [path/to/audio.wav]');
+        console.log('Usage: node example_stt.js [path/to/audio.wav]');
         console.log('Default: ../tests-data/audio/test-audio.wav');
         return 1;
     }

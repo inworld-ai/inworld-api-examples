@@ -27,7 +27,7 @@ This directory contains JavaScript/Node.js examples for the Inworld Speech-to-Te
 
 ## Examples
 
-### 1. Synchronous transcription (`example_stt_sync.js`)
+### 1. Synchronous transcription (`example_stt.js`)
 
 Transcribes a complete audio file in one HTTP POST request. Supports WAV and other formats (auto-detect from file or use `AUTO_DETECT`). Default input: `../tests-data/audio/test-audio.wav`.
 
@@ -35,7 +35,7 @@ Transcribes a complete audio file in one HTTP POST request. Supports WAV and oth
 ```bash
 npm run stt
 # or
-node example_stt_sync.js [path/to/audio.wav]
+node example_stt.js [path/to/audio.wav]
 ```
 
 **Output:** Prints the transcript and optional word timestamps to the console.

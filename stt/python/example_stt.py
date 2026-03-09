@@ -87,7 +87,7 @@ def main():
     audio_path = sys.argv[1] if len(sys.argv) > 1 else str(default_audio_path)
     if not os.path.isfile(audio_path):
         print(f"Error: Audio file not found: {audio_path}")
-        print("Usage: python example_stt_sync.py [path/to/audio.wav]")
+        print("Usage: python example_stt.py [path/to/audio.wav]")
         print("Default: tests-data/audio/test-audio.wav")
         return 1
 

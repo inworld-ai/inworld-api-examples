@@ -23,21 +23,21 @@ This directory contains Python examples for the Inworld Speech-to-Text (STT) v1 
 
 3. **Run an example:**
    ```bash
-   python example_stt_sync.py
+   python example_stt.py
    ```
    Default input is `../tests-data/audio/test-audio.wav`; pass a path to use another file.
 
 ## Examples
 
-### 1. `example_stt_sync.py` - Synchronous transcription (HTTP)
+### 1. `example_stt.py` - Synchronous transcription (HTTP)
 
 Transcribes a complete audio file in one POST request. Supports WAV and other formats (auto-detect). Default input: `tests-data/audio/test-audio.wav`.
 
 **Usage:**
 ```bash
-python example_stt_sync.py
+python example_stt.py
 # or
-python example_stt_sync.py [path/to/audio.wav]
+python example_stt.py [path/to/audio.wav]
 ```
 
 **Output:** Transcript and optional word timestamps printed to the console.
