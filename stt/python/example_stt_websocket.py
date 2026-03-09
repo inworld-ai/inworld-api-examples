@@ -45,6 +45,11 @@ async def stream_transcribe(wav_path: str, api_key: str, model_id: str = "assemb
         sample_rate = wf.getframerate()
         channels = wf.getnchannels()
         sample_width = wf.getsampwidth()
+        if sample_width != 2:
+            raise ValueError(
+                f"Unsupported WAV format: expected 16-bit PCM (sample width 2 bytes) "
+                f"for audioEncoding=LINEAR16, but got sample width {sample_width} bytes."
+            )
         pcm_data = wf.readframes(wf.getnframes())
 
     ws_url = API_BASE.replace("https://", "wss://").replace("http://", "ws://")

@@ -51,33 +51,41 @@ async def stream_mic_to_stt(api_key: str, model_id: str = "assemblyai/universal-
 
     final_texts = []
     last_partial = ""
-    audio_queue = asyncio.Queue()
+    loop = asyncio.get_event_loop()
+    audio_queue = asyncio.Queue(maxsize=10)  # bounded to limit memory; drop if consumer is slow
     stop_requested = asyncio.Event()
     stream = None
+
+    def _enqueue_chunk(chunk: bytes) -> None:
+        """Enqueue audio on the asyncio thread (called via call_soon_threadsafe)."""
+        try:
+            audio_queue.put_nowait(chunk)
+        except asyncio.QueueFull:
+            pass  # drop chunk to avoid blocking the audio thread
 
     def audio_callback(indata, frame_count, time_info, status):
         if status:
             print("Sounddevice:", status, file=sys.stderr)
         if indata is None or len(indata) == 0:
             return
-        try:
-            chunk = indata.tobytes() if hasattr(indata, "tobytes") else bytes(indata)
-            if chunk:
-                audio_queue.put_nowait(chunk)
-        except (asyncio.QueueFull, Exception):
-            pass
+        chunk = indata.tobytes() if hasattr(indata, "tobytes") else bytes(indata)
+        if not chunk:
+            return
+        loop.call_soon_threadsafe(_enqueue_chunk, chunk)
 
     def request_stop():
         stop_requested.set()
 
-    loop = asyncio.get_event_loop()
-    loop.add_signal_handler(signal.SIGINT, request_stop)
-    loop.add_signal_handler(signal.SIGTERM, request_stop)
     try:
-        pass
-    except (ValueError, OSError):
-        # add_signal_handler not supported (e.g. Windows)
-        pass
+        loop.add_signal_handler(signal.SIGINT, request_stop)
+        loop.add_signal_handler(signal.SIGTERM, request_stop)
+    except (NotImplementedError, RuntimeError, ValueError, OSError):
+        # add_signal_handler not supported (e.g. Windows); fall back to signal.signal where possible
+        try:
+            signal.signal(signal.SIGINT, lambda *_: request_stop())
+            signal.signal(signal.SIGTERM, lambda *_: request_stop())
+        except (ValueError, OSError, RuntimeError):
+            pass  # signal handling not available
 
     async with websockets.connect(
         ws_url,

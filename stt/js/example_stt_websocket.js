@@ -33,19 +33,55 @@ function checkApiKey() {
 }
 
 /**
- * Read WAV file and return { sampleRate, channels, pcmBuffer }.
- * Assumes standard 44-byte header for 16-bit PCM.
+ * Parse RIFF WAV and return 16-bit PCM sample rate, channels, and raw PCM buffer.
+ * Locates "fmt " and "data" chunks; validates PCM (audioFormat 1) and 16-bit.
  * @param {string} wavPath - Path to WAV file
  * @returns {{ sampleRate: number, channels: number, pcmBuffer: Buffer }}
  */
 function readWavPcm(wavPath) {
     const buf = fs.readFileSync(wavPath);
-    if (buf.length < 44 || buf.toString('ascii', 0, 4) !== 'RIFF') {
-        throw new Error('Not a valid WAV file (expected RIFF header)');
+    if (buf.length < 12 || buf.toString('ascii', 0, 4) !== 'RIFF' || buf.toString('ascii', 8, 12) !== 'WAVE') {
+        throw new Error('Not a valid WAV file (expected RIFF/WAVE header)');
     }
-    const sampleRate = buf.readUInt32LE(24);
-    const channels = buf.readUInt16LE(22);
-    const pcmBuffer = buf.subarray(44);
+    let fmtChunkOffset = null;
+    let fmtChunkSize = null;
+    let dataChunkOffset = null;
+    let dataChunkSize = null;
+    let offset = 12;
+    while (offset + 8 <= buf.length) {
+        const chunkId = buf.toString('ascii', offset, offset + 4);
+        const chunkSize = buf.readUInt32LE(offset + 4);
+        const chunkDataStart = offset + 8;
+        const chunkDataEnd = chunkDataStart + chunkSize;
+        if (chunkDataEnd > buf.length) {
+            throw new Error('Invalid WAV file: chunk size exceeds file length');
+        }
+        if (chunkId === 'fmt ') {
+            fmtChunkOffset = chunkDataStart;
+            fmtChunkSize = chunkSize;
+        } else if (chunkId === 'data') {
+            dataChunkOffset = chunkDataStart;
+            dataChunkSize = chunkSize;
+        }
+        offset = chunkDataEnd + (chunkSize % 2);
+    }
+    if (fmtChunkOffset === null || fmtChunkSize === null) {
+        throw new Error('Invalid WAV file: missing "fmt " chunk');
+    }
+    if (dataChunkOffset === null || dataChunkSize === null) {
+        throw new Error('Invalid WAV file: missing "data" chunk');
+    }
+    if (fmtChunkSize < 16) {
+        throw new Error('Invalid WAV file: "fmt " chunk too small');
+    }
+    const audioFormat = buf.readUInt16LE(fmtChunkOffset + 0);
+    const channels = buf.readUInt16LE(fmtChunkOffset + 2);
+    const sampleRate = buf.readUInt32LE(fmtChunkOffset + 4);
+    const bitsPerSample = buf.readUInt16LE(fmtChunkOffset + 14);
+    if (audioFormat !== 1 || bitsPerSample !== 16) {
+        throw new Error('Unsupported WAV format: only 16-bit PCM is supported');
+    }
+    const pcmBuffer = buf.subarray(dataChunkOffset, dataChunkOffset + dataChunkSize);
     return { sampleRate, channels, pcmBuffer };
 }
 
