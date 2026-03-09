@@ -1,0 +1,28 @@
+{
+  "name": "inworld-stt-examples",
+  "version": "1.0.0",
+  "description": "Inworld STT API examples in JavaScript/Node.js",
+  "main": "index.js",
+  "scripts": {
+    "stt": "node example_stt_sync.js",
+    "stt-websocket": "node example_stt_websocket.js",
+    "stt-websocket-pcm": "node example_stt_websocket_pcm.js",
+    "stt-mic": "node example_stt_mic.js"
+  },
+  "keywords": [
+    "inworld",
+    "stt",
+    "speech-to-text",
+    "api",
+    "examples"
+  ],
+  "author": "Inworld AI",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "ws": "^8.14.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
