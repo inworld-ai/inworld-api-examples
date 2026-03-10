@@ -1,0 +1,19 @@
+[project]
+name = "livekit-benchmarks"
+version = "0.1.0"
+description = "TTS TTFB benchmarks for LiveKit Agents plugins (Inworld, ElevenLabs, Cartesia)"
+requires-python = ">=3.11"
+dependencies = [
+    "livekit-agents",
+    "livekit-plugins-inworld",
+    "livekit-plugins-elevenlabs",
+    "livekit-plugins-cartesia",
+    "python-dotenv",
+    "aiohttp",
+]
+
+[tool.uv.sources]
+livekit-agents = { path = "../agents/livekit-agents", editable = true }
+livekit-plugins-inworld = { path = "../agents/livekit-plugins/livekit-plugins-inworld", editable = true }
+livekit-plugins-elevenlabs = { path = "../agents/livekit-plugins/livekit-plugins-elevenlabs", editable = true }
+livekit-plugins-cartesia = { path = "../agents/livekit-plugins/livekit-plugins-cartesia", editable = true }

@@ -1,27 +1,45 @@
-```
-cd integrations/livekit/python/agents
-```
+# TTS TTFB Benchmarks — LiveKit Agents (Python)
 
-# Setup (uses uv workspace — no separate venv needed)
-```
+Measures time-to-first-byte (TTFB) for TTS providers via LiveKit Agents Python SDK.
+Compares Inworld, ElevenLabs, and Cartesia across HTTP and WebSocket transports.
+
+## Setup
+
+```bash
+cd integrations/livekit/python/benchmarks
 uv sync
 ```
 
-# Set your API keys
-```
-export INWORLD_API_KEY=your_key_here
-export ELEVEN_API_KEY=your_key_here
-export CARTESIA_API_KEY=your_key_here
+Copy the example env file and fill in your API keys:
+
+```bash
+cp .env.example .env
+# edit .env with your keys
 ```
 
-# Run HTTP benchmark (just Inworld to compare)
-```
-uv run python ../benchmarks/benchmark_http_ttfb.py --services inworld
-uv run python ../benchmarks/benchmark_http_ttfb.py --services inworld -n 5
+## Usage
+
+```bash
+# HTTP benchmark
+uv run python benchmark_http_ttfb.py --services inworld
+uv run python benchmark_http_ttfb.py --services inworld -n 10
+
+# WebSocket benchmark
+uv run python benchmark_websocket_ttfb.py --services inworld
+uv run python benchmark_websocket_ttfb.py --services all --token-delay 50
+
 ```
 
-# Run WebSocket benchmark (just Inworld to compare)
-```
-uv run python ../benchmarks/benchmark_websocket_ttfb.py --services inworld
-uv run python ../benchmarks/benchmark_websocket_ttfb.py --services inworld -n 5
-```
+## CLI Options
+
+| Flag                 | HTTP | WS  | Default | Description                                        |
+| -------------------- | ---- | --- | ------- | -------------------------------------------------- |
+| `--text`             | yes  | yes | *       | Custom text to synthesize                          |
+| `-n` / `--iterations`| yes  | yes | 5       | Number of timed iterations                         |
+| `--services`         | yes  | yes | all     | Comma-separated: inworld,elevenlabs,cartesia       |
+| `--no-save-audio`    | yes  | yes | off     | Skip saving WAV output files                       |
+| `--debug`            | yes  | yes | off     | Enable debug logging                               |
+| `--warmup`           | yes  | yes | 1       | Warmup iterations before timing                    |
+| `--token-delay`      | —    | yes | 50ms    | Delay between simulated LLM tokens                 |
+
+\* Default text: 2 sentences

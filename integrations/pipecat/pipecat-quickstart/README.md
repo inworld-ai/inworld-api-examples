@@ -36,7 +36,7 @@ Navigate to the quickstart directory and set up your environment.
    Create a `.env` file:
 
    ```bash
-   cp env.example .env
+   cp .env.example .env
    ```
 
    Then, add your API keys:

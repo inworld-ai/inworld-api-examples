@@ -12,34 +12,33 @@ This connects to LiveKit Cloud and lets you test with a web UI.
 4. Create new API key
 5. click reveal secret, you should see `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
 
-### Step 2: Create your `.env` file from `.env-example`
+### Step 2: Create your `.env` file
 
-Add the following to your `.env`
 ```bash
-LIVEKIT_URL=wss://your-project.livekit.cloud
-LIVEKIT_API_KEY=your-api-key
-LIVEKIT_API_SECRET=your-api-secret
-OPENAI_API_KEY=your-openai-key
-ASSEMBLYAI_API_KEY=your-assemblyai-key
-INWORLD_API_KEY=your-inworld-key
+cp .env.example .env
+# edit .env with your keys
 ```
 
-### Step 3: Download required models (first time only)
+### Step 3: Setup
 
 ```bash
-cd integrations/livekit/python/agents
-uv run python ../quickstart/test_inworld_voice_agent.py download-files
-```
-
-### Step 4: Start the agent in dev mode
-
-```bash
-cd integrations/livekit/python/agents
+cd integrations/livekit/python/quickstart
 uv sync
-uv run python ../quickstart/test_inworld_voice_agent.py dev
 ```
 
-### Step 5: Use a Frontend
+### Step 4: Download required models (first time only)
+
+```bash
+uv run python test_inworld_voice_agent.py download-files
+```
+
+### Step 5: Start the agent in dev mode
+
+```bash
+uv run python test_inworld_voice_agent.py dev
+```
+
+### Step 6: Use a Frontend
 
 **Easiest option - LiveKit's hosted playground:**
 
