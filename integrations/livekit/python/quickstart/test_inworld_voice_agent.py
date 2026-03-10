@@ -70,6 +70,7 @@ async def entrypoint(ctx: JobContext):
         llm=openai.LLM(model="gpt-4o-mini"),
         tts=inworld.TTS(
             voice="Alex", timestamp_type="WORD", model="inworld-tts-1.5-max",
+            encoding="FLAC",
             ws_url="wss://api.inworld.ai/",
         ),
         vad=ctx.proc.userdata["vad"],

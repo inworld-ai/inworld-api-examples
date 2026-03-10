@@ -375,56 +375,46 @@ async def main():
     print(f"📝 Sentences: {len(sentences)} (cycling per iteration)")
     print(f"🔄 Iterations: {args.iterations} (+ {args.warmup} warmup)\n")
 
-    all_ttfb: Dict[str, List[float]] = {sid: [] for sid, _, _ in available}
-    all_ttft: Dict[str, List[float]] = {sid: [] for sid, _, _ in available}
-    all_tt700: Dict[str, List[float]] = {sid: [] for sid, _, _ in available}
-
-    # Shared HTTP session keeps TCP connections warm across iterations
     session = aiohttp.ClientSession()
-
     total_iters = args.warmup + args.iterations
-    try:
+
+    async def _bench_service(sid, cfg, api_key):
+        ttfb, ttft, tt700 = [], [], []
         for iteration in range(total_iters):
             is_warmup = iteration < args.warmup
             label = f"warmup {iteration + 1}/{args.warmup}" if is_warmup else \
                     f"{iteration - args.warmup + 1}/{args.iterations}"
-            print(f"\r{'⏳' if is_warmup else '📊'} Progress: {label}", end="", flush=True)
+            print(f"[{cfg['name']}] {'⏳' if is_warmup else '📊'} {label}", flush=True)
 
             sentence = sentences[iteration % len(sentences)]
 
-            for sid, cfg, api_key in available:
-                try:
-                    result = await run_service_benchmark(
-                        create_tts_fn=cfg["create_fn"], api_key=api_key,
-                        session=session, sentence=sentence,
-                        service_name=cfg["name"],
-                        save_audio=not args.no_save_audio and iteration == args.warmup,
-                    )
-                    if not is_warmup:
-                        for key, store in [("ttfb", all_ttfb), ("ttft", all_ttft), ("tt700", all_tt700)]:
-                            store[sid].extend(result[key].get("values", []))
-                        if result["audio_bytes"] == 0:
-                            print(f"\n⚠️  {cfg['name']}: No audio received!")
-                except Exception as e:
-                    print(f"\n❌ {cfg['name']}: {e}")
+            try:
+                result = await run_service_benchmark(
+                    create_tts_fn=cfg["create_fn"], api_key=api_key,
+                    session=session, sentence=sentence,
+                    service_name=cfg["name"],
+                    save_audio=not args.no_save_audio and iteration == args.warmup,
+                )
+                if not is_warmup:
+                    for key, store in [("ttfb", ttfb), ("ttft", ttft), ("tt700", tt700)]:
+                        store.extend(result[key].get("values", []))
+                    if result["audio_bytes"] == 0:
+                        print(f"[{cfg['name']}] ⚠️ No audio received!")
+            except Exception as e:
+                print(f"[{cfg['name']}] ❌ {e}")
 
-                await asyncio.sleep(1.0)
+            await asyncio.sleep(1.0)
+        return {"service": cfg["name"], "ttfb": compute_stats(ttfb),
+                "ttft": compute_stats(ttft), "tt700": compute_stats(tt700)}
 
-            if iteration < total_iters - 1:
-                await asyncio.sleep(1.0)
+    try:
+        aggregated = await asyncio.gather(*[
+            _bench_service(sid, cfg, api_key) for sid, cfg, api_key in available
+        ])
     finally:
         await session.close()
 
     print()
-
-    aggregated = []
-    for sid, cfg, _ in available:
-        aggregated.append({
-            "service": cfg["name"],
-            "ttfb": compute_stats(all_ttfb[sid]),
-            "ttft": compute_stats(all_ttft[sid]),
-            "tt700": compute_stats(all_tt700[sid]),
-        })
 
     print_results(aggregated, "HTTP TTS BENCHMARK RESULTS (Pipecat)")
 

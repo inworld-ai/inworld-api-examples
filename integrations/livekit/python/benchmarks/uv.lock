@@ -848,6 +848,7 @@ requires-dist = [
     { name = "livekit-plugins-nltk", marker = "extra == 'nltk'", editable = "../agents/livekit-plugins/livekit-plugins-nltk" },
     { name = "livekit-plugins-nvidia", marker = "extra == 'nvidia'", editable = "../agents/livekit-plugins/livekit-plugins-nvidia" },
     { name = "livekit-plugins-openai", marker = "extra == 'openai'", editable = "../agents/livekit-plugins/livekit-plugins-openai" },
+    { name = "livekit-plugins-phonic", marker = "extra == 'phonic'", editable = "../agents/livekit-plugins/livekit-plugins-phonic" },
     { name = "livekit-plugins-resemble", marker = "extra == 'resemble'", editable = "../agents/livekit-plugins/livekit-plugins-resemble" },
     { name = "livekit-plugins-rime", marker = "extra == 'rime'", editable = "../agents/livekit-plugins/livekit-plugins-rime" },
     { name = "livekit-plugins-rtzr", marker = "extra == 'rtzr'", editable = "../agents/livekit-plugins/livekit-plugins-rtzr" },
@@ -867,7 +868,7 @@ requires-dist = [
     { name = "livekit-plugins-upliftai", marker = "extra == 'upliftai'", editable = "../agents/livekit-plugins/livekit-plugins-upliftai" },
     { name = "livekit-plugins-xai", marker = "extra == 'xai'", editable = "../agents/livekit-plugins/livekit-plugins-xai" },
     { name = "livekit-protocol", specifier = ">=1.1,<2" },
-    { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.10.0,<2" },
+    { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.24.0,<2" },
     { name = "nest-asyncio", specifier = ">=1.6.0" },
     { name = "numpy", specifier = ">=1.26.0" },
     { name = "numpy", marker = "extra == 'codecs'", specifier = ">=1.26.0" },
@@ -887,7 +888,7 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.12" },
     { name = "watchfiles", specifier = ">=1.0" },
 ]
-provides-extras = ["anam", "anthropic", "assemblyai", "asyncai", "avatario", "aws", "azure", "baseten", "bey", "bithuman", "browser", "cambai", "cartesia", "clova", "codecs", "deepgram", "elevenlabs", "fal", "fireworksai", "fishaudio", "gladia", "google", "gradium", "groq", "hedra", "hume", "images", "inworld", "keyframe", "langchain", "lemonslice", "liveavatar", "lmnt", "mcp", "minimax", "mistralai", "neuphonic", "nltk", "nvidia", "openai", "resemble", "rime", "rtzr", "sarvam", "silero", "simli", "simplismart", "smallestai", "soniox", "speechify", "speechmatics", "spitch", "tavus", "trugen", "turn-detector", "ultravox", "upliftai", "xai"]
+provides-extras = ["anam", "anthropic", "assemblyai", "asyncai", "avatario", "aws", "azure", "baseten", "bey", "bithuman", "browser", "cambai", "cartesia", "clova", "codecs", "deepgram", "elevenlabs", "fal", "fireworksai", "fishaudio", "gladia", "google", "gradium", "groq", "hedra", "hume", "images", "inworld", "keyframe", "langchain", "lemonslice", "liveavatar", "lmnt", "mcp", "minimax", "mistralai", "neuphonic", "nltk", "nvidia", "openai", "phonic", "resemble", "rime", "rtzr", "sarvam", "silero", "simli", "simplismart", "smallestai", "soniox", "speechify", "speechmatics", "spitch", "tavus", "trugen", "turn-detector", "ultravox", "upliftai", "xai"]
 
 [[package]]
 name = "livekit-api"

@@ -69,8 +69,7 @@ def create_inworld_tts(session: aiohttp.ClientSession, api_key: str):
     from livekit.plugins import inworld
     return inworld.TTS(
         api_key=api_key, voice="Ashley", model="inworld-tts-1.5-mini",
-        encoding="LINEAR16", sample_rate=24000, http_session=session,
-        ws_url="wss://api.inworld.ai/",
+        http_session=session, ws_url="wss://api.inworld.ai/",
     )
 
 
@@ -239,50 +238,47 @@ async def main():
     print(f"⏱️  Token delay: {args.token_delay}ms")
     print(f"🔄 Iterations: {args.iterations} (+ {args.warmup} warmup)\n")
 
-    all_ttfb: Dict[str, List[float]] = {sid: [] for sid, _, _ in available}
-
     session = aiohttp.ClientSession()
     tts_instances: Dict[str, object] = {}
     for sid, cfg, api_key in available:
         tts_instances[sid] = cfg["create_fn"](session=session, api_key=api_key)
 
     total_iters = args.warmup + args.iterations
-    try:
+
+    async def _bench_service(sid, cfg, api_key):
+        tts = tts_instances[sid]
+        ttfb_vals = []
         for iteration in range(total_iters):
             is_warmup = iteration < args.warmup
             label = f"warmup {iteration + 1}/{args.warmup}" if is_warmup else \
                     f"{iteration - args.warmup + 1}/{args.iterations}"
-            print(f"\r{'⏳' if is_warmup else '📊'} Progress: {label}", end="", flush=True)
+            print(f"[{cfg['name']}] {'⏳' if is_warmup else '📊'} {label}", flush=True)
 
-            for sid, cfg, api_key in available:
-                tts = tts_instances[sid]
+            try:
+                result = await benchmark_stream(
+                    tts, text, cfg["name"], args.token_delay,
+                    save_audio=not args.no_save_audio and iteration == args.warmup,
+                )
+                if not is_warmup and result["ttfb"] is not None:
+                    ttfb_vals.append(result["ttfb"])
+                if result["audio_bytes"] == 0:
+                    print(f"[{cfg['name']}] ⚠️ No audio received!")
+            except Exception as e:
+                print(f"[{cfg['name']}] ❌ {e}")
 
-                try:
-                    result = await benchmark_stream(
-                        tts, text, cfg["name"], args.token_delay,
-                        save_audio=not args.no_save_audio and iteration == args.warmup,
-                    )
-                    if not is_warmup and result["ttfb"] is not None:
-                        all_ttfb[sid].append(result["ttfb"])
-                    if result["audio_bytes"] == 0:
-                        print(f"\n⚠️  {cfg['name']}: No audio received!")
-                except Exception as e:
-                    print(f"\n❌ {cfg['name']}: {e}")
+            await asyncio.sleep(1.0)
+        return {"service": cfg["name"], "ttfb": compute_stats(ttfb_vals)}
 
-                await asyncio.sleep(1.0)
-
-            if iteration < total_iters - 1:
-                await asyncio.sleep(1.0)
+    try:
+        aggregated = await asyncio.gather(*[
+            _bench_service(sid, cfg, api_key) for sid, cfg, api_key in available
+        ])
     finally:
         for tts_inst in tts_instances.values():
             await tts_inst.aclose()
         await session.close()
 
     print()
-
-    aggregated = []
-    for sid, cfg, _ in available:
-        aggregated.append({"service": cfg["name"], "ttfb": compute_stats(all_ttfb[sid])})
 
     print_results(aggregated, "WEBSOCKET TTS BENCHMARK RESULTS (LiveKit Python)")
 
