@@ -74,6 +74,7 @@ def create_inworld_tts(session: aiohttp.ClientSession, api_key: str):
     return inworld.TTS(
         api_key=api_key, voice="Ashley", model="inworld-tts-1.5-mini",
         encoding="LINEAR16", sample_rate=24000, http_session=session,
+        base_url="https://api.inworld.ai/",
     )
 
 

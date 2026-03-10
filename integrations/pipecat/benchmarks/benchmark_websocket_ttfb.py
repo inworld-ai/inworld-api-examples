@@ -227,6 +227,7 @@ def create_inworld_tts(api_key: str):
     return InworldTTSService(
         api_key=api_key, voice_id="Ashley", model="inworld-tts-1.5-mini",
         aggregate_sentences=True,
+        url="wss://api.inworld.ai/tts/v1/voice:streamBidirectional",
     )
 
 

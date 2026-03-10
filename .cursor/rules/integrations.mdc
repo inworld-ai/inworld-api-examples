@@ -1,0 +1,99 @@
+---
+description: Structure and sanity check procedures for integrations/ benchmarks and quickstarts
+globs: integrations/**
+alwaysApply: false
+---
+
+# First-Time Setup (required for fresh clone)
+
+```bash
+# Initialize git submodules (pipecat, livekit agents)
+git submodule update --init --recursive
+
+# Build LiveKit JS agents monorepo (needed by JS benchmarks and quickstart)
+cd integrations/livekit/js/agents-js && pnpm install && pnpm build && cd -
+```
+
+Each script directory needs a `.env` file with valid API keys (copy from `.env.example`).
+
+# Directory Structure
+
+```
+integrations/
+├── pipecat/
+│   ├── pipecat/                        # Submodule: pipecat-ai framework
+│   ├── pipecat-quickstart/             # Voice bot (uv sync && uv run bot.py)
+│   └── benchmarks/                     # TTFB benchmarks (uv sync && uv run python ...)
+├── livekit/
+│   ├── python/
+│   │   ├── agents/                     # Submodule: livekit agents + Inworld plugin
+│   │   ├── quickstart/                 # Voice agent (uv sync && uv run python ...)
+│   │   └── benchmarks/                 # TTFB benchmarks (uv sync && uv run python ...)
+│   └── js/
+│       ├── agents-js/                  # Submodule: livekit agents-js + Inworld plugin
+│       ├── quickstart/                 # Voice agent (pnpm install && pnpm start)
+│       └── benchmarks/                 # TTFB benchmarks (pnpm install && npx tsx ...)
+```
+
+Each script directory has:
+- `pyproject.toml` or `package.json` with editable/local deps on the plugin submodule
+- `.env.example` listing required API keys
+- `README.md` with setup and usage
+
+# Sanity Check Procedure
+
+Prerequisites: user must have `.env` files with valid API keys in each directory they want to test. Check with:
+```bash
+# Verify .env exists and INWORLD_API_KEY is non-empty
+for dir in integrations/pipecat/benchmarks integrations/livekit/python/benchmarks integrations/livekit/js/benchmarks; do
+  test -f "$dir/.env" && grep -q 'INWORLD_API_KEY=.\+' "$dir/.env" && echo "✅ $dir" || echo "❌ $dir missing .env or INWORLD_API_KEY"
+done
+```
+
+## Benchmarks (quick smoke test: -n 1 --warmup 0)
+
+```bash
+# Pipecat Python
+cd integrations/pipecat/benchmarks && uv sync && uv run python benchmark_http_ttfb.py --services inworld -n 1 --warmup 0 --no-save-audio
+cd integrations/pipecat/benchmarks && uv run python benchmark_websocket_ttfb.py --services inworld -n 1 --warmup 0 --no-save-audio
+
+# LiveKit Python
+cd integrations/livekit/python/benchmarks && uv sync && uv run python benchmark_http_ttfb.py --services inworld -n 1 --warmup 0 --no-save-audio
+cd integrations/livekit/python/benchmarks && uv run python benchmark_websocket_ttfb.py --services inworld -n 1 --warmup 0 --no-save-audio
+
+# LiveKit JS (requires agents-js built: cd ../agents-js && pnpm install && pnpm build)
+cd integrations/livekit/js/benchmarks && pnpm install && npx tsx benchmark_http_ttfb.ts --services inworld -n 1 --warmup 0 --no-save-audio
+cd integrations/livekit/js/benchmarks && npx tsx benchmark_websocket_ttfb.ts --services inworld -n 1 --warmup 0 --no-save-audio
+```
+
+## Quickstarts (import check only — full run needs LiveKit Cloud)
+
+```bash
+# Pipecat
+cd integrations/pipecat/pipecat-quickstart && uv sync && uv run python -c "import bot; print('ok')"
+
+# LiveKit Python
+cd integrations/livekit/python/quickstart && uv sync && uv run python -c "import test_inworld_voice_agent; print('ok')"
+
+# LiveKit JS (needs agents-js built)
+cd integrations/livekit/js/quickstart && pnpm install
+```
+
+## Expected benchmark output
+
+Each benchmark should print a table with N matching the -n flag:
+```
+📊 TTFB
+Service              Avg    StdDev   Min      Max      P50      P95       N
+```
+TTFB for Inworld should be ~0.2-0.4s for HTTP, ~0.2-0.5s for WS.
+If audio_bytes=0 or TTFB is N/A, the API key is likely invalid.
+
+# Key conventions
+
+- All Python dirs use `uv sync && uv run` (never activate venvs manually)
+- All JS dirs use `pnpm install` (not npm)
+- `.env.example` exists in every script directory
+- Benchmarks: `-n` controls number of TTFB samples, `--warmup` discards cold starts
+- Inworld base URLs are hardcoded in factory functions (swap for dev env)
+- Pipecat InworldHttpTTSService does not accept a custom base_url parameter

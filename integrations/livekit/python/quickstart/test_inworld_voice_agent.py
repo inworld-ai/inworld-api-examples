@@ -1,13 +1,12 @@
-"""Quick test agent for Inworld TTS plugin development"""
+"""Quick test agent for Inworld TTS plugin development."""
+
 import logging
 from collections.abc import AsyncGenerator, AsyncIterable
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load .env from the same directory as this script
-env_path = Path(__file__).parent / ".env"
-loaded = load_dotenv(dotenv_path=env_path, override=True)
+load_dotenv(dotenv_path=Path(__file__).parent / ".env", override=True)
 
 from livekit.agents import (
     Agent,
@@ -27,10 +26,12 @@ logger = logging.getLogger("inworld-test-agent")
 class TestAgent(Agent):
     def __init__(self) -> None:
         super().__init__(
-            instructions="""You are a helpful voice AI assistant for testing Inworld TTS.
-            Keep your responses concise and to the point.
-            Do not use emojis, asterisks, or markdown.
-            You are friendly and have a sense of humor.""",
+            instructions=(
+                "You are a helpful voice AI assistant for testing Inworld TTS. "
+                "Keep your responses concise and to the point. "
+                "Do not use emojis, asterisks, or markdown. "
+                "You are friendly and have a sense of humor."
+            ),
         )
 
     async def on_enter(self):
@@ -39,7 +40,6 @@ class TestAgent(Agent):
     async def transcription_node(
         self, text: AsyncIterable[str | TimedString], model_settings: ModelSettings
     ) -> AsyncGenerator[str | TimedString, None]:
-        """Log timed transcript chunks to verify timestamps are arriving."""
         async for chunk in text:
             if isinstance(chunk, TimedString):
                 logger.info(
@@ -66,14 +66,13 @@ async def entrypoint(ctx: JobContext):
     ctx.log_context_fields = {"room": ctx.room.name}
 
     session = AgentSession(
-        # AssemblyAI for speech-to-text
         stt=assemblyai.STT(),
-        # OpenAI for LLM
         llm=openai.LLM(model="gpt-4o-mini"),
-        # Inworld for text-to-speech (using your local plugin!)
-        tts=inworld.TTS(voice="Alex", timestamp_type="WORD", model="inworld-tts-1.5-max"),
+        tts=inworld.TTS(
+            voice="Alex", timestamp_type="WORD", model="inworld-tts-1.5-max",
+            ws_url="wss://api.inworld.ai/",
+        ),
         vad=ctx.proc.userdata["vad"],
-        # Enable TTS-aligned transcript so timestamps flow to transcription_node
         use_tts_aligned_transcript=True,
     )
 

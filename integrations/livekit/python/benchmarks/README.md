@@ -1,3 +1,5 @@
+> First time? See [integrations setup](../../../README.md) to initialize submodules.
+
 # TTS TTFB Benchmarks — LiveKit Agents (Python)
 
 Measures time-to-first-byte (TTFB) for TTS providers via LiveKit Agents Python SDK.

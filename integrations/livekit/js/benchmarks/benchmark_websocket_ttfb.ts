@@ -81,6 +81,7 @@ async function createInworldTTS(apiKey: string): Promise<tts.TTS> {
   return new inworld.TTS({
     apiKey, voice: 'Ashley', model: 'inworld-tts-1.5-mini',
     encoding: 'LINEAR16', sampleRate: 24000,
+    wsURL: 'wss://api.inworld.ai/',
   });
 }
 

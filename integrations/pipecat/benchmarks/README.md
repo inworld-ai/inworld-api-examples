@@ -1,3 +1,5 @@
+> First time? See [integrations setup](../../README.md) to initialize submodules.
+
 # TTS TTFB Benchmarks — Pipecat (Python)
 
 Measures time-to-first-byte (TTFB) for TTS providers via Pipecat pipelines.
