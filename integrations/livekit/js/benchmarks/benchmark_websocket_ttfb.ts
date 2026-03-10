@@ -200,10 +200,6 @@ function printResults(results: { service: string; ttfb: Stats }[], title: string
     }
   }
 
-  const winner = sorted.length > 0 && sorted[0]!.ttfb.avg !== null ? sorted[0]! : null;
-  if (winner) {
-    console.log(`  🏆 Fastest: ${winner.service} (${fmt(winner.ttfb.avg)})`);
-  }
 
   console.log('\n' + '='.repeat(w));
 }

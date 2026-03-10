@@ -18,18 +18,16 @@ const __dirname = dirname(__filename);
 config({ path: join(__dirname, '.env'), override: true });
 config({ override: true });
 
-const DEFAULT_TEXT =
-  'Hello! Welcome to the TTS benchmark. ' +
-  'This is a test of the text-to-speech system. ' +
-  'Each sentence should trigger a separate TTS request. ' +
-  "Let's see how fast the first audio byte arrives!";
+const DEFAULT_SENTENCES = [
+  'Hello! Welcome to the TTS benchmark.',
+  'This is a test of the text-to-speech system.',
+  'Each sentence should trigger a separate TTS request.',
+  "Let's see how fast the first audio byte arrives!",
+  'The quick brown fox jumps over the lazy dog.',
+];
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function splitSentences(text: string): string[] {
-  return text.trim().split(/(?<=[.!?])\s+/).filter((s) => s.trim().length > 0);
 }
 
 function saveWav(audioData: Buffer, filename: string, sampleRate: number, outputDir = 'benchmark_audio'): string {
@@ -186,10 +184,6 @@ function printResults(results: BenchmarkResult[], title: string): void {
     }
   }
 
-  const winner = sorted.length > 0 && sorted[0]!.ttfb.avg !== null ? sorted[0]! : null;
-  if (winner) {
-    console.log(`  🏆 Fastest: ${winner.service} (${fmt(winner.ttfb.avg)})`);
-  }
 
   console.log('\n' + '='.repeat(w));
 }
@@ -221,7 +215,7 @@ async function main() {
   const iterations = parseInt(values['iterations']!, 10);
   const warmup = parseInt(values['warmup']!, 10);
   const noSaveAudio = values['no-save-audio'] ?? false;
-  const text = values.text ?? DEFAULT_TEXT;
+  const sentences = values.text ? [values.text] : DEFAULT_SENTENCES;
 
   const servicesToRun =
     values.services!.toLowerCase() === 'all'
@@ -249,10 +243,9 @@ async function main() {
   }
 
   console.log(`\n🚀 Benchmarking ${availableServices.length} service(s): ${availableServices.map((s) => s.config.name).join(', ')}`);
-  console.log(text.length > 60 ? `📝 Text: ${text.slice(0, 60)}...` : `📝 Text: ${text}`);
+  console.log(`📝 Sentences: ${sentences.length} (cycling per iteration)`);
   console.log(`🔄 Iterations: ${iterations} (+ ${warmup} warmup)\n`);
 
-  const sentences = splitSentences(text);
   const allTtfb: Record<string, number[]> = {};
   for (const s of availableServices) allTtfb[s.id] = [];
 

@@ -7,7 +7,6 @@ the time to first audio frame (TTFB) via the built-in metrics system.
 import asyncio
 import logging
 import os
-import re
 import struct
 from pathlib import Path
 from typing import Dict, List
@@ -22,17 +21,13 @@ load_dotenv(override=True)
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger("benchmark")
 
-DEFAULT_TEXT = (
-    "Hello! Welcome to the TTS benchmark. "
-    "This is a test of the text-to-speech system. "
-    "Each sentence should trigger a separate TTS request. "
-    "Let's see how fast the first audio byte arrives!"
-)
-
-
-def split_sentences(text: str) -> List[str]:
-    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
-    return [s for s in sentences if s.strip()]
+DEFAULT_SENTENCES = [
+    "Hello! Welcome to the TTS benchmark.",
+    "This is a test of the text-to-speech system.",
+    "Each sentence should trigger a separate TTS request.",
+    "Let's see how fast the first audio byte arrives!",
+    "The quick brown fox jumps over the lazy dog.",
+]
 
 
 def save_wav(audio_data: bytes, filename: str, sample_rate: int,
@@ -157,9 +152,6 @@ def print_results(results: List[Dict], title: str):
             print(f"{r['service']:<20} {'N/A':>8} {'N/A':>8} {'N/A':>8} "
                   f"{'N/A':>8} {'N/A':>8} {'N/A':>8} {'0':>5}")
 
-    winner = sorted_r[0] if sorted_r and sorted_r[0]["ttfb"].get("avg") else None
-    if winner:
-        print(f"  🏆 Fastest: {winner['service']} ({_fmt(winner['ttfb']['avg'])})")
 
     print(f"\n{'=' * w}")
 
@@ -182,7 +174,7 @@ async def main():
     if args.debug:
         logging.basicConfig(level=logging.DEBUG, force=True)
 
-    text = args.text or DEFAULT_TEXT
+    sentences = [args.text] if args.text else DEFAULT_SENTENCES
 
     services_to_run = (
         ["inworld", "elevenlabs", "cartesia"]
@@ -216,10 +208,9 @@ async def main():
         return
 
     print(f"\n🚀 Benchmarking {len(available)} service(s): {', '.join(c[1]['name'] for c in available)}")
-    print(f"📝 Text: {text[:60]}..." if len(text) > 60 else f"📝 Text: {text}")
+    print(f"📝 Sentences: {len(sentences)} (cycling per iteration)")
     print(f"🔄 Iterations: {args.iterations} (+ {args.warmup} warmup)\n")
 
-    sentences = split_sentences(text)
     all_ttfb: Dict[str, List[float]] = {sid: [] for sid, _, _ in available}
 
     # One TTS instance per service, reused across all iterations (like a real app)

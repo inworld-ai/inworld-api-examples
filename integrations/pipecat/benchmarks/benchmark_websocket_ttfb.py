@@ -310,9 +310,6 @@ def print_results(results: List[Dict], title: str = "WEBSOCKET TTS BENCHMARK"):
                 print(f"{r['service']:<20} {'N/A':>8} {'N/A':>8} {'N/A':>8} "
                       f"{'N/A':>8} {'N/A':>8} {'N/A':>8} {'0':>5}")
 
-        winner = sorted_r[0] if sorted_r and sorted_r[0][metric_key].get("avg") else None
-        if winner:
-            print(f"  🏆 Fastest: {winner['service']} ({_fmt(winner[metric_key]['avg'])})")
 
     print(f"\n{'=' * w}")
 
