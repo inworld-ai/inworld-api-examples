@@ -221,10 +221,14 @@ class TTFBCollector(FrameProcessor):
 
 
 def create_inworld_tts(api_key: str, session: aiohttp.ClientSession):
-    from pipecat.services.inworld.tts import InworldHttpTTSService
+    from pipecat.services.inworld.tts import InworldHttpTTSService, InworldTTSSettings
+    from pipecat.services.tts_service import TextAggregationMode
     return InworldHttpTTSService(
-        api_key=api_key, aiohttp_session=session, voice_id="Ashley",
-        model="inworld-tts-1.5-mini", streaming=True, aggregate_sentences=True,
+        api_key=api_key,
+        aiohttp_session=session,
+        streaming=True,
+        settings=InworldTTSSettings(voice="Ashley", model="inworld-tts-1.5-mini"),
+        text_aggregation_mode=TextAggregationMode.SENTENCE,
     )
 
 
