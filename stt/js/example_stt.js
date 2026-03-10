@@ -43,9 +43,6 @@ async function transcribe(audioPath, options, apiKey) {
         modelId: 'groq/whisper-large-v3-turbo',
         audioEncoding: 'AUTO_DETECT',
         language: 'en-US',
-        sampleRateHertz: 16000,
-        numberOfChannels: 1,
-        includeWordTimestamps: true,
         ...options
     };
 

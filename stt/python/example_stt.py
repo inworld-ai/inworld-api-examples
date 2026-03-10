@@ -53,9 +53,6 @@ def transcribe(audio_path: str, options: dict | None = None, api_key: str = ""):
         "modelId": "groq/whisper-large-v3-turbo",
         "audioEncoding": "AUTO_DETECT",
         "language": "en-US",
-        "sampleRateHertz": 16000,
-        "numberOfChannels": 1,
-        "includeWordTimestamps": True,
     }
     if options:
         transcribe_config.update(options)
