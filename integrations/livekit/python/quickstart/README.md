@@ -1,48 +1,42 @@
-# Testing Inworld TTS Plugin
+> First time? See [integrations setup](../../../README.md) to initialize submodules.
 
-## Dev Mode with Frontend UI
+# LiveKit Quickstart — Inworld TTS (Python)
 
-This connects to LiveKit Cloud and lets you test with a web UI.
+Voice AI agent using LiveKit Agents with AssemblyAI (STT), OpenAI (LLM), and Inworld (TTS).
 
-### Step 1: Set up LiveKit Cloud (free tier available)
+## Prerequisites
 
-1. Go to https://cloud.livekit.io and create a free account
-2. Create a new project
-3. Go to Settings -> API keys
-4. Create new API key
-5. click reveal secret, you should see `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
+- [LiveKit Cloud](https://cloud.livekit.io) account (free tier available)
+- Create a project and get `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` from Settings → API keys
 
-### Step 2: Create your `.env` file from `.env-example`
-
-Add the following to your `.env`
-```bash
-LIVEKIT_URL=wss://your-project.livekit.cloud
-LIVEKIT_API_KEY=your-api-key
-LIVEKIT_API_SECRET=your-api-secret
-OPENAI_API_KEY=your-openai-key
-ASSEMBLYAI_API_KEY=your-assemblyai-key
-INWORLD_API_KEY=your-inworld-key
-```
-
-### Step 3: Download required models (first time only)
+## Setup
 
 ```bash
-cd integrations/livekit/python/agents
-uv run python ../quickstart/test_inworld_voice_agent.py download-files
-```
-
-### Step 4: Start the agent in dev mode
-
-```bash
-cd integrations/livekit/python/agents
+cd integrations/livekit/python/quickstart
+cp .env.example .env
+# edit .env with your keys
 uv sync
-uv run python ../quickstart/test_inworld_voice_agent.py dev
 ```
 
-### Step 5: Use a Frontend
+## Run
 
-**Easiest option - LiveKit's hosted playground:**
+```bash
+# Download models (first time only)
+uv run python test_inworld_voice_agent.py download-files
 
-1. Go to https://agents-playground.livekit.io
-2. Select your project
-3. Click "Connect"
+# Start the agent
+uv run python test_inworld_voice_agent.py dev
+```
+
+Then go to https://agents-playground.livekit.io, select your project, and click **Connect**.
+
+## API Keys
+
+| Variable | Service |
+|----------|---------|
+| `LIVEKIT_URL` | LiveKit Cloud WebSocket URL |
+| `LIVEKIT_API_KEY` | LiveKit API key |
+| `LIVEKIT_API_SECRET` | LiveKit API secret |
+| `ASSEMBLYAI_API_KEY` | [AssemblyAI](https://www.assemblyai.com/dashboard/signup) (STT) |
+| `OPENAI_API_KEY` | [OpenAI](https://auth.openai.com/create-account) (LLM) |
+| `INWORLD_API_KEY` | [Inworld](https://inworld.ai) (TTS) |

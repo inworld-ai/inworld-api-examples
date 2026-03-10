@@ -1,0 +1,13 @@
+[project]
+name = "pipecat-benchmarks"
+version = "0.1.0"
+description = "TTS TTFB benchmarks for Pipecat plugins (Inworld, ElevenLabs, Cartesia)"
+requires-python = ">=3.11"
+dependencies = [
+    "pipecat-ai[inworld,elevenlabs,cartesia]",
+    "python-dotenv",
+    "aiohttp",
+]
+
+[tool.uv.sources]
+pipecat-ai = { path = "../pipecat", editable = true }

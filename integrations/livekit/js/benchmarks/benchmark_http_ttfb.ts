@@ -1,18 +1,8 @@
 /**
- * Benchmark script for measuring TTFB with HTTP-based TTS (synthesize API).
- *
- * Compares TTFB across TTS providers using LiveKit JS Agents' synthesize() API:
- * - Inworld (HTTP)
- * - ElevenLabs (HTTP)
- * - Cartesia (HTTP)
+ * Benchmark HTTP TTS TTFB across providers using LiveKit JS synthesize() API.
  *
  * For each sentence in the input text, calls synthesize() and measures
- * the time to first audio frame (TTFB).
- *
- * Usage:
- *   cd integrations/livekit/js/benchmarks
- *   npx tsx benchmark_http_ttfb.ts --services inworld -n 5
- *   npx tsx benchmark_http_ttfb.ts --services all -n 20
+ * the time to first audio frame (TTFB) via the built-in metrics system.
  */
 
 import { config } from 'dotenv';
@@ -25,260 +15,179 @@ import { tts, initializeLogger } from '@livekit/agents';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Load .env from benchmarks-js dir, then fall back to parent
 config({ path: join(__dirname, '.env'), override: true });
 config({ override: true });
 
-// ---------------------------------------------------------------------------
-// WAV helper
-// ---------------------------------------------------------------------------
+const DEFAULT_SENTENCES = [
+  'Hello! Welcome to the TTS benchmark.',
+  'This is a test of the text-to-speech system.',
+  'Each sentence should trigger a separate TTS request.',
+  "Let's see how fast the first audio byte arrives!",
+  'The quick brown fox jumps over the lazy dog.',
+];
 
-function saveWav(
-  audioData: Buffer,
-  filename: string,
-  sampleRate: number,
-  outputDir = 'benchmark_audio',
-): string {
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function saveWav(audioData: Buffer, filename: string, sampleRate: number, outputDir = 'benchmark_audio'): string {
   mkdirSync(outputDir, { recursive: true });
-
-  const numChannels = 1;
-  const bitsPerSample = 16;
+  const numChannels = 1, bitsPerSample = 16;
   const byteRate = sampleRate * numChannels * bitsPerSample / 8;
   const blockAlign = numChannels * bitsPerSample / 8;
-  const dataSize = audioData.length;
-
   const header = Buffer.alloc(44);
   header.write('RIFF', 0);
-  header.writeUInt32LE(36 + dataSize, 4);
+  header.writeUInt32LE(36 + audioData.length, 4);
   header.write('WAVE', 8);
   header.write('fmt ', 12);
   header.writeUInt32LE(16, 16);
-  header.writeUInt16LE(1, 20); // PCM
+  header.writeUInt16LE(1, 20);
   header.writeUInt16LE(numChannels, 22);
   header.writeUInt32LE(sampleRate, 24);
   header.writeUInt32LE(byteRate, 28);
   header.writeUInt16LE(blockAlign, 32);
   header.writeUInt16LE(bitsPerSample, 34);
   header.write('data', 36);
-  header.writeUInt32LE(dataSize, 40);
-
+  header.writeUInt32LE(audioData.length, 40);
   const filepath = `${outputDir}/${filename}`;
   writeFileSync(filepath, Buffer.concat([header, audioData]));
   return filepath;
 }
 
-// ---------------------------------------------------------------------------
-// Sentence splitter
-// ---------------------------------------------------------------------------
-
-function splitSentences(text: string): string[] {
-  return text
-    .trim()
-    .split(/(?<=[.!?])\s+/)
-    .filter((s) => s.trim().length > 0);
+function percentile(sortedVals: number[], p: number): number {
+  const idx = (p / 100) * (sortedVals.length - 1);
+  const low = Math.floor(idx);
+  const high = Math.min(low + 1, sortedVals.length - 1);
+  return sortedVals[low]! * (1 - (idx - low)) + sortedVals[high]! * (idx - low);
 }
 
-// ---------------------------------------------------------------------------
-// TTS service factory functions
-// ---------------------------------------------------------------------------
+interface Stats {
+  count: number;
+  avg: number | null;
+  std: number | null;
+  min: number | null;
+  max: number | null;
+  p50: number | null;
+  p95: number | null;
+  values: number[];
+}
 
-type TTSMetrics = {
-  type: 'tts_metrics';
-  ttfbMs: number;
-  [key: string]: unknown;
-};
+function computeStats(values: number[]): Stats {
+  if (values.length === 0) {
+    return { count: 0, avg: null, std: null, min: null, max: null, p50: null, p95: null, values: [] };
+  }
+  const n = values.length;
+  const avg = values.reduce((a, b) => a + b, 0) / n;
+  const std = Math.sqrt(values.reduce((sum, x) => sum + (x - avg) ** 2, 0) / n);
+  const sorted = [...values].sort((a, b) => a - b);
+  return {
+    count: n, avg, std, min: sorted[0]!, max: sorted[n - 1]!,
+    p50: percentile(sorted, 50), p95: percentile(sorted, 95), values,
+  };
+}
+
+interface BenchmarkResult {
+  service: string;
+  ttfb: Stats;
+  audio_bytes: number;
+}
+
+type TTSMetrics = { ttfbMs: number; [key: string]: unknown };
 
 async function createInworldTTS(apiKey: string): Promise<tts.TTS> {
   const inworld = await import('@livekit/agents-plugin-inworld');
   return new inworld.TTS({
-    apiKey,
-    voice: 'Ashley',
-    model: 'inworld-tts-1.5-max',
-    encoding: 'LINEAR16',
-    sampleRate: 24000,
+    apiKey, voice: 'Ashley', model: 'inworld-tts-1.5-mini',
+    encoding: 'LINEAR16', sampleRate: 24000,
+    baseURL: 'https://api.inworld.ai/',
   });
 }
 
 async function createElevenLabsTTS(apiKey: string): Promise<tts.TTS> {
   const elevenlabs = await import('@livekit/agents-plugin-elevenlabs');
   return new elevenlabs.TTS({
-    apiKey,
-    voiceId: '21m00Tcm4TlvDq8ikWAM', // Rachel voice
-    model: 'eleven_turbo_v2_5',
+    apiKey, voiceId: '21m00Tcm4TlvDq8ikWAM', model: 'eleven_turbo_v2_5',
   });
 }
 
 async function createCartesiaTTS(apiKey: string): Promise<tts.TTS> {
   const cartesia = await import('@livekit/agents-plugin-cartesia');
   return new cartesia.TTS({
-    apiKey,
-    voice: '79a125e8-cd45-4c13-8a67-188112f4dd22', // British Lady voice
-    model: 'sonic-3',
+    apiKey, voice: '79a125e8-cd45-4c13-8a67-188112f4dd22', model: 'sonic-3',
   });
 }
 
-// ---------------------------------------------------------------------------
-// Benchmark runner
-// ---------------------------------------------------------------------------
-
-interface BenchmarkResult {
-  service: string;
-  ttfb_count: number;
-  ttfb_avg: number | null;
-  ttfb_min: number | null;
-  ttfb_max: number | null;
-  ttfb_values: number[];
-  audio_bytes: number;
-  error?: string;
-}
-
-async function benchmarkSynthesize(
-  ttsInstance: tts.TTS,
-  text: string,
-  serviceName: string,
-  doSaveAudio = false,
-  outputDir = 'benchmark_audio',
-): Promise<BenchmarkResult> {
-  const sentences = splitSentences(text);
-  const ttfbValues: number[] = [];
+async function benchmarkOneSentence(
+  ttsInstance: tts.TTS, sentence: string, serviceName: string,
+  doSaveAudio = false, outputDir = 'benchmark_audio',
+): Promise<{ ttfb: number | null; audio_bytes: number }> {
+  let ttfbValue: number | null = null;
   const allAudio: Buffer[] = [];
-  let firstChunkBytes: Buffer | null = null;
   const sampleRate = ttsInstance.sampleRate;
 
-  // Collect TTFB from the built-in metrics system
   const onMetrics = (metrics: TTSMetrics) => {
     if (metrics.ttfbMs > 10) {
-      // Filter spurious near-zero values (< 10ms)
-      ttfbValues.push(metrics.ttfbMs / 1000); // Convert to seconds for display
+      ttfbValue = metrics.ttfbMs / 1000;
     }
   };
   ttsInstance.on('metrics_collected', onMetrics);
 
   try {
-    for (const sentence of sentences) {
-      const stream = ttsInstance.synthesize(sentence);
-
-      for await (const audio of stream) {
-        const frameData = Buffer.from(
-          audio.frame.data.buffer,
-          audio.frame.data.byteOffset,
-          audio.frame.data.byteLength,
-        );
-        allAudio.push(frameData);
-
-        if (firstChunkBytes === null) {
-          firstChunkBytes = frameData;
-        }
-      }
-
-      // Allow a moment for metrics events to fire
-      await delay(100);
+    const stream = ttsInstance.synthesize(sentence);
+    for await (const audio of stream) {
+      const frameData = Buffer.from(audio.frame.data.buffer, audio.frame.data.byteOffset, audio.frame.data.byteLength);
+      allAudio.push(frameData);
     }
+    await delay(100);
 
-    // Save audio files on request
     if (doSaveAudio && allAudio.length > 0) {
       const safeName = serviceName.toLowerCase().replace(/ /g, '_');
-      const fullAudio = Buffer.concat(allAudio);
-      saveWav(fullAudio, `${safeName}_http_full.wav`, sampleRate, outputDir);
-      if (firstChunkBytes) {
-        saveWav(firstChunkBytes, `${safeName}_http_first_chunk.wav`, sampleRate, outputDir);
-      }
+      saveWav(Buffer.concat(allAudio), `${safeName}_http.wav`, sampleRate, outputDir);
     }
   } finally {
     ttsInstance.off('metrics_collected', onMetrics);
   }
 
-  if (ttfbValues.length > 0) {
-    return {
-      service: serviceName,
-      ttfb_count: ttfbValues.length,
-      ttfb_avg: ttfbValues.reduce((a, b) => a + b, 0) / ttfbValues.length,
-      ttfb_min: Math.min(...ttfbValues),
-      ttfb_max: Math.max(...ttfbValues),
-      ttfb_values: ttfbValues,
-      audio_bytes: allAudio.reduce((sum, buf) => sum + buf.length, 0),
-    };
-  }
-
-  return {
-    service: serviceName,
-    ttfb_count: 0,
-    ttfb_avg: null,
-    ttfb_min: null,
-    ttfb_max: null,
-    ttfb_values: [],
-    audio_bytes: allAudio.reduce((sum, buf) => sum + buf.length, 0),
-  };
+  return { ttfb: ttfbValue, audio_bytes: allAudio.reduce((sum, buf) => sum + buf.length, 0) };
 }
 
-async function runServiceBenchmark(
-  serviceName: string,
-  createTtsFn: (apiKey: string) => Promise<tts.TTS>,
-  apiKey: string,
-  text: string,
-  doSaveAudio = true,
-  outputDir = 'benchmark_audio',
-): Promise<BenchmarkResult> {
-  const ttsInstance = await createTtsFn(apiKey);
-  try {
-    return await benchmarkSynthesize(ttsInstance, text, serviceName, doSaveAudio, outputDir);
-  } finally {
-    await ttsInstance.close();
-  }
+function fmt(val: number | null, suffix = 's'): string {
+  return val !== null ? `${val.toFixed(3)}${suffix}` : 'N/A';
 }
 
-// ---------------------------------------------------------------------------
-// Results display
-// ---------------------------------------------------------------------------
+function printResults(results: BenchmarkResult[], title: string): void {
+  const w = 90;
+  console.log('\n' + '='.repeat(w));
+  console.log(title);
+  console.log('='.repeat(w));
 
-function printComparisonTable(results: BenchmarkResult[]): void {
-  console.log('\n' + '='.repeat(70));
-  console.log('HTTP TTS BENCHMARK RESULTS (synthesize API) — JS');
-  console.log('='.repeat(70));
-
+  console.log('\n📊 TTFB');
   console.log(
-    `${'Service'.padEnd(20)} ${'Avg TTFB'.padEnd(12)} ${'Min TTFB'.padEnd(12)} ${'Max TTFB'.padEnd(12)} ${'Samples'.padEnd(10)}`,
+    `${'Service'.padEnd(20)} ${'Avg'.padStart(8)} ${'StdDev'.padStart(8)} ` +
+    `${'Min'.padStart(8)} ${'Max'.padStart(8)} ${'P50'.padStart(8)} ${'P95'.padStart(8)} ${'N'.padStart(5)}`
   );
-  console.log('-'.repeat(70));
+  console.log('-'.repeat(w));
 
-  const sorted = [...results].sort(
-    (a, b) => (a.ttfb_avg ?? Infinity) - (b.ttfb_avg ?? Infinity),
-  );
-
+  const sorted = [...results].sort((a, b) => (a.ttfb.avg ?? Infinity) - (b.ttfb.avg ?? Infinity));
   for (const r of sorted) {
-    if (r.ttfb_avg !== null) {
+    const s = r.ttfb;
+    if (s.count > 0) {
       console.log(
-        `${r.service.padEnd(20)} ${(r.ttfb_avg.toFixed(3) + 's').padEnd(12)} ` +
-        `${(r.ttfb_min!.toFixed(3) + 's').padEnd(12)} ` +
-        `${(r.ttfb_max!.toFixed(3) + 's').padEnd(12)} ${String(r.ttfb_count).padEnd(10)}`,
+        `${r.service.padEnd(20)} ${fmt(s.avg).padStart(8)} ${fmt(s.std).padStart(8)} ` +
+        `${fmt(s.min).padStart(8)} ${fmt(s.max).padStart(8)} ` +
+        `${fmt(s.p50).padStart(8)} ${fmt(s.p95).padStart(8)} ${String(s.count).padStart(5)}`
       );
     } else {
       console.log(
-        `${r.service.padEnd(20)} ${'N/A'.padEnd(12)} ${'N/A'.padEnd(12)} ${'N/A'.padEnd(12)} ${'0'.padEnd(10)}`,
+        `${r.service.padEnd(20)} ${'N/A'.padStart(8)} ${'N/A'.padStart(8)} ${'N/A'.padStart(8)} ` +
+        `${'N/A'.padStart(8)} ${'N/A'.padStart(8)} ${'N/A'.padStart(8)} ${'0'.padStart(5)}`
       );
     }
   }
 
-  console.log('='.repeat(70));
 
-  if (sorted.length > 0 && sorted[0]!.ttfb_avg !== null) {
-    console.log(
-      `\n🏆 Fastest average TTFB: ${sorted[0]!.service} (${sorted[0]!.ttfb_avg!.toFixed(3)}s)`,
-    );
-  }
+  console.log('\n' + '='.repeat(w));
 }
-
-// ---------------------------------------------------------------------------
-// Utility
-// ---------------------------------------------------------------------------
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
 
 interface ServiceConfig {
   name: string;
@@ -292,183 +201,111 @@ async function main() {
   const { values } = parseArgs({
     options: {
       text: { type: 'string' },
-      iterations: { type: 'string', short: 'n', default: '20' },
+      iterations: { type: 'string', short: 'n', default: '5' },
       services: { type: 'string', default: 'all' },
       'no-save-audio': { type: 'boolean', default: false },
+      debug: { type: 'boolean', default: false },
+      warmup: { type: 'string', default: '1' },
     },
   });
 
+  if (values.debug) {
+    initializeLogger({ pretty: true, level: 'debug' });
+  }
+
   const iterations = parseInt(values['iterations']!, 10);
+  const warmup = parseInt(values['warmup']!, 10);
   const noSaveAudio = values['no-save-audio'] ?? false;
+  const sentences = values.text ? [values.text] : DEFAULT_SENTENCES;
 
-  // Default text with multiple sentences
-  const text =
-    values.text ??
-    'Hello! Welcome to the TTS benchmark. ' +
-      'This is a test of the text-to-speech system. ' +
-      'Each sentence should trigger a separate TTS request. ' +
-      "Let's see how fast the first audio byte arrives!";
-
-  // Parse services to benchmark
   const servicesToRun =
     values.services!.toLowerCase() === 'all'
       ? ['inworld', 'elevenlabs', 'cartesia']
       : values.services!.split(',').map((s) => s.trim().toLowerCase());
 
-  // Service configurations
   const serviceConfigs: Record<string, ServiceConfig> = {
-    inworld: {
-      name: 'Inworld HTTP',
-      create_fn: createInworldTTS,
-      api_key_env: 'INWORLD_API_KEY',
-    },
-    elevenlabs: {
-      name: 'ElevenLabs HTTP',
-      create_fn: createElevenLabsTTS,
-      api_key_env: 'ELEVEN_API_KEY',
-    },
-    cartesia: {
-      name: 'Cartesia HTTP',
-      create_fn: createCartesiaTTS,
-      api_key_env: 'CARTESIA_API_KEY',
-    },
+    inworld: { name: 'Inworld HTTP', create_fn: createInworldTTS, api_key_env: 'INWORLD_API_KEY' },
+    elevenlabs: { name: 'ElevenLabs HTTP', create_fn: createElevenLabsTTS, api_key_env: 'ELEVEN_API_KEY' },
+    cartesia: { name: 'Cartesia HTTP', create_fn: createCartesiaTTS, api_key_env: 'CARTESIA_API_KEY' },
   };
 
-  // Check API keys and filter available services
   const availableServices: { id: string; config: ServiceConfig; apiKey: string }[] = [];
   for (const serviceId of servicesToRun) {
     const cfg = serviceConfigs[serviceId];
-    if (!cfg) {
-      console.log(`⚠️  Unknown service: ${serviceId}`);
-      continue;
-    }
-
+    if (!cfg) { console.log(`⚠️  Unknown service: ${serviceId}`); continue; }
     const apiKey = process.env[cfg.api_key_env];
-    if (!apiKey) {
-      console.log(`⚠️  ${cfg.name}: ${cfg.api_key_env} not set, skipping`);
-      continue;
-    }
-
+    if (!apiKey) { console.log(`⚠️  ${cfg.name}: ${cfg.api_key_env} not set, skipping`); continue; }
     availableServices.push({ id: serviceId, config: cfg, apiKey });
   }
 
   if (availableServices.length === 0) {
-    console.log('No services available to benchmark. Please set the required API keys:');
-    console.log('  - INWORLD_API_KEY for Inworld');
-    console.log('  - ELEVEN_API_KEY for ElevenLabs');
-    console.log('  - CARTESIA_API_KEY for Cartesia');
+    console.log('No services available. Set INWORLD_API_KEY, ELEVEN_API_KEY, or CARTESIA_API_KEY.');
     return;
   }
 
-  console.log(
-    `\n🚀 Benchmarking ${availableServices.length} HTTP TTS service(s): ` +
-      availableServices.map((s) => s.config.name).join(', '),
-  );
-  console.log(text.length > 50 ? `📝 Text: ${text.slice(0, 50)}...` : `📝 Text: ${text}`);
-  console.log(`🔄 Iterations: ${iterations}`);
+  console.log(`\n🚀 Benchmarking ${availableServices.length} service(s): ${availableServices.map((s) => s.config.name).join(', ')}`);
+  console.log(`📝 Sentences: ${sentences.length} (cycling per iteration)`);
+  console.log(`🔄 Iterations: ${iterations} (+ ${warmup} warmup)\n`);
+
+  const allTtfb: Record<string, number[]> = {};
+  for (const s of availableServices) allTtfb[s.id] = [];
+
+  // One TTS instance per service, reused across all iterations (like a real app)
+  const ttsInstances: Record<string, tts.TTS> = {};
+  for (const { id, config: cfg, apiKey } of availableServices) {
+    ttsInstances[id] = await cfg.create_fn(apiKey);
+  }
+
+  const totalIters = warmup + iterations;
+  try {
+    for (let iteration = 0; iteration < totalIters; iteration++) {
+      const isWarmup = iteration < warmup;
+      const label = isWarmup
+        ? `warmup ${iteration + 1}/${warmup}`
+        : `${iteration - warmup + 1}/${iterations}`;
+      process.stdout.write(`\r${isWarmup ? '⏳' : '📊'} Progress: ${label}`);
+
+      const sentence = sentences[iteration % sentences.length]!;
+
+      for (const { id, config: cfg } of availableServices) {
+        try {
+          const result = await benchmarkOneSentence(
+            ttsInstances[id]!, sentence, cfg.name,
+            !noSaveAudio && iteration === warmup,
+          );
+          if (!isWarmup && result.ttfb !== null) {
+            allTtfb[id]!.push(result.ttfb);
+          }
+          if (result.audio_bytes === 0) {
+            console.log(`\n⚠️  ${cfg.name}: No audio received!`);
+          }
+        } catch (err) {
+          console.log(`\n❌ ${cfg.name}: ${err}`);
+        }
+
+        await delay(1000);
+      }
+
+      if (iteration < totalIters - 1) await delay(1000);
+    }
+  } finally {
+    for (const inst of Object.values(ttsInstances)) {
+      await inst.close();
+    }
+  }
+
   console.log();
 
-  const allResults: Record<string, BenchmarkResult[]> = {};
-  for (const s of availableServices) {
-    allResults[s.id] = [];
-  }
-
-  for (let iteration = 0; iteration < iterations; iteration++) {
-    // Print progress
-    process.stdout.write(`\rProgress: ${iteration + 1}/${iterations}`);
-
-    for (const { id, config: cfg, apiKey } of availableServices) {
-      try {
-        const result = await runServiceBenchmark(
-          cfg.name,
-          cfg.create_fn,
-          apiKey,
-          text,
-          !noSaveAudio && iteration === 0, // Only save audio on first run
-        );
-        allResults[id]!.push(result);
-      } catch (err) {
-        allResults[id]!.push({
-          service: cfg.name,
-          ttfb_count: 0,
-          ttfb_avg: null,
-          ttfb_min: null,
-          ttfb_max: null,
-          ttfb_values: [],
-          audio_bytes: 0,
-          error: String(err),
-        });
-      }
-
-      // Small delay between services
-      await delay(500);
-    }
-  }
-
-  console.log(); // New line after progress
-
-  // Aggregate results across iterations
   const aggregatedResults: BenchmarkResult[] = [];
   for (const { id, config: cfg } of availableServices) {
-    const resultsList = allResults[id]!;
-    const allTtfb: number[] = [];
-
-    for (const r of resultsList) {
-      allTtfb.push(...r.ttfb_values);
-    }
-
-    if (allTtfb.length > 0) {
-      aggregatedResults.push({
-        service: resultsList[0]!.service,
-        ttfb_count: allTtfb.length,
-        ttfb_avg: allTtfb.reduce((a, b) => a + b, 0) / allTtfb.length,
-        ttfb_min: Math.min(...allTtfb),
-        ttfb_max: Math.max(...allTtfb),
-        ttfb_values: allTtfb,
-        audio_bytes: 0,
-      });
-    } else {
-      aggregatedResults.push({
-        service: cfg.name,
-        ttfb_count: 0,
-        ttfb_avg: null,
-        ttfb_min: null,
-        ttfb_max: null,
-        ttfb_values: [],
-        audio_bytes: 0,
-      });
-    }
+    aggregatedResults.push({
+      service: cfg.name,
+      ttfb: computeStats(allTtfb[id]!),
+      audio_bytes: 0,
+    });
   }
 
-  printComparisonTable(aggregatedResults);
-
-  // Print aggregate stats if multiple iterations
-  if (iterations > 1) {
-    console.log('\n' + '='.repeat(70));
-    console.log(`AGGREGATE STATISTICS (${iterations} iterations)`);
-    console.log('='.repeat(70));
-
-    const sorted = [...aggregatedResults].sort(
-      (a, b) => (a.ttfb_avg ?? Infinity) - (b.ttfb_avg ?? Infinity),
-    );
-
-    for (const r of sorted) {
-      if (r.ttfb_avg !== null) {
-        const mean = r.ttfb_avg;
-        const variance =
-          r.ttfb_values.reduce((sum, x) => sum + (x - mean) ** 2, 0) / r.ttfb_values.length;
-        const stdDev = Math.sqrt(variance);
-        console.log(`\n${r.service}:`);
-        console.log(`  Total samples: ${r.ttfb_count}`);
-        console.log(`  Average TTFB:  ${r.ttfb_avg.toFixed(3)}s`);
-        console.log(`  Min TTFB:      ${r.ttfb_min!.toFixed(3)}s`);
-        console.log(`  Max TTFB:      ${r.ttfb_max!.toFixed(3)}s`);
-        console.log(`  Std Dev:       ${stdDev.toFixed(3)}s`);
-      }
-    }
-  }
-
-  // Force exit since connections may keep the event loop alive
+  printResults(aggregatedResults, 'HTTP TTS BENCHMARK RESULTS (LiveKit JS)');
   process.exit(0);
 }
 

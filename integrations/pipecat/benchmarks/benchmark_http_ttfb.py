@@ -1,8 +1,7 @@
-"""Benchmark WebSocket TTS TTFB across providers using Pipecat pipelines.
+"""Benchmark HTTP TTS TTFB across providers using Pipecat pipelines.
 
-Simulates LLM token-by-token output. The TTS service's sentence aggregator
-collects tokens into sentences before sending to the provider. Measures
-TTFB, TTFT (time to first word timestamp), and TT700 (time to 700ms of audio).
+Sends text through the pipeline with sentence aggregation. Each sentence
+triggers a separate HTTP request, and TTFB is measured per request.
 """
 
 import asyncio
@@ -13,6 +12,7 @@ import time
 from pathlib import Path
 from typing import Dict, List
 
+import aiohttp
 from dotenv import load_dotenv
 from loguru import logger as _loguru_logger
 
@@ -40,7 +40,13 @@ load_dotenv(override=True)
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger("benchmark")
 
-DEFAULT_TEXT = "Hello! Welcome to the TTS benchmark."
+DEFAULT_SENTENCES = [
+    "Hello! Welcome to the TTS benchmark.",
+    "This is a test of the text-to-speech system.",
+    "Each sentence should trigger a separate TTS request.",
+    "Let's see how fast the first audio byte arrives!",
+    "The quick brown fox jumps over the lazy dog.",
+]
 
 
 def save_wav(audio_data: bytes, filename: str, sample_rate: int,
@@ -82,13 +88,12 @@ def compute_stats(values: List[float]) -> Dict:
             "p50": _percentile(s, 50), "p95": _percentile(s, 95), "values": values}
 
 
-class SimulatedLLMProcessor(FrameProcessor):
-    """Emits text tokens one at a time to simulate LLM streaming output."""
+class TextSourceProcessor(FrameProcessor):
+    """Sends full text into the pipeline. The TTS sentence aggregator splits it."""
 
-    def __init__(self, text: str, token_delay_ms: float = 50, **kwargs):
+    def __init__(self, text: str, **kwargs):
         super().__init__(**kwargs)
         self._text = text
-        self._token_delay_s = token_delay_ms / 1000.0
         self._started = False
 
     async def process_frame(self, frame: Frame, direction: FrameDirection):
@@ -97,19 +102,14 @@ class SimulatedLLMProcessor(FrameProcessor):
             await self.push_frame(frame, direction)
             if not self._started:
                 self._started = True
-                asyncio.create_task(self._emit_tokens())
+                asyncio.create_task(self._emit_text())
         else:
             await self.push_frame(frame, direction)
 
-    async def _emit_tokens(self):
+    async def _emit_text(self):
         await asyncio.sleep(0.1)
         await self.push_frame(LLMFullResponseStartFrame())
-        words = self._text.split()
-        for i, word in enumerate(words):
-            token = word if i == 0 else " " + word
-            logger.debug("Emitting token: '%s'", token)
-            await self.push_frame(TextFrame(text=token))
-            await asyncio.sleep(self._token_delay_s)
+        await self.push_frame(TextFrame(text=self._text))
         await self.push_frame(LLMFullResponseEndFrame())
         await asyncio.sleep(0.5)
         await self.push_frame(EndFrame())
@@ -147,8 +147,6 @@ class TTFBCollector(FrameProcessor):
         if isinstance(frame, StartFrame):
             self._check_task = asyncio.create_task(self._check_audio_done())
         elif isinstance(frame, MetricsFrame):
-            # Plugin's built-in TTFB: time from TTS request to first audio byte
-            # of the first sentence — the metric that matters for agent-turn latency
             for data in frame.data:
                 if isinstance(data, TTFBMetricsData):
                     if data.value > 0.01:
@@ -207,9 +205,9 @@ class TTFBCollector(FrameProcessor):
         safe_name = self.service_name.lower().replace(" ", "_")
         sr = self.sample_rate or 24000
         if self.first_chunk_bytes:
-            save_wav(self.first_chunk_bytes, f"{safe_name}_ws_first_chunk.wav", sr, self.output_dir)
+            save_wav(self.first_chunk_bytes, f"{safe_name}_http_first_chunk.wav", sr, self.output_dir)
         if self.all_audio_chunks:
-            save_wav(b"".join(self.all_audio_chunks), f"{safe_name}_ws_full.wav", sr, self.output_dir)
+            save_wav(b"".join(self.all_audio_chunks), f"{safe_name}_http_full.wav", sr, self.output_dir)
 
     def get_results(self) -> Dict:
         return {
@@ -222,33 +220,32 @@ class TTFBCollector(FrameProcessor):
         }
 
 
-def create_inworld_tts(api_key: str):
-    from pipecat.services.inworld.tts import InworldTTSService
-    return InworldTTSService(
-        api_key=api_key, voice_id="Ashley", model="inworld-tts-1.5-mini",
-        aggregate_sentences=True,
-        url="wss://api.inworld.ai/tts/v1/voice:streamBidirectional",
+def create_inworld_tts(api_key: str, session: aiohttp.ClientSession):
+    from pipecat.services.inworld.tts import InworldHttpTTSService
+    return InworldHttpTTSService(
+        api_key=api_key, aiohttp_session=session, voice_id="Ashley",
+        model="inworld-tts-1.5-mini", streaming=True, aggregate_sentences=True,
     )
 
 
-def create_elevenlabs_tts(api_key: str):
-    from pipecat.services.elevenlabs.tts import ElevenLabsTTSService
-    return ElevenLabsTTSService(
-        api_key=api_key, voice_id="21m00Tcm4TlvDq8ikWAM",
+def create_elevenlabs_tts(api_key: str, session: aiohttp.ClientSession):
+    from pipecat.services.elevenlabs.tts import ElevenLabsHttpTTSService
+    return ElevenLabsHttpTTSService(
+        api_key=api_key, aiohttp_session=session, voice_id="21m00Tcm4TlvDq8ikWAM",
         model="eleven_turbo_v2_5", aggregate_sentences=True,
     )
 
 
-def create_cartesia_tts(api_key: str):
-    from pipecat.services.cartesia.tts import CartesiaTTSService
-    return CartesiaTTSService(
+def create_cartesia_tts(api_key: str, session: aiohttp.ClientSession):
+    from pipecat.services.cartesia.tts import CartesiaHttpTTSService
+    return CartesiaHttpTTSService(
         api_key=api_key, voice_id="79a125e8-cd45-4c13-8a67-188112f4dd22",
         model="sonic-3", aggregate_sentences=True,
     )
 
 
-async def _run_pipeline(llm_processor, tts, collector):
-    pipeline = Pipeline([llm_processor, tts, collector])
+async def _run_pipeline(text_source, tts, collector):
+    pipeline = Pipeline([text_source, tts, collector])
     task = PipelineTask(pipeline, params=PipelineParams(
         enable_metrics=True, enable_usage_metrics=True))
     runner = PipelineRunner(handle_sigint=False)
@@ -267,30 +264,31 @@ async def _run_pipeline(llm_processor, tts, collector):
 
 
 async def run_service_benchmark(
-    service_name: str, create_tts_fn, api_key: str, text: str,
-    token_delay_ms: float = 50, save_audio: bool = True,
-    output_dir: str = "benchmark_audio",
+    create_tts_fn, api_key: str, session: aiohttp.ClientSession,
+    sentence: str, service_name: str,
+    save_audio: bool = True, output_dir: str = "benchmark_audio",
 ) -> Dict:
-    llm = SimulatedLLMProcessor(text=text, token_delay_ms=token_delay_ms)
+    """Run one pipeline with one sentence. Creates a fresh TTS (pipecat
+    FrameProcessors can't be reused across pipelines) but reuses the HTTP
+    session so TCP connections stay warm."""
+    text_source = TextSourceProcessor(text=sentence)
     collector = TTFBCollector(service_name=service_name, save_audio=save_audio,
                               output_dir=output_dir)
-    tts = create_tts_fn(api_key)
-    result = await _run_pipeline(llm, tts, collector)
-    return result
+    tts = create_tts_fn(api_key=api_key, session=session)
+    return await _run_pipeline(text_source, tts, collector)
 
 
 def _fmt(val, suffix="s"):
     return f"{val:.3f}{suffix}" if val is not None else "N/A"
 
 
-def print_results(results: List[Dict], title: str = "WEBSOCKET TTS BENCHMARK"):
+def print_results(results: List[Dict], title: str = "HTTP TTS BENCHMARK"):
     w = 90
     print(f"\n{'=' * w}")
     print(title)
     print("=" * w)
 
-    for metric_key, metric_label in [("ttfb", "TTFB"),
-                                      ("ttft", "TTFT"), ("tt700", "TT700")]:
+    for metric_key, metric_label in [("ttfb", "TTFB"), ("ttft", "TTFT"), ("tt700", "TT700")]:
         has_data = any(r[metric_key]["count"] > 0 for r in results)
         if not has_data:
             continue
@@ -318,9 +316,7 @@ def print_results(results: List[Dict], title: str = "WEBSOCKET TTS BENCHMARK"):
 async def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description="Benchmark WebSocket TTS TTFB (Pipecat)")
-    parser.add_argument("--token-delay", type=float, default=50,
-                        help="Delay between tokens in ms (default: 50)")
+    parser = argparse.ArgumentParser(description="Benchmark HTTP TTS TTFB (Pipecat)")
     parser.add_argument("--text", type=str, default=None, help="Custom text to synthesize")
     parser.add_argument("-n", "--iterations", type=int, default=5,
                         help="Number of benchmark iterations (default: 5)")
@@ -338,7 +334,7 @@ async def main():
         _loguru_logger.remove()
         _loguru_logger.add(lambda msg: None)
 
-    text = args.text or DEFAULT_TEXT
+    sentences = [args.text] if args.text else DEFAULT_SENTENCES
 
     services_to_run = (
         ["inworld", "elevenlabs", "cartesia"]
@@ -347,11 +343,11 @@ async def main():
     )
 
     service_configs = {
-        "inworld": {"name": "Inworld WS", "create_fn": create_inworld_tts,
+        "inworld": {"name": "Inworld HTTP", "create_fn": create_inworld_tts,
                      "api_key_env": "INWORLD_API_KEY"},
-        "elevenlabs": {"name": "ElevenLabs WS", "create_fn": create_elevenlabs_tts,
+        "elevenlabs": {"name": "ElevenLabs HTTP", "create_fn": create_elevenlabs_tts,
                        "api_key_env": "ELEVEN_API_KEY"},
-        "cartesia": {"name": "Cartesia WS", "create_fn": create_cartesia_tts,
+        "cartesia": {"name": "Cartesia HTTP", "create_fn": create_cartesia_tts,
                      "api_key_env": "CARTESIA_API_KEY"},
     }
 
@@ -372,52 +368,61 @@ async def main():
         return
 
     print(f"\n🚀 Benchmarking {len(available)} service(s): {', '.join(c[1]['name'] for c in available)}")
-    print(f"📝 Text: {text[:60]}..." if len(text) > 60 else f"📝 Text: {text}")
-    print(f"⏱️  Token delay: {args.token_delay}ms")
+    print(f"📝 Sentences: {len(sentences)} (cycling per iteration)")
     print(f"🔄 Iterations: {args.iterations} (+ {args.warmup} warmup)\n")
 
-    all_results: Dict[str, List[Dict]] = {sid: [] for sid, _, _ in available}
+    all_ttfb: Dict[str, List[float]] = {sid: [] for sid, _, _ in available}
+    all_ttft: Dict[str, List[float]] = {sid: [] for sid, _, _ in available}
+    all_tt700: Dict[str, List[float]] = {sid: [] for sid, _, _ in available}
+
+    # Shared HTTP session keeps TCP connections warm across iterations
+    session = aiohttp.ClientSession()
 
     total_iters = args.warmup + args.iterations
-    for iteration in range(total_iters):
-        is_warmup = iteration < args.warmup
-        label = f"warmup {iteration + 1}/{args.warmup}" if is_warmup else \
-                f"{iteration - args.warmup + 1}/{args.iterations}"
-        print(f"\r{'⏳' if is_warmup else '📊'} Progress: {label}", end="", flush=True)
+    try:
+        for iteration in range(total_iters):
+            is_warmup = iteration < args.warmup
+            label = f"warmup {iteration + 1}/{args.warmup}" if is_warmup else \
+                    f"{iteration - args.warmup + 1}/{args.iterations}"
+            print(f"\r{'⏳' if is_warmup else '📊'} Progress: {label}", end="", flush=True)
 
-        for sid, cfg, api_key in available:
-            try:
-                result = await run_service_benchmark(
-                    service_name=cfg["name"], create_tts_fn=cfg["create_fn"],
-                    api_key=api_key, text=text, token_delay_ms=args.token_delay,
-                    save_audio=not args.no_save_audio and iteration == args.warmup,
-                )
-                if not is_warmup:
-                    all_results[sid].append(result)
-                    if result["audio_bytes"] == 0:
-                        print(f"\n⚠️  {cfg['name']}: No audio received!")
-            except Exception as e:
-                print(f"\n❌ {cfg['name']}: {e}")
+            sentence = sentences[iteration % len(sentences)]
 
-            await asyncio.sleep(1.0)
+            for sid, cfg, api_key in available:
+                try:
+                    result = await run_service_benchmark(
+                        create_tts_fn=cfg["create_fn"], api_key=api_key,
+                        session=session, sentence=sentence,
+                        service_name=cfg["name"],
+                        save_audio=not args.no_save_audio and iteration == args.warmup,
+                    )
+                    if not is_warmup:
+                        for key, store in [("ttfb", all_ttfb), ("ttft", all_ttft), ("tt700", all_tt700)]:
+                            store[sid].extend(result[key].get("values", []))
+                        if result["audio_bytes"] == 0:
+                            print(f"\n⚠️  {cfg['name']}: No audio received!")
+                except Exception as e:
+                    print(f"\n❌ {cfg['name']}: {e}")
 
-        if iteration < total_iters - 1:
-            await asyncio.sleep(1.0)
+                await asyncio.sleep(1.0)
+
+            if iteration < total_iters - 1:
+                await asyncio.sleep(1.0)
+    finally:
+        await session.close()
 
     print()
 
     aggregated = []
     for sid, cfg, _ in available:
-        results_list = all_results[sid]
-        merged = {"service": cfg["name"]}
-        for key in ["ttfb", "ttft", "tt700"]:
-            all_vals = []
-            for r in results_list:
-                all_vals.extend(r[key].get("values", []))
-            merged[key] = compute_stats(all_vals)
-        aggregated.append(merged)
+        aggregated.append({
+            "service": cfg["name"],
+            "ttfb": compute_stats(all_ttfb[sid]),
+            "ttft": compute_stats(all_ttft[sid]),
+            "tt700": compute_stats(all_tt700[sid]),
+        })
 
-    print_results(aggregated, "WEBSOCKET TTS BENCHMARK RESULTS (Pipecat)")
+    print_results(aggregated, "HTTP TTS BENCHMARK RESULTS (Pipecat)")
 
 
 if __name__ == "__main__":

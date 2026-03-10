@@ -24,18 +24,8 @@ import os
 from dotenv import load_dotenv
 from loguru import logger
 
-print("🚀 Starting Pipecat bot...")
-print("⏳ Loading models and imports (20 seconds, first run only)\n")
-
-logger.info("Loading Local Smart Turn Analyzer V3...")
 from pipecat.audio.turn.smart_turn.local_smart_turn_v3 import LocalSmartTurnAnalyzerV3
-
-logger.info("✅ Local Smart Turn Analyzer V3 loaded")
-logger.info("Loading Silero VAD model...")
 from pipecat.audio.vad.silero import SileroVADAnalyzer
-
-logger.info("✅ Silero VAD model loaded")
-
 from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.frames.frames import (
     CancelFrame,
@@ -47,8 +37,6 @@ from pipecat.frames.frames import (
     TTSStoppedFrame,
     TTSTextFrame,
 )
-
-logger.info("Loading pipeline components...")
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
@@ -69,8 +57,6 @@ from pipecat.turns.user_stop.turn_analyzer_user_turn_stop_strategy import (
     TurnAnalyzerUserTurnStopStrategy,
 )
 from pipecat.turns.user_turn_strategies import UserTurnStrategies
-
-logger.info("✅ All components loaded successfully!")
 
 load_dotenv(override=True)
 
@@ -119,15 +105,15 @@ class TTSTimestampDebugProcessor(FrameProcessor):
 
 
 async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
-    logger.info(f"Starting bot")
+    logger.info("Starting bot")
 
     stt = AssemblyAISTTService(api_key=os.getenv("ASSEMBLYAI_API_KEY"))
 
     tts = InworldTTSService(
         api_key=os.getenv("INWORLD_API_KEY"),
-        voice_id="Ashley",  # Default Inworld voice
+        voice_id="Ashley",
         url="wss://api.inworld.ai/tts/v1/voice:streamBidirectional",
-        params=InworldTTSService.InputParams(timestamp_transport_strategy="ASYNC")
+        params=InworldTTSService.InputParams(timestamp_transport_strategy="ASYNC"),
     )
 
     llm = OpenAILLMService(api_key=os.getenv("OPENAI_API_KEY"))
@@ -173,14 +159,14 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
 
     @transport.event_handler("on_client_connected")
     async def on_client_connected(transport, client):
-        logger.info(f"Client connected")
+        logger.info("Client connected")
         # Kick off the conversation.
         messages.append({"role": "system", "content": "Say hello and briefly introduce yourself."})
         await task.queue_frames([LLMRunFrame()])
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, client):
-        logger.info(f"Client disconnected")
+        logger.info("Client disconnected")
         await task.cancel()
 
     runner = PipelineRunner(handle_sigint=runner_args.handle_sigint)

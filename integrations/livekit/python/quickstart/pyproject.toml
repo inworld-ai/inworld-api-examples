@@ -1,0 +1,20 @@
+[project]
+name = "livekit-quickstart"
+version = "0.1.0"
+description = "Quick test agent for Inworld TTS plugin development"
+requires-python = ">=3.11"
+dependencies = [
+    "livekit-agents",
+    "livekit-plugins-inworld",
+    "livekit-plugins-openai",
+    "livekit-plugins-silero",
+    "livekit-plugins-assemblyai",
+    "python-dotenv",
+]
+
+[tool.uv.sources]
+livekit-agents = { path = "../agents/livekit-agents", editable = true }
+livekit-plugins-inworld = { path = "../agents/livekit-plugins/livekit-plugins-inworld", editable = true }
+livekit-plugins-openai = { path = "../agents/livekit-plugins/livekit-plugins-openai", editable = true }
+livekit-plugins-silero = { path = "../agents/livekit-plugins/livekit-plugins-silero", editable = true }
+livekit-plugins-assemblyai = { path = "../agents/livekit-plugins/livekit-plugins-assemblyai", editable = true }
