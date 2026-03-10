@@ -49,7 +49,7 @@ from pipecat.processors.aggregators.llm_response_universal import (
 from pipecat.runner.types import RunnerArguments
 from pipecat.runner.utils import create_transport
 from pipecat.services.assemblyai.stt import AssemblyAISTTService
-from pipecat.services.inworld.tts import InworldTTSService
+from pipecat.services.inworld.tts import InworldTTSService, InworldTTSSettings
 from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.transports.base_transport import BaseTransport, TransportParams
 from pipecat.transports.daily.transport import DailyParams
@@ -111,9 +111,9 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
 
     tts = InworldTTSService(
         api_key=os.getenv("INWORLD_API_KEY"),
-        voice_id="Ashley",
         url="wss://api.inworld.ai/tts/v1/voice:streamBidirectional",
-        params=InworldTTSService.InputParams(timestamp_transport_strategy="ASYNC"),
+        timestamp_transport_strategy="ASYNC",
+        settings=InworldTTSSettings(voice="Ashley"),
     )
 
     llm = OpenAILLMService(api_key=os.getenv("OPENAI_API_KEY"))
