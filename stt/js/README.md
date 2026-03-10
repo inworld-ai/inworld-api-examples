@@ -40,34 +40,21 @@ node example_stt.js [path/to/audio.wav]
 
 **Output:** Prints the transcript and optional word timestamps to the console.
 
-### 2. WebSocket from WAV (`example_stt_websocket.js`) — non–raw-PCM input
+### 2. WebSocket (`example_stt_websocket.js`)
 
-Real-time transcription over WebSocket. Reads a WAV file, extracts LINEAR16 PCM, and streams it. Use when your input is a WAV (or other container); the script handles sample rate and channels from the header. Default input: `../tests-data/audio/test-audio.wav`.
+Real-time transcription over WebSocket. Input is a **raw LINEAR16 PCM file** (no WAV header). You pass sample rate and channels (or use defaults). Default input: `../tests-data/audio/test-pcm-audio.pcm`. Streaming API supports only LINEAR16; for MP3 use the sync API (`example_stt.js`).
 
 **Usage:**
 ```bash
 npm run stt-websocket
 # or
-node example_stt_websocket.js [path/to/audio.wav]
-```
-
-**Output:** Prints [interim] and [FINAL] segments, then full transcript.
-
-### 3. WebSocket from raw PCM (`example_stt_websocket_pcm.js`)
-
-Same WebSocket API, but input is a **raw LINEAR16 PCM file** (no WAV header). You pass sample rate and channel count (or use defaults). Default input: `../tests-data/audio/test-pcm-audio.pcm`.
-
-**Usage:**
-```bash
-npm run stt-websocket-pcm
-# or
-node example_stt_websocket_pcm.js [pcm.raw] [sampleRate] [channels]
+node example_stt_websocket.js [pcm.raw] [sampleRate] [channels]
 ```
 Defaults: `../tests-data/audio/test-pcm-audio.pcm`, `sampleRate` 16000, `channels` 1.
 
-**Output:** Same as WebSocket (WAV): [interim], [FINAL], then full transcript.
+**Output:** [interim] and [FINAL] segments, then full transcript.
 
-### 4. Real-time from microphone (`example_stt_mic.js`)
+### 3. Real-time from microphone (`example_stt_mic.js`)
 
 Real-time transcription from the microphone. Captures live audio (via SoX) and streams to the STT WebSocket. Requires SoX installed (e.g. `brew install sox` on macOS). Press Ctrl+C to stop.
 
@@ -83,7 +70,7 @@ node example_stt_mic.js
 ## Configuration
 
 - **Sync:** Uses `groq/whisper-large-v3-turbo`; optional `language`, `includeWordTimestamps`, `prompts` (see TranscribeConfig).
-- **WebSocket:** Uses `assemblyai/universal-streaming-english`; audio is always sent as `LINEAR16`. WAV example reads sample rate/channels from the file; PCM example requires them as arguments.
+- **WebSocket:** Streaming supports only LINEAR16; pass sample rate and channels (or use defaults). For MP3 use sync API.
 
 ## API Endpoints
 

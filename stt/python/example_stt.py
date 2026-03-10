@@ -7,7 +7,6 @@ POST request. Supports WAV and other formats via AUTO_DETECT or explicit encodin
 """
 
 import base64
-import json
 import os
 import sys
 import time

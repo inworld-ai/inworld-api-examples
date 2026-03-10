@@ -2,8 +2,8 @@
 """
 Example script for Inworld STT streaming transcription using WebSocket.
 
-This script demonstrates how to stream audio from a WAV file to the STT
-WebSocket API for real-time transcription. For raw PCM input use example_stt_websocket_pcm.py.
+Streams raw LINEAR16 PCM from a file (streaming API supports only LINEAR16).
+Default input: tests-data/audio/test-pcm-audio.pcm (sampleRateHertz/numberOfChannels required for raw PCM).
 """
 
 import asyncio
@@ -23,9 +23,10 @@ import websockets
 
 API_BASE = "https://api.inworld.ai"
 CHUNK_DURATION_MS = 100
-# Delay after last audio chunk before endTurn/closeStream so the server can process trailing samples (fixes missing last word).
-END_OF_AUDIO_DELAY_MS = 350
+END_OF_AUDIO_DELAY_MS = 350  # After last chunk before endTurn/closeStream (fixes missing last word).
 CLOSE_GRACE_MS = 2500
+DEFAULT_SAMPLE_RATE = 16000
+DEFAULT_CHANNELS = 1
 
 
 def check_api_key():
@@ -38,19 +39,16 @@ def check_api_key():
     return api_key
 
 
-async def stream_transcribe(wav_path: str, api_key: str, model_id: str = "assemblyai/universal-streaming-english"):
-    """Stream transcribe a WAV file over WebSocket. Same flow as JS: grace close, lastPartial."""
-    import wave
-    with wave.open(wav_path, "rb") as wf:
-        sample_rate = wf.getframerate()
-        channels = wf.getnchannels()
-        sample_width = wf.getsampwidth()
-        if sample_width != 2:
-            raise ValueError(
-                f"Unsupported WAV format: expected 16-bit PCM (sample width 2 bytes) "
-                f"for audioEncoding=LINEAR16, but got sample width {sample_width} bytes."
-            )
-        pcm_data = wf.readframes(wf.getnframes())
+async def stream_transcribe(
+    pcm_path: str,
+    sample_rate: int,
+    channels: int,
+    api_key: str,
+    model_id: str = "assemblyai/universal-streaming-english",
+):
+    """Stream transcribe raw PCM file over WebSocket."""
+    with open(pcm_path, "rb") as f:
+        pcm_data = f.read()
 
     ws_url = API_BASE.replace("https://", "wss://").replace("http://", "ws://")
     ws_url += "/stt/v1/transcribe:streamBidirectional"
@@ -68,10 +66,11 @@ async def stream_transcribe(wav_path: str, api_key: str, model_id: str = "assemb
                 "audioEncoding": "LINEAR16",
                 "sampleRateHertz": sample_rate,
                 "numberOfChannels": channels,
+                "language": "en-US",
             }
         }))
 
-        bytes_per_sample = sample_width * channels
+        bytes_per_sample = 2 * channels
         chunk_size = int(CHUNK_DURATION_MS * (sample_rate / 1000) * bytes_per_sample)
 
         async def send_audio():
@@ -118,24 +117,38 @@ async def stream_transcribe(wav_path: str, api_key: str, model_id: str = "assemb
 
 
 def main():
-    print("Inworld STT WebSocket Transcription Example (from WAV)")
+    print("Inworld STT WebSocket Transcription Example")
     print("=" * 50)
 
     api_key = check_api_key()
     if not api_key:
         return 1
 
-    default_audio_path = Path(__file__).parent.parent / "tests-data" / "audio" / "test-audio.wav"
-    audio_path = sys.argv[1] if len(sys.argv) > 1 else str(default_audio_path)
-    if not os.path.isfile(audio_path):
-        print(f"Error: WAV file not found: {audio_path}")
-        print("Usage: python example_stt_websocket.py [path/to/audio.wav]")
-        print("Default: tests-data/audio/test-audio.wav")
+    default_pcm_path = Path(__file__).parent.parent / "tests-data" / "audio" / "test-pcm-audio.pcm"
+    pcm_path = sys.argv[1] if len(sys.argv) > 1 else str(default_pcm_path)
+    try:
+        sample_rate = int(sys.argv[2]) if len(sys.argv) > 2 else DEFAULT_SAMPLE_RATE
+        channels = int(sys.argv[3]) if len(sys.argv) > 3 else DEFAULT_CHANNELS
+    except ValueError:
+        print("Error: sample_rate and channels must be integers.")
+        return 1
+    if not (8000 <= sample_rate <= 48000):
+        print(f"Error: sample rate must be between 8000 and 48000, got {sample_rate}")
+        return 1
+    if channels not in (1, 2):
+        print(f"Error: channels must be 1 or 2, got {channels}")
+        return 1
+
+    if not os.path.isfile(pcm_path):
+        print(f"Error: PCM file not found: {pcm_path}")
+        print("Usage: python example_stt_websocket.py [pcm.raw] [sample_rate] [channels]")
+        print("  Default: tests-data/audio/test-pcm-audio.pcm, 16000 Hz, 1 channel")
         return 1
 
     try:
-        print(f"Audio file: {audio_path}\n")
-        final_texts = asyncio.run(stream_transcribe(audio_path, api_key))
+        print(f"PCM file: {pcm_path}")
+        print(f"Sample rate: {sample_rate} Hz, Channels: {channels}\n")
+        final_texts = asyncio.run(stream_transcribe(pcm_path, sample_rate, channels, api_key))
         print("\nFull transcript:", " ".join(final_texts).strip() or "(none)")
     except Exception as e:
         print(f"WebSocket transcription failed: {e}")

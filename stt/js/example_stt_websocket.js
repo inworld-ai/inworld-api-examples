@@ -2,8 +2,8 @@
 /**
  * Example script for Inworld STT streaming transcription using WebSocket.
  *
- * This script demonstrates how to stream audio from a WAV file to the STT
- * WebSocket API for real-time transcription. For raw PCM input use example_stt_websocket_pcm.js.
+ * Streams raw LINEAR16 PCM from a file (streaming API supports only LINEAR16).
+ * Default input: tests-data/audio/test-pcm-audio.pcm (sampleRateHertz/numberOfChannels required for raw PCM).
  */
 
 const fs = require('fs');
@@ -13,15 +13,12 @@ try { require('dotenv').config(); } catch (_) {}
 
 const API_BASE = 'https://api.inworld.ai';
 const CHUNK_DURATION_MS = 100;
-/** Wait this long after the last audio chunk before endTurn/closeStream so the server can process trailing samples (fixes missing last word). */
+/** Delay after last audio chunk before endTurn/closeStream so the server can process trailing samples (fixes missing last word). */
 const END_OF_AUDIO_DELAY_MS = 350;
-/** Wait this long after closeStream for final server messages before we close the socket. */
 const CLOSE_GRACE_MS = 2500;
+const DEFAULT_SAMPLE_RATE = 16000;
+const DEFAULT_CHANNELS = 1;
 
-/**
- * Check if INWORLD_API_KEY environment variable is set.
- * @returns {string|null} API key or null if not set
- */
 function checkApiKey() {
     const apiKey = process.env.INWORLD_API_KEY;
     if (!apiKey) {
@@ -33,74 +30,22 @@ function checkApiKey() {
 }
 
 /**
- * Parse RIFF WAV and return 16-bit PCM sample rate, channels, and raw PCM buffer.
- * Locates "fmt " and "data" chunks; validates PCM (audioFormat 1) and 16-bit.
- * @param {string} wavPath - Path to WAV file
- * @returns {{ sampleRate: number, channels: number, pcmBuffer: Buffer }}
- */
-function readWavPcm(wavPath) {
-    const buf = fs.readFileSync(wavPath);
-    if (buf.length < 12 || buf.toString('ascii', 0, 4) !== 'RIFF' || buf.toString('ascii', 8, 12) !== 'WAVE') {
-        throw new Error('Not a valid WAV file (expected RIFF/WAVE header)');
-    }
-    let fmtChunkOffset = null;
-    let fmtChunkSize = null;
-    let dataChunkOffset = null;
-    let dataChunkSize = null;
-    let offset = 12;
-    while (offset + 8 <= buf.length) {
-        const chunkId = buf.toString('ascii', offset, offset + 4);
-        const chunkSize = buf.readUInt32LE(offset + 4);
-        const chunkDataStart = offset + 8;
-        const chunkDataEnd = chunkDataStart + chunkSize;
-        if (chunkDataEnd > buf.length) {
-            throw new Error('Invalid WAV file: chunk size exceeds file length');
-        }
-        if (chunkId === 'fmt ') {
-            fmtChunkOffset = chunkDataStart;
-            fmtChunkSize = chunkSize;
-        } else if (chunkId === 'data') {
-            dataChunkOffset = chunkDataStart;
-            dataChunkSize = chunkSize;
-        }
-        offset = chunkDataEnd + (chunkSize % 2);
-    }
-    if (fmtChunkOffset === null || fmtChunkSize === null) {
-        throw new Error('Invalid WAV file: missing "fmt " chunk');
-    }
-    if (dataChunkOffset === null || dataChunkSize === null) {
-        throw new Error('Invalid WAV file: missing "data" chunk');
-    }
-    if (fmtChunkSize < 16) {
-        throw new Error('Invalid WAV file: "fmt " chunk too small');
-    }
-    const audioFormat = buf.readUInt16LE(fmtChunkOffset + 0);
-    const channels = buf.readUInt16LE(fmtChunkOffset + 2);
-    const sampleRate = buf.readUInt32LE(fmtChunkOffset + 4);
-    const bitsPerSample = buf.readUInt16LE(fmtChunkOffset + 14);
-    if (audioFormat !== 1 || bitsPerSample !== 16) {
-        throw new Error('Unsupported WAV format: only 16-bit PCM is supported');
-    }
-    const pcmBuffer = buf.subarray(dataChunkOffset, dataChunkOffset + dataChunkSize);
-    return { sampleRate, channels, pcmBuffer };
-}
-
-/**
- * Stream transcribe a WAV file over WebSocket.
- * @param {string} wavPath - Path to WAV file
+ * Stream transcribe raw PCM over WebSocket.
+ * @param {string} pcmPath - Path to raw LINEAR16 PCM file
+ * @param {number} sampleRate - Sample rate in Hz
+ * @param {number} channels - Number of channels
  * @param {string} apiKey - API key
- * @param {Object} options - Optional: modelId (default english), language
+ * @param {Object} options - Optional: modelId
  * @returns {Promise<{ finalTexts: string[] }>}
  */
-function streamTranscribe(wavPath, apiKey, options = {}) {
-    const { sampleRate, channels, pcmBuffer } = readWavPcm(wavPath);
+function streamTranscribe(pcmPath, sampleRate, channels, apiKey, options = {}) {
+    const pcmBuffer = fs.readFileSync(pcmPath);
     const wsUrl = API_BASE.replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://');
     const url = `${wsUrl}/stt/v1/transcribe:streamBidirectional`;
     const headers = { Authorization: `Basic ${apiKey}` };
 
     const modelId = options.modelId || 'assemblyai/universal-streaming-english';
     const finalTexts = [];
-    /** Last partial transcript; if connection closes before [FINAL], we append this to the full transcript. */
     let lastPartial = '';
 
     return new Promise((resolve, reject) => {
@@ -117,7 +62,8 @@ function streamTranscribe(wavPath, apiKey, options = {}) {
                     modelId,
                     audioEncoding: 'LINEAR16',
                     sampleRateHertz: sampleRate,
-                    numberOfChannels: channels
+                    numberOfChannels: channels,
+                    language: 'en-US'
                 }
             }));
 
@@ -136,7 +82,6 @@ function streamTranscribe(wavPath, apiKey, options = {}) {
                 await new Promise(r => setTimeout(r, END_OF_AUDIO_DELAY_MS));
                 ws.send(JSON.stringify({ endTurn: {} }));
                 ws.send(JSON.stringify({ closeStream: {} }));
-                // Server may not close the connection; close ourselves after a short grace period.
                 setTimeout(() => {
                     if (ws.readyState === WebSocket.OPEN) {
                         ws.close();
@@ -166,35 +111,44 @@ function streamTranscribe(wavPath, apiKey, options = {}) {
         });
 
         ws.on('close', () => {
-            // Include any trailing partial so the last sentence isn't lost if server never sent [FINAL]
             const fullParts = lastPartial.trim() ? [...finalTexts, lastPartial.trim()] : finalTexts;
             resolve({ finalTexts: fullParts });
         });
     });
 }
 
-/**
- * Main.
- */
 async function main() {
-    console.log('Inworld STT WebSocket Transcription Example (from WAV)');
+    console.log('Inworld STT WebSocket Transcription Example');
     console.log('='.repeat(50));
 
     const apiKey = checkApiKey();
     if (!apiKey) return 1;
 
-    const DEFAULT_AUDIO_PATH = path.join(__dirname, '..', 'tests-data', 'audio', 'test-audio.wav');
-    const audioPath = process.argv[2] || DEFAULT_AUDIO_PATH;
-    if (!fs.existsSync(audioPath)) {
-        console.log(`Error: WAV file not found: ${audioPath}`);
-        console.log('Usage: node example_stt_websocket.js [path/to/audio.wav]');
-        console.log('Default: ../tests-data/audio/test-audio.wav');
+    const DEFAULT_PCM_PATH = path.join(__dirname, '..', 'tests-data', 'audio', 'test-pcm-audio.pcm');
+    const pcmPath = process.argv[2] || DEFAULT_PCM_PATH;
+    const sampleRate = parseInt(process.argv[3], 10) || DEFAULT_SAMPLE_RATE;
+    const channels = parseInt(process.argv[4], 10) || DEFAULT_CHANNELS;
+
+    if (!Number.isInteger(sampleRate) || Number.isNaN(sampleRate) || sampleRate < 8000 || sampleRate > 48000) {
+        console.log(`Error: sample rate must be an integer between 8000 and 48000, got ${process.argv[3] ?? sampleRate}`);
+        return 1;
+    }
+    if (!Number.isInteger(channels) || Number.isNaN(channels) || channels < 1 || channels > 2) {
+        console.log(`Error: channels must be 1 or 2, got ${process.argv[4] ?? channels}`);
+        return 1;
+    }
+
+    if (!fs.existsSync(pcmPath)) {
+        console.log(`Error: PCM file not found: ${pcmPath}`);
+        console.log('Usage: node example_stt_websocket.js [pcm.raw] [sampleRate] [channels]');
+        console.log('  Default: ../tests-data/audio/test-pcm-audio.pcm, 16000 Hz, 1 channel');
         return 1;
     }
 
     try {
-        console.log(`Audio file: ${audioPath}\n`);
-        const { finalTexts } = await streamTranscribe(audioPath, apiKey);
+        console.log(`PCM file: ${pcmPath}`);
+        console.log(`Sample rate: ${sampleRate} Hz, Channels: ${channels}\n`);
+        const { finalTexts } = await streamTranscribe(pcmPath, sampleRate, channels, apiKey);
         console.log('\nFull transcript:', finalTexts.join(' ').trim() || '(none)');
     } catch (err) {
         console.log(`WebSocket transcription failed: ${err.message}`);
