@@ -40,7 +40,7 @@ async function transcribe(audioPath, options, apiKey) {
     const contentB64 = audioBytes.toString('base64');
 
     const transcribeConfig = {
-        modelId: 'groq/whisper-large-v3-turbo',
+        modelId: 'groq/whisper-large-v3',
         audioEncoding: 'AUTO_DETECT',
         language: 'en-US',
         ...options

@@ -50,7 +50,7 @@ def transcribe(audio_path: str, options: dict | None = None, api_key: str = ""):
         content_b64 = base64.b64encode(f.read()).decode("utf-8")
 
     transcribe_config = {
-        "modelId": "groq/whisper-large-v3-turbo",
+        "modelId": "groq/whisper-large-v3",
         "audioEncoding": "AUTO_DETECT",
         "language": "en-US",
     }
