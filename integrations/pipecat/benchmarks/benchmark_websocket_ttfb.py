@@ -268,7 +268,6 @@ async def _run_pipeline(llm_processor, tts, collector):
         await asyncio.wait_for(run_task, timeout=5.0)
     except (asyncio.TimeoutError, asyncio.CancelledError):
         pass
-    await asyncio.sleep(0.2)
 
     return collector.get_results()
 
