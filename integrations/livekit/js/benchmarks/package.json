@@ -9,10 +9,10 @@
     "bench:http": "tsx benchmark_http_ttfb.ts"
   },
   "devDependencies": {
-    "@livekit/agents": "file:../agents-js/agents",
-    "@livekit/agents-plugin-inworld": "file:../agents-js/plugins/inworld",
-    "@livekit/agents-plugin-elevenlabs": "file:../agents-js/plugins/elevenlabs",
-    "@livekit/agents-plugin-cartesia": "file:../agents-js/plugins/cartesia",
+    "@livekit/agents": "link:../agents-js/agents",
+    "@livekit/agents-plugin-inworld": "link:../agents-js/plugins/inworld",
+    "@livekit/agents-plugin-elevenlabs": "link:../agents-js/plugins/elevenlabs",
+    "@livekit/agents-plugin-cartesia": "link:../agents-js/plugins/cartesia",
     "@livekit/rtc-node": "^0.13.24",
     "dotenv": "^16.4.5",
     "tsx": "^4.19.2",

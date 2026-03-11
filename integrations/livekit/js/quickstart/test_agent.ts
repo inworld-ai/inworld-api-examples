@@ -28,8 +28,8 @@ import { TTS } from '../agents-js/plugins/inworld/src/tts.js';
 import * as livekit from '@livekit/agents-plugin-livekit';
 import * as silero from '@livekit/agents-plugin-silero';
 
-const baseURL = process.env.INWORLD_BASE_URL || 'https://api.inworld.ai/';
-const wsURL = process.env.INWORLD_WS_URL || 'wss://api.inworld.ai/';
+const baseURL = 'https://api.inworld.ai/';
+const wsURL = 'wss://api.inworld.ai/';
 
 export default defineAgent({
   prewarm: async (proc: JobProcess) => {
@@ -63,13 +63,9 @@ You are friendly and have a sense of humor.`,
       });
 
       const session = new voice.AgentSession({
-        // AssemblyAI for speech-to-text
         stt: 'assemblyai/universal-streaming:en',
-        // OpenAI for LLM
         llm: 'openai/gpt-4.1-mini',
-        // Inworld for text-to-speech
         tts,
-        // Silero VAD
         vad: ctx.proc.userData.vad! as silero.VAD,
         turnDetection: new livekit.turnDetector.MultilingualModel(),
       });

@@ -8,13 +8,12 @@ Compares Inworld, ElevenLabs, and Cartesia across HTTP and WebSocket transports.
 ## Setup
 
 ```bash
-# Build agents-js monorepo (needed once)
+# Build agents-js monorepo (need to re-run after source changes)
 cd integrations/livekit/js/agents-js
-pnpm install
-pnpm build
+pnpm install && pnpm build
 
 # Install benchmark dependencies
-cd ../benchmarks
+cd integrations/livekit/js/benchmarks
 pnpm install
 ```
 
