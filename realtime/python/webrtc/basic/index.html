@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebRTC Voice Agent (Basic)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0a0a0a; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+  #toolbar { padding: 12px 16px; border-bottom: 1px solid #222; flex-shrink: 0; }
+  #btn { padding: 8px 20px; border: 1px solid #444; border-radius: 6px; background: #1a1a1a; color: #e0e0e0; font-size: 14px; cursor: pointer; transition: background .15s; }
+  #btn:hover:not(:disabled) { background: #2a2a2a; }
+  #btn:disabled { opacity: .4; cursor: default; }
+  #btn.active { border-color: #c44; color: #c44; }
+  #panes { display: flex; flex: 1; overflow: hidden; }
+  .pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .pane + .pane { border-left: 1px solid #222; }
+  .pane-header { padding: 8px 16px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #666; border-bottom: 1px solid #1a1a1a; flex-shrink: 0; }
+  .pane-body { flex: 1; overflow-y: auto; padding: 12px 16px; font-size: 13px; line-height: 1.6; }
+  .turn { margin-bottom: 12px; }
+  .turn-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+  .turn-label.user { color: #6b9eff; }
+  .turn-label.agent { color: #7ecf8a; }
+  .turn-text { white-space: pre-wrap; word-wrap: break-word; }
+  .evt { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 11.5px; line-height: 1.5; border-bottom: 1px solid #111; word-break: break-all; }
+  .evt-row { padding: 3px 0; cursor: pointer; }
+  .evt-row:hover { background: #151515; }
+  .evt-type { color: #b8b; }
+  .evt-dir { display: inline-block; width: 16px; text-align: center; margin-right: 4px; }
+  .evt-dir.in { color: #6b9eff; }
+  .evt-dir.out { color: #e8a45a; }
+  .evt-time { color: #444; margin-right: 6px; }
+  .evt-json { display: none; padding: 4px 8px; margin: 2px 0 4px 20px; background: #111; border-radius: 4px; font-size: 10.5px; color: #888; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
+  .evt-json.open { display: block; }
+  @media (max-width: 640px) {
+    #events-pane { display: none; }
+    .pane + .pane { border-left: none; }
+  }
+</style>
+</head>
+<body>
+  <div id="toolbar">
+    <button id="btn" onclick="toggle()">Start Conversation</button>
+  </div>
+  <div id="panes">
+    <div class="pane" id="transcript-pane">
+      <div class="pane-header">Transcript</div>
+      <div class="pane-body" id="transcript"></div>
+    </div>
+    <div class="pane" id="events-pane">
+      <div class="pane-header">Events</div>
+      <div class="pane-body" id="events"></div>
+    </div>
+  </div>
+
+  <script>
+    const btn = document.getElementById('btn');
+    const transcriptEl = document.getElementById('transcript');
+    const eventsEl = document.getElementById('events');
+    let pc, dc, stream, active = false;
+    let agentAudioEl;
+    let interrupted = false;
+    let sessionStart;
+    let currentTurn = null;
+
+    function appendTurn(role) {
+      const div = document.createElement('div');
+      div.className = 'turn';
+      const label = document.createElement('div');
+      label.className = 'turn-label ' + role;
+      label.textContent = role === 'user' ? 'You' : 'Agent';
+      const text = document.createElement('div');
+      text.className = 'turn-text';
+      div.appendChild(label);
+      div.appendChild(text);
+      transcriptEl.appendChild(div);
+      currentTurn = { role, el: text, text: '' };
+      transcriptEl.scrollTop = transcriptEl.scrollHeight;
+      return currentTurn;
+    }
+
+    function appendToTurn(role, delta) {
+      if (!currentTurn || currentTurn.role !== role) appendTurn(role);
+      currentTurn.text += delta;
+      currentTurn.el.textContent = currentTurn.text;
+      transcriptEl.scrollTop = transcriptEl.scrollHeight;
+    }
+
+    function setTurnText(role, text) {
+      if (!currentTurn || currentTurn.role !== role) appendTurn(role);
+      currentTurn.text = text;
+      currentTurn.el.textContent = text;
+      transcriptEl.scrollTop = transcriptEl.scrollHeight;
+    }
+
+    function logEvent(dir, type, fullPayload) {
+      const container = document.createElement('div');
+      container.className = 'evt';
+      const elapsed = ((Date.now() - sessionStart) / 1000).toFixed(1);
+      const row = document.createElement('div');
+      row.className = 'evt-row';
+      row.innerHTML = `<span class="evt-time">${elapsed}s</span><span class="evt-dir ${dir}">${dir === 'in' ? '◂' : '▸'}</span><span class="evt-type">${escHtml(type)}</span>`;
+      const jsonDiv = document.createElement('div');
+      jsonDiv.className = 'evt-json';
+      jsonDiv.textContent = JSON.stringify(fullPayload, null, 2);
+      row.onclick = () => jsonDiv.classList.toggle('open');
+      container.appendChild(row);
+      container.appendChild(jsonDiv);
+      eventsEl.appendChild(container);
+      eventsEl.scrollTop = eventsEl.scrollHeight;
+    }
+
+    function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    function sendDc(obj) {
+      if (dc && dc.readyState === 'open') {
+        dc.send(JSON.stringify(obj));
+        logEvent('out', obj.type, obj);
+      }
+    }
+
+    async function start() {
+      btn.disabled = true; btn.textContent = 'Connecting…';
+      transcriptEl.innerHTML = '';
+      eventsEl.innerHTML = '';
+      sessionStart = Date.now();
+      currentTurn = null;
+      interrupted = false;
+
+      agentAudioEl = document.createElement('audio');
+      agentAudioEl.autoplay = true;
+
+      const cfg = await (await fetch('/api/config')).json();
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true }
+      });
+
+      pc = new RTCPeerConnection({ iceServers: cfg.ice_servers });
+      dc = pc.createDataChannel('oai-events', { ordered: true });
+      stream.getAudioTracks().forEach(t => pc.addTrack(t, stream));
+
+      pc.ontrack = (e) => {
+        agentAudioEl.srcObject = e.streams[0] || new MediaStream([e.track]);
+      };
+
+      dc.onopen = () => {
+        btn.textContent = 'Stop'; btn.className = 'active'; btn.disabled = false; active = true;
+        sendDc({
+          type: 'session.update',
+          session: {
+            type: 'realtime',
+            modelId: 'openai/gpt-4o-mini',
+            instructions: 'You are a friendly voice assistant. Keep responses brief.',
+            output_modalities: ['audio', 'text'],
+            audio: {
+              input: { turn_detection: { type: 'semantic_vad', eagerness: 'high', create_response: true, interrupt_response: true } },
+              output: { model: 'inworld-tts-1.5-mini', voice: 'Clive' }
+            }
+          }
+        });
+        sendDc({
+          type: 'conversation.item.create',
+          item: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'Say hello and ask how you can help. One sentence max.' }] }
+        });
+        sendDc({ type: 'response.create' });
+      };
+
+      dc.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        const type = msg.type || '';
+
+        if (msg.errorType === 'SESSION_RESOURCES_EXHAUSTED') return;
+
+        const isAudioDelta = type.includes('audio') && type.includes('delta') && !type.includes('transcript');
+        if (!isAudioDelta && type) {
+          logEvent('in', type, msg);
+        }
+
+        switch (type) {
+
+          case 'response.output_text.delta':
+          case 'response.text.delta':
+          case 'response.audio_transcript.delta':
+          case 'response.output_audio_transcript.delta':
+            appendToTurn('agent', msg.delta);
+            break;
+
+          case 'response.output_audio_transcript.done':
+            setTurnText('agent', msg.transcript || '');
+            break;
+
+          case 'response.content_part.done':
+            if (msg.part?.transcript) setTurnText('agent', msg.part.transcript);
+            break;
+
+          case 'conversation.item.input_audio_transcription.completed':
+            if (msg.transcript) appendToTurn('user', msg.transcript);
+            break;
+
+          case 'input_audio_buffer.speech_started':
+            interrupted = true;
+            if (agentAudioEl) agentAudioEl.muted = true;
+            sendDc({ type: 'response.cancel' });
+            if (currentTurn?.role === 'agent') currentTurn = null;
+            break;
+
+          case 'response.output_item.added':
+            if (interrupted && agentAudioEl) {
+              agentAudioEl.muted = false;
+              interrupted = false;
+            }
+            break;
+
+          case 'response.done':
+            currentTurn = null;
+            break;
+        }
+      };
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await new Promise(r => {
+        if (pc.iceGatheringState === 'complete') { r(); return; }
+        let t; const done = () => { clearTimeout(t); r(); };
+        pc.onicecandidate = (e) => { if (e.candidate) { clearTimeout(t); t = setTimeout(done, 500); } };
+        pc.onicegatheringstatechange = () => { if (pc.iceGatheringState === 'complete') done(); };
+        setTimeout(done, 3000);
+      });
+
+      const res = await fetch(cfg.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/sdp', Authorization: `${cfg.auth_prefix} ${cfg.api_key}` },
+        body: pc.localDescription.sdp,
+      });
+      await pc.setRemoteDescription({ type: 'answer', sdp: await res.text() });
+    }
+
+    function stop() {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      if (pc) pc.close();
+      if (agentAudioEl) { agentAudioEl.pause(); agentAudioEl.srcObject = null; }
+      pc = dc = stream = agentAudioEl = null;
+      active = false; interrupted = false; currentTurn = null;
+      btn.textContent = 'Start Conversation'; btn.className = ''; btn.disabled = false;
+    }
+
+    function toggle() { active ? stop() : start().catch(e => { console.error(e); stop(); }); }
+  </script>
+</body>
+</html>
