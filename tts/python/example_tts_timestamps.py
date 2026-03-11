@@ -50,7 +50,9 @@ def truncate_audio_for_logging(response_dict, max_length=100):
     return result
 
 
-def synthesize_with_timestamps(text: str, voice_id: str, model_id: str, api_key: str):
+def synthesize_with_timestamps(
+    text: str, voice_id: str, model_id: str, api_key: str, sample_rate_hz: int = 48000
+):
     """
     Synthesize speech from text and retrieve timestamp/phoneme/viseme data.
 
@@ -59,6 +61,7 @@ def synthesize_with_timestamps(text: str, voice_id: str, model_id: str, api_key:
         voice_id: Voice ID to use
         model_id: Model ID to use
         api_key: API key for authentication
+        sample_rate_hz: Sample rate for output (e.g. 48000)
 
     Returns:
         tuple: (audio_data bytes, response dict)
@@ -79,7 +82,7 @@ def synthesize_with_timestamps(text: str, voice_id: str, model_id: str, api_key:
         "model_id": model_id,
         "audio_config": {
             "audio_encoding": "LINEAR16",
-            "sample_rate_hertz": 48000
+            "sample_rate_hertz": sample_rate_hz
         },
         "timestamp_type": "WORD"
     }
@@ -157,7 +160,7 @@ def synthesize_with_timestamps(text: str, voice_id: str, model_id: str, api_key:
         raise
 
 
-def save_audio_to_file(audio_data: bytes, output_file: str):
+def save_audio_to_file(audio_data: bytes, output_file: str, sample_rate: int = 48000):
     """Save audio data to a WAV file."""
     try:
         # Skip WAV header if present (first 44 bytes)
@@ -166,7 +169,7 @@ def save_audio_to_file(audio_data: bytes, output_file: str):
         with wave.open(output_file, "wb") as wf:
             wf.setnchannels(1)  # Mono
             wf.setsampwidth(2)  # 16-bit
-            wf.setframerate(48000)
+            wf.setframerate(sample_rate)
             wf.writeframes(raw_audio)
 
         print(f"Audio saved to: {output_file}")
@@ -186,10 +189,11 @@ def main():
     if not api_key:
         return 1
 
-    # Configuration
+    # Configuration (sample rate must match between API request and WAV file)
     text = "Hello, adventurer! What a beautiful day, isn't it?"
     voice_id = "Dennis"
     model_id = "inworld-tts-1.5-max"  # max model for non-streaming: higher quality
+    sample_rate_hz = 48000
     output_file = "synthesis_timestamps_output.wav"
 
     try:
@@ -198,11 +202,12 @@ def main():
             text=text,
             voice_id=voice_id,
             model_id=model_id,
-            api_key=api_key
+            api_key=api_key,
+            sample_rate_hz=sample_rate_hz
         )
         synthesis_time = time.time() - start_time
 
-        save_audio_to_file(audio_data, output_file)
+        save_audio_to_file(audio_data, output_file, sample_rate_hz)
 
         print(f"Synthesis time: {synthesis_time:.2f} seconds")
         print(f"Synthesis completed successfully! You can play the audio file: {output_file}")
