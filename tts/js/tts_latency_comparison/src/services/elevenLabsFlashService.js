@@ -4,6 +4,8 @@
  * Handles ElevenLabs eleven_flash_v2_5 text-to-speech processing
  */
 
+import { Readable } from 'stream';
+
 class ElevenLabsFlashService {
     constructor(audioManager, vadService = null) {
         this.audioManager = audioManager;
@@ -94,29 +96,28 @@ class ElevenLabsFlashService {
 
         // Make actual API call to ElevenLabs with flash model and specific voice
         const voiceId = process.env.ELEVENLABS_FLASH_VOICE_ID || '4YYIPFl9wE5c4L2eu2Gb';
+        const url = new URL(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream/with-timestamps`);
+        url.searchParams.set('output_format', 'mp3_44100_128');
+        url.searchParams.set('optimize_streaming_latency', '3');
 
-        const response = await fetch(
-            `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream/with-timestamps`,
-            {
+        const response = await fetch(url.toString(), {
+            method: 'POST',
+            headers: {
+                'xi-api-key': process.env.ELEVENLABS_API_KEY,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
                 text: text,
                 model_id: 'eleven_flash_v2_5',
-                voice_settings: {
-                    stability: 0.5,
-                    similarity_boost: 0.75
-                }
-            },
-            {
-                headers: {
-                    'xi-api-key': process.env.ELEVENLABS_API_KEY,
-                    'Content-Type': 'application/json'
-                },
-                params: {
-                    output_format: 'mp3_44100_128',
-                    optimize_streaming_latency: 3
-                },
-                responseType: 'stream'
-            }
-        );
+                voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
+        }
+
+        const stream = Readable.fromWeb(response.body);
 
         // Handle streaming response with timestamps
         let bytesReceived = 0;
@@ -129,7 +130,7 @@ class ElevenLabsFlashService {
         let firstSpeechTimestamp = null;
         let lastTimestamp = 0;
 
-        response.data.on('data', (chunk) => {
+        stream.on('data', (chunk) => {
             bytesReceived += chunk.length;
             buffer += chunk.toString();
             
@@ -227,7 +228,7 @@ class ElevenLabsFlashService {
         });
 
         await new Promise((resolve, reject) => {
-        response.data.on('end', async () => {
+        stream.on('end', async () => {
             let completeAudioPath = null; // Declare at proper scope
             let hasAudio = false;
             
@@ -283,7 +284,7 @@ class ElevenLabsFlashService {
                 
                 resolve();
             });
-            response.data.on('error', reject);
+            stream.on('error', reject);
         });
 
         // Return the time to first byte and whether audio was generated

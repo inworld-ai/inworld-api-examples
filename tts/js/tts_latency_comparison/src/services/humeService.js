@@ -4,6 +4,8 @@
  * Handles Hume text-to-speech processing
  */
 
+import { Readable } from 'stream';
+
 class HumeService {
     constructor(audioManager, vadService = null) {
         this.audioManager = audioManager;
@@ -94,9 +96,13 @@ class HumeService {
         let timeToFirstByte = null;
 
         // Make actual API call to Hume
-        const response = await fetch(
-            'https://api.hume.ai/v0/tts/stream/json',
-            {
+        const response = await fetch('https://api.hume.ai/v0/tts/stream/json', {
+            method: 'POST',
+            headers: {
+                'X-Hume-Api-Key': process.env.HUME_API_KEY,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
                 utterances: [
                     {
                         text: text,
@@ -106,15 +112,14 @@ class HumeService {
                         }
                     }
                 ]
-            },
-            {
-                headers: {
-                    'X-Hume-Api-Key': process.env.HUME_API_KEY,
-                    'Content-Type': 'application/json'
-                },
-                responseType: 'stream'
-            }
-        );
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Hume API error: ${response.status} ${response.statusText}`);
+        }
+
+        const stream = Readable.fromWeb(response.body);
 
         // Handle streaming response
         let bytesReceived = 0;
@@ -127,7 +132,7 @@ class HumeService {
         let lastProgressSent = -1; // Track last progress to avoid duplicates
         let lastTimestamp = 0;
 
-        response.data.on('data', (chunk) => {
+        stream.on('data', (chunk) => {
             bytesReceived += chunk.length;
             buffer += chunk.toString();
             
@@ -226,7 +231,7 @@ class HumeService {
         });
 
         await new Promise((resolve, reject) => {
-            response.data.on('end', async () => {
+            stream.on('end', async () => {
                 let completeAudioPath = null; // Declare at proper scope
                 let hasAudio = false;
                 
@@ -298,7 +303,7 @@ class HumeService {
                 
                 resolve();
             });
-            response.data.on('error', reject);
+            stream.on('error', reject);
         });
 
         // Return the time to first byte and whether audio was generated
