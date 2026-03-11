@@ -12,13 +12,12 @@ Voice AI agent using LiveKit Agents JS with AssemblyAI (STT), OpenAI (LLM), and 
 ## Setup
 
 ```bash
-# Build agents-js monorepo (needed once)
+# Build agents-js monorepo (need to re-run after source changes)
 cd integrations/livekit/js/agents-js
-pnpm install
-pnpm build
+pnpm install && pnpm build
 
 # Install quickstart dependencies
-cd ../quickstart
+cd integrations/livekit/js/quickstart
 cp .env.example .env
 # edit .env with your keys
 pnpm install

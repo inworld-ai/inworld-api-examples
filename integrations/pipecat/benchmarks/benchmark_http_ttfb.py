@@ -248,6 +248,7 @@ def create_cartesia_tts(api_key: str, session: aiohttp.ClientSession):
     from pipecat.services.tts_service import TextAggregationMode
     return CartesiaHttpTTSService(
         api_key=api_key,
+        aiohttp_session=session,
         settings=CartesiaTTSSettings(voice="79a125e8-cd45-4c13-8a67-188112f4dd22", model="sonic-3"),
         text_aggregation_mode=TextAggregationMode.SENTENCE,
     )
