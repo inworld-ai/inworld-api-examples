@@ -98,7 +98,6 @@ async function createInworldTTS(apiKey: string): Promise<tts.TTS> {
   const inworld = await import('@livekit/agents-plugin-inworld');
   return new inworld.TTS({
     apiKey, voice: 'Ashley', model: 'inworld-tts-1.5-mini',
-    encoding: 'LINEAR16', sampleRate: 24000,
     baseURL: 'https://api.inworld.ai/',
   });
 }
@@ -247,47 +246,47 @@ async function main() {
   console.log(`📝 Sentences: ${sentences.length} (cycling per iteration)`);
   console.log(`🔄 Iterations: ${iterations} (+ ${warmup} warmup)\n`);
 
-  const allTtfb: Record<string, number[]> = {};
-  for (const s of availableServices) allTtfb[s.id] = [];
-
-  // One TTS instance per service, reused across all iterations (like a real app)
   const ttsInstances: Record<string, tts.TTS> = {};
   for (const { id, config: cfg, apiKey } of availableServices) {
     ttsInstances[id] = await cfg.create_fn(apiKey);
   }
 
   const totalIters = warmup + iterations;
-  try {
+
+  async function benchService(svc: { id: string; config: ServiceConfig }): Promise<BenchmarkResult> {
+    const ttfbVals: number[] = [];
     for (let iteration = 0; iteration < totalIters; iteration++) {
       const isWarmup = iteration < warmup;
       const label = isWarmup
         ? `warmup ${iteration + 1}/${warmup}`
         : `${iteration - warmup + 1}/${iterations}`;
-      process.stdout.write(`\r${isWarmup ? '⏳' : '📊'} Progress: ${label}`);
+      console.log(`[${svc.config.name}] ${isWarmup ? '⏳' : '📊'} ${label}`);
 
       const sentence = sentences[iteration % sentences.length]!;
 
-      for (const { id, config: cfg } of availableServices) {
-        try {
-          const result = await benchmarkOneSentence(
-            ttsInstances[id]!, sentence, cfg.name,
-            !noSaveAudio && iteration === warmup,
-          );
-          if (!isWarmup && result.ttfb !== null) {
-            allTtfb[id]!.push(result.ttfb);
-          }
-          if (result.audio_bytes === 0) {
-            console.log(`\n⚠️  ${cfg.name}: No audio received!`);
-          }
-        } catch (err) {
-          console.log(`\n❌ ${cfg.name}: ${err}`);
+      try {
+        const result = await benchmarkOneSentence(
+          ttsInstances[svc.id]!, sentence, svc.config.name,
+          !noSaveAudio && iteration === warmup,
+        );
+        if (!isWarmup && result.ttfb !== null) {
+          ttfbVals.push(result.ttfb);
         }
-
-        await delay(1000);
+        if (result.audio_bytes === 0) {
+          console.log(`[${svc.config.name}] ⚠️ No audio received!`);
+        }
+      } catch (err) {
+        console.log(`[${svc.config.name}] ❌ ${err}`);
       }
 
-      if (iteration < totalIters - 1) await delay(1000);
+      await delay(1000);
     }
+    return { service: svc.config.name, ttfb: computeStats(ttfbVals), audio_bytes: 0 };
+  }
+
+  let aggregatedResults: BenchmarkResult[];
+  try {
+    aggregatedResults = await Promise.all(availableServices.map((svc) => benchService(svc)));
   } finally {
     for (const inst of Object.values(ttsInstances)) {
       await inst.close();
@@ -295,15 +294,6 @@ async function main() {
   }
 
   console.log();
-
-  const aggregatedResults: BenchmarkResult[] = [];
-  for (const { id, config: cfg } of availableServices) {
-    aggregatedResults.push({
-      service: cfg.name,
-      ttfb: computeStats(allTtfb[id]!),
-      audio_bytes: 0,
-    });
-  }
 
   printResults(aggregatedResults, 'HTTP TTS BENCHMARK RESULTS (LiveKit JS)');
   process.exit(0);

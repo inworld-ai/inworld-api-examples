@@ -60,6 +60,17 @@ metric includes token aggregation time (waiting for sentence boundary) in additi
 the actual API latency. The LiveKit Python SDK does not have this behavior — it starts
 the timer when the sentence is dispatched to the provider.
 
-As a result, **JS WebSocket TTFB will appear ~200ms higher than Python WebSocket TTFB**
-for the same provider. This is a framework measurement difference, not an actual latency
-difference. HTTP TTFB is unaffected and comparable across both SDKs.
+As a result, **JS WebSocket TTFB will appear ~300ms higher than Python WebSocket TTFB**
+for the same provider with the default benchmark text and 50ms token delay. Two factors
+contribute:
+
+1. **TTFB timer start**: JS starts the timer at `pushText()`, Python starts when the
+   sentence is dispatched to the provider.
+2. **Sentence tokenizer**: The JS `basic.SentenceTokenizer` has a `minSentenceLength`
+   of 20 characters, so short sentences like "Hello!" (6 chars) are merged with the
+   next sentence. The Python `blingfire.SentenceTokenizer` splits at punctuation
+   regardless of length. With the default benchmark text, the JS tokenizer waits for
+   all tokens (~300ms at 50ms/token) before yielding a single sentence, while Python
+   splits "Hello!" immediately.
+
+HTTP TTFB is unaffected and comparable across both SDKs.

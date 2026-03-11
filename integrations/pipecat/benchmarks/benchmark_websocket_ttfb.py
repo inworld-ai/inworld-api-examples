@@ -378,16 +378,16 @@ async def main():
     print(f"⏱️  Token delay: {args.token_delay}ms")
     print(f"🔄 Iterations: {args.iterations} (+ {args.warmup} warmup)\n")
 
-    all_results: Dict[str, List[Dict]] = {sid: [] for sid, _, _ in available}
-
     total_iters = args.warmup + args.iterations
-    for iteration in range(total_iters):
-        is_warmup = iteration < args.warmup
-        label = f"warmup {iteration + 1}/{args.warmup}" if is_warmup else \
-                f"{iteration - args.warmup + 1}/{args.iterations}"
-        print(f"\r{'⏳' if is_warmup else '📊'} Progress: {label}", end="", flush=True)
 
-        for sid, cfg, api_key in available:
+    async def _bench_service(sid, cfg, api_key):
+        results_list = []
+        for iteration in range(total_iters):
+            is_warmup = iteration < args.warmup
+            label = f"warmup {iteration + 1}/{args.warmup}" if is_warmup else \
+                    f"{iteration - args.warmup + 1}/{args.iterations}"
+            print(f"[{cfg['name']}] {'⏳' if is_warmup else '📊'} {label}", flush=True)
+
             try:
                 result = await run_service_benchmark(
                     service_name=cfg["name"], create_tts_fn=cfg["create_fn"],
@@ -395,29 +395,25 @@ async def main():
                     save_audio=not args.no_save_audio and iteration == args.warmup,
                 )
                 if not is_warmup:
-                    all_results[sid].append(result)
+                    results_list.append(result)
                     if result["audio_bytes"] == 0:
-                        print(f"\n⚠️  {cfg['name']}: No audio received!")
+                        print(f"[{cfg['name']}] ⚠️ No audio received!")
             except Exception as e:
-                print(f"\n❌ {cfg['name']}: {e}")
+                print(f"[{cfg['name']}] ❌ {e}")
 
             await asyncio.sleep(1.0)
 
-        if iteration < total_iters - 1:
-            await asyncio.sleep(1.0)
-
-    print()
-
-    aggregated = []
-    for sid, cfg, _ in available:
-        results_list = all_results[sid]
         merged = {"service": cfg["name"]}
         for key in ["ttfb", "ttft", "tt700"]:
             all_vals = []
             for r in results_list:
                 all_vals.extend(r[key].get("values", []))
             merged[key] = compute_stats(all_vals)
-        aggregated.append(merged)
+        return merged
+
+    aggregated = await asyncio.gather(*[
+        _bench_service(sid, cfg, api_key) for sid, cfg, api_key in available
+    ])
 
     print_results(aggregated, "WEBSOCKET TTS BENCHMARK RESULTS (Pipecat)")
 
