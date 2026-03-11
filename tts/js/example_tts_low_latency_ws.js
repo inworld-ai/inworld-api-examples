@@ -95,7 +95,7 @@ async function websocketTts(apiKey, text, voiceId, modelId) {
                     voice_id: voiceId,
                     model_id: modelId,
                     audio_config: {
-                        audio_encoding: 'OGG_OPUS',
+                        audio_encoding: 'PCM',
                         sample_rate_hertz: 24000,
                         bit_rate: 32000
                     }
