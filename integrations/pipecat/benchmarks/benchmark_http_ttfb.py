@@ -233,18 +233,23 @@ def create_inworld_tts(api_key: str, session: aiohttp.ClientSession):
 
 
 def create_elevenlabs_tts(api_key: str, session: aiohttp.ClientSession):
-    from pipecat.services.elevenlabs.tts import ElevenLabsHttpTTSService
+    from pipecat.services.elevenlabs.tts import ElevenLabsHttpTTSService, ElevenLabsTTSSettings
+    from pipecat.services.tts_service import TextAggregationMode
     return ElevenLabsHttpTTSService(
-        api_key=api_key, aiohttp_session=session, voice_id="21m00Tcm4TlvDq8ikWAM",
-        model="eleven_turbo_v2_5", aggregate_sentences=True,
+        api_key=api_key,
+        aiohttp_session=session,
+        settings=ElevenLabsTTSSettings(voice="21m00Tcm4TlvDq8ikWAM", model="eleven_turbo_v2_5"),
+        text_aggregation_mode=TextAggregationMode.SENTENCE,
     )
 
 
 def create_cartesia_tts(api_key: str, session: aiohttp.ClientSession):
-    from pipecat.services.cartesia.tts import CartesiaHttpTTSService
+    from pipecat.services.cartesia.tts import CartesiaHttpTTSService, CartesiaTTSSettings
+    from pipecat.services.tts_service import TextAggregationMode
     return CartesiaHttpTTSService(
-        api_key=api_key, voice_id="79a125e8-cd45-4c13-8a67-188112f4dd22",
-        model="sonic-3", aggregate_sentences=True,
+        api_key=api_key,
+        settings=CartesiaTTSSettings(voice="79a125e8-cd45-4c13-8a67-188112f4dd22", model="sonic-3"),
+        text_aggregation_mode=TextAggregationMode.SENTENCE,
     )
 
 
