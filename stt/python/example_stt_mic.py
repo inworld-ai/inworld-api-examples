@@ -44,14 +44,18 @@ def check_api_key():
     return api_key
 
 
-async def stream_mic_to_stt(api_key: str, model_id: str = "assemblyai/universal-streaming-english"):
+async def stream_mic_to_stt(
+    api_key: str,
+    model_id: str = "assemblyai/universal-streaming-multilingual",
+    language: str | None = None,
+):
     """Stream microphone PCM to STT WebSocket. Returns list of final transcript segments."""
     ws_url = API_BASE.replace("https://", "wss://").replace("http://", "ws://")
     ws_url += "/stt/v1/transcribe:streamBidirectional"
 
     final_texts = []
     last_partial = ""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     audio_queue = asyncio.Queue(maxsize=10)  # bounded to limit memory; drop if consumer is slow
     stop_requested = asyncio.Event()
     stream = None
@@ -87,18 +91,20 @@ async def stream_mic_to_stt(api_key: str, model_id: str = "assemblyai/universal-
         except (ValueError, OSError, RuntimeError):
             pass  # signal handling not available
 
+    transcribe_config = {
+        "modelId": model_id,
+        "audioEncoding": "LINEAR16",
+        "sampleRateHertz": SAMPLE_RATE,
+        "numberOfChannels": CHANNELS,
+    }
+    if language:
+        transcribe_config["language"] = language
+
     async with websockets.connect(
         ws_url,
         additional_headers={"Authorization": f"Basic {api_key}"},
     ) as ws:
-        await ws.send(json.dumps({
-            "transcribeConfig": {
-                "modelId": model_id,
-                "audioEncoding": "LINEAR16",
-                "sampleRateHertz": SAMPLE_RATE,
-                "numberOfChannels": CHANNELS,
-            }
-        }))
+        await ws.send(json.dumps({"transcribeConfig": transcribe_config}))
 
         async def send_audio():
             nonlocal stream

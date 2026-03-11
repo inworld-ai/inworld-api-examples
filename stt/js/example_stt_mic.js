@@ -63,7 +63,7 @@ function streamMicToStt(apiKey, options = {}) {
     const url = `${wsUrl}/stt/v1/transcribe:streamBidirectional`;
     const headers = { Authorization: `Basic ${apiKey}` };
 
-    const modelId = options.modelId || 'assemblyai/universal-streaming-english';
+    const modelId = options.modelId || 'assemblyai/universal-streaming-multilingual';
     const finalTexts = [];
     let lastPartial = '';
 
@@ -93,14 +93,14 @@ function streamMicToStt(apiKey, options = {}) {
         });
 
         ws.on('open', () => {
-            ws.send(JSON.stringify({
-                transcribeConfig: {
-                    modelId,
-                    audioEncoding: 'LINEAR16',
-                    sampleRateHertz: SAMPLE_RATE,
-                    numberOfChannels: CHANNELS
-                }
-            }));
+            const config = {
+                modelId,
+                audioEncoding: 'LINEAR16',
+                sampleRateHertz: SAMPLE_RATE,
+                numberOfChannels: CHANNELS
+            };
+            if (options.language) config.language = options.language;
+            ws.send(JSON.stringify({ transcribeConfig: config }));
 
             const isDarwin = process.platform === 'darwin';
             const isLinux = process.platform === 'linux';

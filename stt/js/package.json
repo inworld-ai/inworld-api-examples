@@ -5,7 +5,6 @@
   "main": "index.js",
   "scripts": {
     "stt": "node example_stt.js",
-    "stt-websocket": "node example_stt_websocket.js",
     "stt-mic": "node example_stt_mic.js"
   },
   "keywords": [

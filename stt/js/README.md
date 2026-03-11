@@ -40,21 +40,7 @@ node example_stt.js [path/to/audio.wav]
 
 **Output:** Prints the transcript and optional word timestamps to the console.
 
-### 2. WebSocket (`example_stt_websocket.js`)
-
-Real-time transcription over WebSocket. Input is a **raw LINEAR16 PCM file** (no WAV header). You pass sample rate and channels (or use defaults). Default input: `../tests-data/audio/test-pcm-audio.pcm`. Streaming API supports only LINEAR16; for MP3 use the sync API (`example_stt.js`).
-
-**Usage:**
-```bash
-npm run stt-websocket
-# or
-node example_stt_websocket.js [pcm.raw] [sampleRate] [channels]
-```
-Defaults: `../tests-data/audio/test-pcm-audio.pcm`, `sampleRate` 16000, `channels` 1.
-
-**Output:** [interim] and [FINAL] segments, then full transcript.
-
-### 3. Real-time from microphone (`example_stt_mic.js`)
+### 2. Real-time from microphone (`example_stt_mic.js`)
 
 Real-time transcription from the microphone. Captures live audio (via SoX) and streams to the STT WebSocket. Requires SoX installed (e.g. `brew install sox` on macOS). Press Ctrl+C to stop.
 
@@ -69,8 +55,8 @@ node example_stt_mic.js
 
 ## Configuration
 
-- **Sync:** Uses `groq/whisper-large-v3-turbo`; optional `language`, `includeWordTimestamps`, `prompts` (see TranscribeConfig).
-- **WebSocket:** Streaming supports only LINEAR16; pass sample rate and channels (or use defaults). For MP3 use sync API.
+- **Sync:** Uses `groq/whisper-large-v3`; see [API reference](https://docs.inworld.ai/api-reference/sttAPI/speechtotext/transcribe) for the full request body.
+- **Streaming (mic):** Uses STT WebSocket with LINEAR16, 16 kHz mono. Model is `assemblyai/universal-streaming-english` or `assemblyai/universal-streaming-multilingual`; see [API reference](https://docs.inworld.ai/api-reference/sttAPI/speechtotext/transcribe-stream-websocket) for the full request body.
 
 ## API Endpoints
 
