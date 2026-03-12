@@ -114,6 +114,9 @@ class CartesiaService {
             throw new Error(`Cartesia API error: ${response.status} ${response.statusText}`);
         }
 
+        if (!response.body) {
+            throw new Error('Cartesia API response has no body');
+        }
         // Convert Web ReadableStream to Node.js stream for .on('data'/'end'/'error')
         const stream = Readable.fromWeb(response.body);
 
