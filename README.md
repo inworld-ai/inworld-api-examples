@@ -26,6 +26,9 @@ These examples are short snippets that demonstrate best-practices in using Inwor
 
 ```
 inworld-api-examples/
+├── stt/
+│   ├── python/
+│   └── js/
 ├── tts/
 │   ├── python/
 │   └── js/
@@ -35,6 +38,13 @@ inworld-api-examples/
 ```
 
 ## Getting Started
+
+### [STT](./stt/) (Speech-to-Text)
+
+Transcribe audio via synchronous HTTP or real-time WebSocket streaming.
+
+- **[Python](./stt/python/)** — Sync and streaming STT examples in Python
+- **[JavaScript](./stt/js/)** — Sync and streaming STT examples in JavaScript
 
 ### [TTS](./tts)
 
