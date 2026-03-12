@@ -119,6 +119,9 @@ class HumeService {
             throw new Error(`Hume API error: ${response.status} ${response.statusText}`);
         }
 
+        if (!response.body) {
+            throw new Error('Hume API error: empty response body');
+        }
         const stream = Readable.fromWeb(response.body);
 
         // Handle streaming response
