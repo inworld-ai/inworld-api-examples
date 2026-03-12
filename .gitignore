@@ -327,13 +327,18 @@ public
 
 .DS_Store
 
+.claude
+
 # Audio output files from examples
 *.wav
 *.mp3
 synthesis_*.wav
 synthesis_*.mp3
+
+# Benchmark audio
+benchmark_audio/
+
 # Keep STT tests-data in repo (e.g. test-audio.wav, test-pcm-audio.pcm)
 !stt/tests-data/
 !stt/tests-data/**
-.claude
 
