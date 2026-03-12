@@ -90,27 +90,40 @@ class ElevenLabsService {
             timestamp: Date.now()
         });
 
-        // Track when we start the request for TTFB calculation
+        const voiceId = process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb';
+        const baseUrl = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream/with-timestamps`;
+        const buildUrl = () => {
+            const u = new URL(baseUrl);
+            u.searchParams.set('output_format', 'mp3_44100_128');
+            u.searchParams.set('optimize_streaming_latency', '3');
+            return u.toString();
+        };
+        const headers = {
+            'xi-api-key': process.env.ELEVENLABS_API_KEY,
+            'Content-Type': 'application/json',
+            'Connection': 'keep-alive'
+        };
+        const bodyFor = (txt) => JSON.stringify({
+            text: txt,
+            model_id: 'eleven_turbo_v2_5',
+            voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+        });
+
+        // Warmup
+        const warmupEnabled = process.env.TTS_WARMUP !== 'false';
+        if (warmupEnabled) {
+            const warmupResponse = await fetch(buildUrl(), { method: 'POST', headers, body: bodyFor('Hi') });
+            if (warmupResponse.body) await warmupResponse.arrayBuffer();
+        }
+
+        // Start TTFB timer after warmup
         const requestStartTime = Date.now();
         let timeToFirstByte = null;
 
-        // Make actual API call to ElevenLabs
-        const voiceId = process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb';
-        const url = new URL(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream/with-timestamps`);
-        url.searchParams.set('output_format', 'mp3_44100_128');
-        url.searchParams.set('optimize_streaming_latency', '3');
-
-        const response = await fetch(url.toString(), {
+        const response = await fetch(buildUrl(), {
             method: 'POST',
-            headers: {
-                'xi-api-key': process.env.ELEVENLABS_API_KEY,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                text: text,
-                model_id: 'eleven_turbo_v2_5',
-                voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-            })
+            headers,
+            body: bodyFor(text)
         });
 
         if (!response.ok) {
@@ -120,6 +133,7 @@ class ElevenLabsService {
         if (!response.body) {
             throw new Error('ElevenLabs API error: response body is missing');
         }
+        
         const stream = Readable.fromWeb(response.body);
 
         // Handle streaming response with timestamps

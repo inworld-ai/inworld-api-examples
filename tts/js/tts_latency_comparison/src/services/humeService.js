@@ -91,28 +91,31 @@ class HumeService {
             timestamp: Date.now()
         });
 
-        // Track when we start the request for TTFB calculation
+        const url = 'https://api.hume.ai/v0/tts/stream/json';
+        const voiceName = process.env.HUME_VOICE_ID || 'Male English Actor';
+        const headers = {
+            'X-Hume-Api-Key': process.env.HUME_API_KEY,
+            'Content-Type': 'application/json',
+            'Connection': 'keep-alive'
+        };
+        const bodyFor = (txt) => JSON.stringify({
+            utterances: [{ text: txt, voice: { name: voiceName, provider: 'HUME_AI' } }]
+        });
+
+        //Warmup
+        const warmupEnabled = process.env.TTS_WARMUP !== 'false';
+        if (warmupEnabled) {
+            const warmupResponse = await fetch(url, { method: 'POST', headers, body: bodyFor('Hi') });
+            if (warmupResponse.body) await warmupResponse.arrayBuffer();
+        }
+
         const requestStartTime = Date.now();
         let timeToFirstByte = null;
 
-        // Make actual API call to Hume
-        const response = await fetch('https://api.hume.ai/v0/tts/stream/json', {
+        const response = await fetch(url, {
             method: 'POST',
-            headers: {
-                'X-Hume-Api-Key': process.env.HUME_API_KEY,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                utterances: [
-                    {
-                        text: text,
-                        voice: {
-                            name: process.env.HUME_VOICE_ID || "Male English Actor",
-                            provider: "HUME_AI"
-                        }
-                    }
-                ]
-            })
+            headers,
+            body: bodyFor(text)
         });
 
         if (!response.ok) {
@@ -122,6 +125,7 @@ class HumeService {
         if (!response.body) {
             throw new Error('Hume API error: empty response body');
         }
+        
         const stream = Readable.fromWeb(response.body);
 
         // Handle streaming response

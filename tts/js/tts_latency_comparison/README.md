@@ -8,8 +8,8 @@ Compares TTS models by visualizing their streaming performance, measuring first 
 
 ## Supported Services
 
-- Cartesia Sonic-2
-- ElevenLabs Multilingual
+- Cartesia Sonic-3
+- ElevenLabs turbo v2.5 and Multilingual
 - Hume
 - Inworld (Standard, Max)
 
@@ -38,7 +38,9 @@ npm start
 - `SAVE_AUDIO`: Set to `true` to save audio files after processing for analysis, `false` to delete them (default: `false`)
 - `PORT`: Server port (optional - default: `3000`)
 - API Keys: API keys for TTS services (optional aside from Inworld)
-- Voice IDs: Voice IDs for each provider (optional - will use default voice if not specified)
+- Voice IDs: Voice IDs for each provider (optional - will use default voice if not 
+specified)
+- `TTS_WARMUP`: Set to `true` to run a connection warmup request before the timed TTS request (default: `true`). Set to `false` to measure cold TTFB (includes connection setup).
 
 ## Usage
 

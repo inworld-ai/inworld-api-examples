@@ -83,31 +83,37 @@ class CartesiaService {
     async processReal(text, sendUpdate, sessionId) {
         // Processing start is already sent by main process method
 
-        // Track when we start the request for TTFB calculation
+        const url = 'https://api.cartesia.ai/tts/sse';
+        const voiceId = process.env.CARTESIA_VOICE_ID || '694f9389-aac1-45b6-b726-9d9369183238';
+        const headers = {
+            'Cartesia-Version': '2024-06-10',
+            'X-API-Key': process.env.CARTESIA_API_KEY,
+            'Content-Type': 'application/json',
+            'Connection': 'keep-alive'
+        };
+        const bodyFor = (transcript) => JSON.stringify({
+            model_id: 'sonic-3',
+            transcript,
+            voice: { mode: 'id', id: voiceId },
+            output_format: { container: 'raw', encoding: 'pcm_f32le', sample_rate: 44100 },
+            language: 'en'
+        });
+
+        // Warmup
+        const warmupEnabled = process.env.TTS_WARMUP !== 'false';
+        if (warmupEnabled) {
+            const warmupResponse = await fetch(url, { method: 'POST', headers, body: bodyFor('Hi') });
+            if (warmupResponse.body) await warmupResponse.arrayBuffer();
+        }
+
+        // Start TTFB timer after warmup
         const requestStartTime = Date.now();
         let timeToFirstByte = null;
 
-        // Make actual API call to Cartesia using streaming SSE endpoint
-        const voiceId = process.env.CARTESIA_VOICE_ID || '694f9389-aac1-45b6-b726-9d9369183238';
-
-        const response = await fetch('https://api.cartesia.ai/tts/sse', {
+        const response = await fetch(url, {
             method: 'POST',
-            headers: {
-                'Cartesia-Version': '2024-06-10',
-                'X-API-Key': process.env.CARTESIA_API_KEY,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model_id: 'sonic-2',
-                transcript: text,
-                voice: { mode: 'id', id: voiceId },
-                output_format: {
-                    container: 'raw',
-                    encoding: 'pcm_f32le',
-                    sample_rate: 44100
-                },
-                language: 'en'
-            })
+            headers,
+            body: bodyFor(text)
         });
 
         if (!response.ok) {
@@ -117,6 +123,7 @@ class CartesiaService {
         if (!response.body) {
             throw new Error('Cartesia API response has no body');
         }
+
         // Convert Web ReadableStream to Node.js stream for .on('data'/'end'/'error')
         const stream = Readable.fromWeb(response.body);
 

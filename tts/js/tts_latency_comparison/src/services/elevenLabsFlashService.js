@@ -90,27 +90,39 @@ class ElevenLabsFlashService {
             timestamp: Date.now()
         });
 
-        // Track when we start the request for TTFB calculation
+        const voiceId = process.env.ELEVENLABS_FLASH_VOICE_ID || '4YYIPFl9wE5c4L2eu2Gb';
+        const baseUrl = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream/with-timestamps`;
+        const buildUrl = () => {
+            const u = new URL(baseUrl);
+            u.searchParams.set('output_format', 'mp3_44100_128');
+            u.searchParams.set('optimize_streaming_latency', '3');
+            return u.toString();
+        };
+        const headers = {
+            'xi-api-key': process.env.ELEVENLABS_API_KEY,
+            'Content-Type': 'application/json',
+            'Connection': 'keep-alive'
+        };
+        const bodyFor = (txt) => JSON.stringify({
+            text: txt,
+            model_id: 'eleven_flash_v2_5',
+            voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+        });
+
+        //Warmup
+        const warmupEnabled = process.env.TTS_WARMUP !== 'false';
+        if (warmupEnabled) {
+            const warmupResponse = await fetch(buildUrl(), { method: 'POST', headers, body: bodyFor('Hi') });
+            if (warmupResponse.body) await warmupResponse.arrayBuffer();
+        }
+
         const requestStartTime = Date.now();
         let timeToFirstByte = null;
 
-        // Make actual API call to ElevenLabs with flash model and specific voice
-        const voiceId = process.env.ELEVENLABS_FLASH_VOICE_ID || '4YYIPFl9wE5c4L2eu2Gb';
-        const url = new URL(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream/with-timestamps`);
-        url.searchParams.set('output_format', 'mp3_44100_128');
-        url.searchParams.set('optimize_streaming_latency', '3');
-
-        const response = await fetch(url.toString(), {
+        const response = await fetch(buildUrl(), {
             method: 'POST',
-            headers: {
-                'xi-api-key': process.env.ELEVENLABS_API_KEY,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                text: text,
-                model_id: 'eleven_flash_v2_5',
-                voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-            })
+            headers,
+            body: bodyFor(text)
         });
 
         if (!response.ok) {
@@ -120,6 +132,7 @@ class ElevenLabsFlashService {
         if (!response.body) {
             throw new Error('ElevenLabs API error: response body is null; cannot create audio stream.');
         }
+
         const stream = Readable.fromWeb(response.body);
 
         // Handle streaming response with timestamps

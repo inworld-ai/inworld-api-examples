@@ -81,19 +81,35 @@ class InworldMaxService {
      * @param {string} sessionId - Session ID
      */
     async processReal(text, sendUpdate, sessionId) {
-        // Make actual API call to Inworld
-        // Inworld never has silent prefix (hard-coded)
+        const url = 'https://api.inworld.ai/tts/v1/voice:stream';
+        const authHeader = `Basic ${process.env.INWORLD_API_KEY}`;
+        const voiceId = process.env.INWORLD_MAX_VOICE_ID || 'Hades';
+        const headers = {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json',
+            'Connection': 'keep-alive'
+        };
 
-        // Processing start is already sent by main process method
+        //Warmup
+        const warmupEnabled = process.env.TTS_WARMUP !== 'false';
+        if (warmupEnabled) {
+            const warmupBody = {
+                text: 'hi',
+                voiceId,
+                modelId: 'inworld-tts-1.5-max',
+                audioConfig: { audioEncoding: 'MP3', sampleRateHertz: 44100 },
+                temperature: 1.0
+            };
+            const warmupResponse = await fetch(url, { method: 'POST', headers, body: JSON.stringify(warmupBody) });
+            if (warmupResponse.body) await warmupResponse.arrayBuffer();
+        }
 
-        // Track when we start the request for TTFB calculation
         const requestStartTime = Date.now();
         let timeToFirstByte = null;
 
-        // Prepare request body
         const requestBody = {
             text: text,
-            voiceId: process.env.INWORLD_MAX_VOICE_ID || 'Hades',
+            voiceId,
             modelId: 'inworld-tts-1.5-max',
             audioConfig: {
                 audioEncoding: 'MP3',
@@ -102,20 +118,7 @@ class InworldMaxService {
             temperature: 1.0
         };
 
-        // Create Basic auth header - Inworld expects the API key directly, not base64 encoded
-        const authHeader = `Basic ${process.env.INWORLD_API_KEY}`;
-
-        const response = await fetch(
-            'https://api.inworld.ai/tts/v1/voice:stream',
-            {
-                method: 'POST',
-                headers: {
-                    'Authorization': authHeader,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            }
-        );
+        const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(requestBody) });
 
         if (!response.ok) {
             throw new Error(`Inworld TTS Max request failed: ${response.status} ${response.statusText}`);
