@@ -117,6 +117,9 @@ class ElevenLabsMultilingualService {
             throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
         }
 
+        if (!response.body) {
+            throw new Error('ElevenLabs API returned a response without a body for TTS streaming.');
+        }
         // Convert Web ReadableStream to Node.js stream for .on('data'/'end'/'error')
         const stream = Readable.fromWeb(response.body);
 
