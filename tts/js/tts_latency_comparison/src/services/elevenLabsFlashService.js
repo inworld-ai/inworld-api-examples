@@ -117,6 +117,9 @@ class ElevenLabsFlashService {
             throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
         }
 
+        if (!response.body) {
+            throw new Error('ElevenLabs API error: response body is null; cannot create audio stream.');
+        }
         const stream = Readable.fromWeb(response.body);
 
         // Handle streaming response with timestamps
