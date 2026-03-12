@@ -16,7 +16,7 @@ Edit `.env` with your credentials from the [Inworld Portal](https://studio.inwor
 | `INWORLD_API_KEY` | Base64-encoded API key (used by `basic` examples) |
 | `INWORLD_KEY` | API key ID (used by `jwt` examples to mint tokens) |
 | `INWORLD_SECRET` | API key secret (used by `jwt` examples to mint tokens) |
-| `INWORLD_WORKSPACE` | Workspace ID prefixed with `workspaces/`, e.g. `workspaces/default-xxxxxxxxxxx` |
+| `INWORLD_WORKSPACE` | Workspace ID prefixed with `workspaces/`, e.g. `workspaces/your_workspace_id` |
 
 ## Examples
 
