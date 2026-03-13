@@ -19,7 +19,7 @@ const __dirname = dirname(__filename);
 config({ path: join(__dirname, '.env'), override: true });
 config({ override: true });
 
-const DEFAULT_TEXT = 'Hello! Welcome to the TTS benchmark.';
+const DEFAULT_TEXT = 'How are you? Welcome to the TTS benchmark.';
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -76,10 +76,14 @@ function computeStats(values: number[]): Stats {
   };
 }
 
+const INWORLD_MODEL = 'inworld-tts-1.5-mini';
+const ELEVENLABS_MODEL = 'eleven_turbo_v2_5';
+const CARTESIA_MODEL = 'sonic-3';
+
 async function createInworldTTS(apiKey: string): Promise<tts.TTS> {
   const inworld = await import('@livekit/agents-plugin-inworld');
   return new inworld.TTS({
-    apiKey, voice: 'Ashley', model: 'inworld-tts-1.5-mini',
+    apiKey, voice: 'Ashley', model: INWORLD_MODEL,
     wsURL: 'wss://api.inworld.ai/',
   });
 }
@@ -87,14 +91,14 @@ async function createInworldTTS(apiKey: string): Promise<tts.TTS> {
 async function createElevenLabsTTS(apiKey: string): Promise<tts.TTS> {
   const elevenlabs = await import('@livekit/agents-plugin-elevenlabs');
   return new elevenlabs.TTS({
-    apiKey, voiceId: '21m00Tcm4TlvDq8ikWAM', model: 'eleven_turbo_v2_5',
+    apiKey, voiceId: 'ZthjuvLPty3kTMaNKVKb', model: ELEVENLABS_MODEL,
   });
 }
 
 async function createCartesiaTTS(apiKey: string): Promise<tts.TTS> {
   const cartesia = await import('@livekit/agents-plugin-cartesia');
   return new cartesia.TTS({
-    apiKey, voice: '79a125e8-cd45-4c13-8a67-188112f4dd22', model: 'sonic-3',
+    apiKey, voice: '79a125e8-cd45-4c13-8a67-188112f4dd22', model: CARTESIA_MODEL,
   });
 }
 
@@ -102,9 +106,8 @@ type TTSMetrics = { ttfbMs: number; [key: string]: unknown };
 
 async function benchmarkStream(
   ttsInstance: tts.TTS, text: string, serviceName: string,
-  tokenDelayMs = 50, doSaveAudio = false, outputDir = 'benchmark_audio',
+  tokenDelayMs = 30, doSaveAudio = false, outputDir = 'benchmark_audio',
 ): Promise<{ ttfb: number | null; audio_bytes: number }> {
-  const tokenDelayS = tokenDelayMs / 1000;
   const allAudio: Buffer[] = [];
   const sampleRate = ttsInstance.sampleRate;
   let ttfbValue: number | null = null;
@@ -123,7 +126,7 @@ async function benchmarkStream(
       const words = text.split(/\s+/);
       for (let i = 0; i < words.length; i++) {
         stream.pushText(i === 0 ? words[i]! : ' ' + words[i]!);
-        await delay(tokenDelayS * 1000);
+        await delay(tokenDelayMs);
       }
       stream.endInput();
     };
@@ -171,14 +174,14 @@ function fmt(val: number | null, suffix = 's'): string {
 }
 
 function printResults(results: { service: string; ttfb: Stats }[], title: string): void {
-  const w = 90;
+  const w = 95;
   console.log('\n' + '='.repeat(w));
   console.log(title);
   console.log('='.repeat(w));
 
   console.log('\n📊 TTFB');
   console.log(
-    `${'Service'.padEnd(20)} ${'Avg'.padStart(8)} ${'StdDev'.padStart(8)} ` +
+    `${'Service'.padEnd(25)} ${'Avg'.padStart(8)} ${'StdDev'.padStart(8)} ` +
     `${'Min'.padStart(8)} ${'Max'.padStart(8)} ${'P50'.padStart(8)} ${'P95'.padStart(8)} ${'N'.padStart(5)}`
   );
   console.log('-'.repeat(w));
@@ -188,13 +191,13 @@ function printResults(results: { service: string; ttfb: Stats }[], title: string
     const s = r.ttfb;
     if (s.count > 0) {
       console.log(
-        `${r.service.padEnd(20)} ${fmt(s.avg).padStart(8)} ${fmt(s.std).padStart(8)} ` +
+        `${r.service.padEnd(25)} ${fmt(s.avg).padStart(8)} ${fmt(s.std).padStart(8)} ` +
         `${fmt(s.min).padStart(8)} ${fmt(s.max).padStart(8)} ` +
         `${fmt(s.p50).padStart(8)} ${fmt(s.p95).padStart(8)} ${String(s.count).padStart(5)}`
       );
     } else {
       console.log(
-        `${r.service.padEnd(20)} ${'N/A'.padStart(8)} ${'N/A'.padStart(8)} ${'N/A'.padStart(8)} ` +
+        `${r.service.padEnd(25)} ${'N/A'.padStart(8)} ${'N/A'.padStart(8)} ${'N/A'.padStart(8)} ` +
         `${'N/A'.padStart(8)} ${'N/A'.padStart(8)} ${'N/A'.padStart(8)} ${'0'.padStart(5)}`
       );
     }
@@ -215,7 +218,7 @@ async function main() {
 
   const { values } = parseArgs({
     options: {
-      'token-delay': { type: 'string', default: '50' },
+      'token-delay': { type: 'string', default: '30' },
       text: { type: 'string' },
       iterations: { type: 'string', short: 'n', default: '5' },
       services: { type: 'string', default: 'all' },
@@ -241,9 +244,9 @@ async function main() {
       : values.services!.split(',').map((s) => s.trim().toLowerCase());
 
   const serviceConfigs: Record<string, ServiceConfig> = {
-    inworld: { name: 'Inworld WS', create_fn: createInworldTTS, api_key_env: 'INWORLD_API_KEY' },
-    elevenlabs: { name: 'ElevenLabs WS', create_fn: createElevenLabsTTS, api_key_env: 'ELEVEN_API_KEY' },
-    cartesia: { name: 'Cartesia WS', create_fn: createCartesiaTTS, api_key_env: 'CARTESIA_API_KEY' },
+    inworld: { name: `Inworld ${INWORLD_MODEL}`, create_fn: createInworldTTS, api_key_env: 'INWORLD_API_KEY' },
+    elevenlabs: { name: `ElevenLabs ${ELEVENLABS_MODEL}`, create_fn: createElevenLabsTTS, api_key_env: 'ELEVEN_API_KEY' },
+    cartesia: { name: `Cartesia ${CARTESIA_MODEL}`, create_fn: createCartesiaTTS, api_key_env: 'CARTESIA_API_KEY' },
   };
 
   const availableServices: { id: string; config: ServiceConfig; apiKey: string }[] = [];
