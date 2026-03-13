@@ -42,9 +42,22 @@ python example_stt.py [path/to/audio.wav]
 
 **Output:** Transcript and optional word timestamps printed to the console.
 
-### 2. `example_stt_mic.py` - Real-time from microphone
+### 2. `example_stt_websocket.py` - Streaming: transcribe from PCM file
 
-Real-time transcription from the microphone. Captures live audio (via sounddevice) and streams to the STT WebSocket. Requires `pip install sounddevice`. Press Ctrl+C to stop.
+Sends raw LINEAR16 PCM from a file over the STT WebSocket. Audio must be 16 kHz, 1 channel. Default input: `tests-data/audio/test-pcm-audio.pcm`.
+
+**Usage:**
+```bash
+python example_stt_websocket.py
+# or
+python example_stt_websocket.py [pcm_file]
+```
+
+**Output:** [interim] and [FINAL] segments, then full transcript. Ensures all segments (including the last word) are received before closing the stream.
+
+### 3. `example_stt_mic.py` - Real-time from microphone
+
+Real-time transcription from the microphone. Captures live audio (via sounddevice) and sends it over the STT WebSocket. Requires `pip install sounddevice`. Press Ctrl+C to stop.
 
 **Usage:**
 ```bash
@@ -56,7 +69,7 @@ python example_stt_mic.py
 ## Configuration
 
 - **Sync:** Uses `groq/whisper-large-v3`; see [API reference](https://docs.inworld.ai/api-reference/sttAPI/speechtotext/transcribe) for the full request body.
-- **Streaming (mic):** Uses STT WebSocket with LINEAR16, 16 kHz mono. Model is `assemblyai/universal-streaming-english` or `assemblyai/universal-streaming-multilingual`; see [API reference](https://docs.inworld.ai/api-reference/sttAPI/speechtotext/transcribe-stream-websocket) for the full request body.
+- **WebSocket (file or mic):** Uses STT WebSocket with LINEAR16, 16 kHz, 1 channel. Model is `assemblyai/universal-streaming-english` or `assemblyai/universal-streaming-multilingual`; see [API reference](https://docs.inworld.ai/api-reference/sttAPI/speechtotext/transcribe-stream-websocket) for the full request body.
 
 ## API Endpoints
 

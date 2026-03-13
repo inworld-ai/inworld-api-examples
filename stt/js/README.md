@@ -40,9 +40,22 @@ node example_stt.js [path/to/audio.wav]
 
 **Output:** Prints the transcript and optional word timestamps to the console.
 
-### 2. Real-time from microphone (`example_stt_mic.js`)
+### 2. Streaming: transcribe from PCM file (`example_stt_websocket.js`)
 
-Real-time transcription from the microphone. Captures live audio (via SoX) and streams to the STT WebSocket. Requires SoX installed (e.g. `brew install sox` on macOS). Press Ctrl+C to stop.
+Sends raw LINEAR16 PCM from a file over the STT WebSocket. Audio must be 16 kHz, 1 channel. Default input: `../tests-data/audio/test-pcm-audio.pcm`.
+
+**Usage:**
+```bash
+npm run stt-stream
+# or
+node example_stt_websocket.js [pcm_file]
+```
+
+**Output:** [interim] and [FINAL] segments, then full transcript. Ensures all segments (including the last word) are received before closing the stream.
+
+### 3. Real-time from microphone (`example_stt_mic.js`)
+
+Real-time transcription from the microphone. Captures live audio (via SoX) and sends it over the STT WebSocket. Requires SoX installed (e.g. `brew install sox` on macOS). Press Ctrl+C to stop.
 
 **Usage:**
 ```bash
@@ -56,7 +69,7 @@ node example_stt_mic.js
 ## Configuration
 
 - **Sync:** Uses `groq/whisper-large-v3`; see [API reference](https://docs.inworld.ai/api-reference/sttAPI/speechtotext/transcribe) for the full request body.
-- **Streaming (mic):** Uses STT WebSocket with LINEAR16, 16 kHz mono. Model is `assemblyai/universal-streaming-english` or `assemblyai/universal-streaming-multilingual`; see [API reference](https://docs.inworld.ai/api-reference/sttAPI/speechtotext/transcribe-stream-websocket) for the full request body.
+- **WebSocket (file or mic):** Uses STT WebSocket with LINEAR16, 16 kHz, 1 channel. Model is `assemblyai/universal-streaming-english` or `assemblyai/universal-streaming-multilingual`; see [API reference](https://docs.inworld.ai/api-reference/sttAPI/speechtotext/transcribe-stream-websocket) for the full request body.
 
 ## API Endpoints
 
