@@ -21,6 +21,7 @@ from loguru import logger as _loguru_logger
 from pipecat.frames.frames import (
     EndFrame,
     Frame,
+    InterruptionFrame,
     LLMFullResponseEndFrame,
     LLMFullResponseStartFrame,
     MetricsFrame,
@@ -349,6 +350,8 @@ async def main():
                     await asyncio.wait_for(collector.turn_done.wait(), timeout=30.0)
                 except asyncio.TimeoutError:
                     logger.warning("[%s] Turn timed out after 30s", cfg["name"])
+                await task.queue_frame(InterruptionFrame())
+                await asyncio.sleep(0.5)
 
                 if is_warmup:
                     collector.ttfb_values.clear()
