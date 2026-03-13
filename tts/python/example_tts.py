@@ -31,28 +31,29 @@ def check_api_key():
     return api_key
 
 
-def synthesize_speech(text: str, voice_id: str, model_id: str, api_key: str):
+def synthesize_speech(text: str, voice_id: str, model_id: str, api_key: str, sample_rate_hz: int = 48000):
     """
     Synthesize speech from text using Inworld TTS API.
-    
+
     Args:
         text: Text to synthesize
         voice_id: Voice ID to use
         model_id: Model ID to use
         api_key: API key for authentication
-        
+        sample_rate_hz: Sample rate for output (e.g. 16000 or 48000)
+
     Returns:
         bytes: Audio data
     """
     # API endpoint
     url = "https://api.inworld.ai/tts/v1/voice"
-    
+
     # Set up headers
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Basic {api_key}"
     }
-    
+
     # Request data
     request_data = {
         "text": text,
@@ -60,7 +61,7 @@ def synthesize_speech(text: str, voice_id: str, model_id: str, api_key: str):
         "model_id": model_id,
         "audio_config": {
             "audio_encoding": "LINEAR16",
-            "sample_rate_hertz": 48000
+            "sample_rate_hertz": sample_rate_hz
         }
     }
     
@@ -93,16 +94,16 @@ def synthesize_speech(text: str, voice_id: str, model_id: str, api_key: str):
         raise
 
 
-def save_audio_to_file(audio_data: bytes, output_file: str):
+def save_audio_to_file(audio_data: bytes, output_file: str, sample_rate: int = 48000):
     """Save audio data to a WAV file."""
     try:
         # Skip WAV header if present (first 44 bytes)
         raw_audio = audio_data[44:] if len(audio_data) > 44 and audio_data[:4] == b'RIFF' else audio_data
-        
+
         with wave.open(output_file, "wb") as wf:
             wf.setnchannels(1)  # Mono
             wf.setsampwidth(2)  # 16-bit
-            wf.setframerate(48000)
+            wf.setframerate(sample_rate)
             wf.writeframes(raw_audio)
         
         print(f"Audio saved to: {output_file}")
@@ -126,19 +127,21 @@ def main():
     text = "Hello, adventurer! What a beautiful day, isn't it?"
     voice_id = "Dennis"
     model_id = "inworld-tts-1.5-max"  # max model for non-streaming: higher quality
+    sample_rate_hz = 48000
     output_file = "synthesis_output.wav"
-    
+
     try:
         start_time = time.time()
         audio_data = synthesize_speech(
             text=text,
             voice_id=voice_id,
             model_id=model_id,
-            api_key=api_key
+            api_key=api_key,
+            sample_rate_hz=sample_rate_hz
         )
         synthesis_time = time.time() - start_time
-        
-        save_audio_to_file(audio_data, output_file)
+
+        save_audio_to_file(audio_data, output_file, sample_rate_hz)
         
         print(f"Synthesis time: {synthesis_time:.2f} seconds")
         print(f"Synthesis completed successfully! You can play the audio file: {output_file}")

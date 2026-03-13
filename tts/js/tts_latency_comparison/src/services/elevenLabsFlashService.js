@@ -4,6 +4,8 @@
  * Handles ElevenLabs eleven_flash_v2_5 text-to-speech processing
  */
 
+import { Readable } from 'stream';
+
 class ElevenLabsFlashService {
     constructor(audioManager, vadService = null) {
         this.audioManager = audioManager;
@@ -88,35 +90,50 @@ class ElevenLabsFlashService {
             timestamp: Date.now()
         });
 
-        // Track when we start the request for TTFB calculation
+        const voiceId = process.env.ELEVENLABS_FLASH_VOICE_ID || '4YYIPFl9wE5c4L2eu2Gb';
+        const baseUrl = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream/with-timestamps`;
+        const buildUrl = () => {
+            const u = new URL(baseUrl);
+            u.searchParams.set('output_format', 'mp3_44100_128');
+            u.searchParams.set('optimize_streaming_latency', '3');
+            return u.toString();
+        };
+        const headers = {
+            'xi-api-key': process.env.ELEVENLABS_API_KEY,
+            'Content-Type': 'application/json',
+            'Connection': 'keep-alive'
+        };
+        const bodyFor = (txt) => JSON.stringify({
+            text: txt,
+            model_id: 'eleven_flash_v2_5',
+            voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+        });
+
+        //Warmup
+        const warmupEnabled = process.env.TTS_WARMUP !== 'false';
+        if (warmupEnabled) {
+            const warmupResponse = await fetch(buildUrl(), { method: 'POST', headers, body: bodyFor('Hi') });
+            if (warmupResponse.body) await warmupResponse.arrayBuffer();
+        }
+
         const requestStartTime = Date.now();
         let timeToFirstByte = null;
 
-        // Make actual API call to ElevenLabs with flash model and specific voice
-        const voiceId = process.env.ELEVENLABS_FLASH_VOICE_ID || '4YYIPFl9wE5c4L2eu2Gb';
+        const response = await fetch(buildUrl(), {
+            method: 'POST',
+            headers,
+            body: bodyFor(text)
+        });
 
-        const response = await fetch(
-            `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream/with-timestamps`,
-            {
-                text: text,
-                model_id: 'eleven_flash_v2_5',
-                voice_settings: {
-                    stability: 0.5,
-                    similarity_boost: 0.75
-                }
-            },
-            {
-                headers: {
-                    'xi-api-key': process.env.ELEVENLABS_API_KEY,
-                    'Content-Type': 'application/json'
-                },
-                params: {
-                    output_format: 'mp3_44100_128',
-                    optimize_streaming_latency: 3
-                },
-                responseType: 'stream'
-            }
-        );
+        if (!response.ok) {
+            throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
+        }
+
+        if (!response.body) {
+            throw new Error('ElevenLabs API error: response body is null; cannot create audio stream.');
+        }
+
+        const stream = Readable.fromWeb(response.body);
 
         // Handle streaming response with timestamps
         let bytesReceived = 0;
@@ -129,7 +146,7 @@ class ElevenLabsFlashService {
         let firstSpeechTimestamp = null;
         let lastTimestamp = 0;
 
-        response.data.on('data', (chunk) => {
+        stream.on('data', (chunk) => {
             bytesReceived += chunk.length;
             buffer += chunk.toString();
             
@@ -227,7 +244,7 @@ class ElevenLabsFlashService {
         });
 
         await new Promise((resolve, reject) => {
-        response.data.on('end', async () => {
+        stream.on('end', async () => {
             let completeAudioPath = null; // Declare at proper scope
             let hasAudio = false;
             
@@ -283,7 +300,7 @@ class ElevenLabsFlashService {
                 
                 resolve();
             });
-            response.data.on('error', reject);
+            stream.on('error', reject);
         });
 
         // Return the time to first byte and whether audio was generated

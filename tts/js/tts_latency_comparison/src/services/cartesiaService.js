@@ -4,6 +4,8 @@
  * Handles Cartesia text-to-speech processing
  */
 
+import { Readable } from 'stream';
+
 class CartesiaService {
     constructor(audioManager, vadService = null) {
         this.audioManager = audioManager;
@@ -81,38 +83,49 @@ class CartesiaService {
     async processReal(text, sendUpdate, sessionId) {
         // Processing start is already sent by main process method
 
-        // Track when we start the request for TTFB calculation
+        const url = 'https://api.cartesia.ai/tts/sse';
+        const voiceId = process.env.CARTESIA_VOICE_ID || '694f9389-aac1-45b6-b726-9d9369183238';
+        const headers = {
+            'Cartesia-Version': '2024-06-10',
+            'X-API-Key': process.env.CARTESIA_API_KEY,
+            'Content-Type': 'application/json',
+            'Connection': 'keep-alive'
+        };
+        const bodyFor = (transcript) => JSON.stringify({
+            model_id: 'sonic-3',
+            transcript,
+            voice: { mode: 'id', id: voiceId },
+            output_format: { container: 'raw', encoding: 'pcm_f32le', sample_rate: 44100 },
+            language: 'en'
+        });
+
+        // Warmup
+        const warmupEnabled = process.env.TTS_WARMUP !== 'false';
+        if (warmupEnabled) {
+            const warmupResponse = await fetch(url, { method: 'POST', headers, body: bodyFor('Hi') });
+            if (warmupResponse.body) await warmupResponse.arrayBuffer();
+        }
+
+        // Start TTFB timer after warmup
         const requestStartTime = Date.now();
         let timeToFirstByte = null;
 
-        // Make actual API call to Cartesia using streaming SSE endpoint
-        const voiceId = process.env.CARTESIA_VOICE_ID || '694f9389-aac1-45b6-b726-9d9369183238';
+        const response = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: bodyFor(text)
+        });
 
-        const response = await fetch(
-            'https://api.cartesia.ai/tts/sse',
-            {
-                model_id: 'sonic-2',
-                transcript: text,
-                voice: {
-                    mode: 'id',
-                    id: voiceId
-                },
-                output_format: {
-                    container: 'raw',
-                    encoding: 'pcm_f32le',
-                    sample_rate: 44100
-                },
-                language: 'en'
-            },
-            {
-                headers: {
-                    'Cartesia-Version': '2024-06-10',
-                    'X-API-Key': process.env.CARTESIA_API_KEY,
-                    'Content-Type': 'application/json'
-                },
-                responseType: 'stream'
-            }
-        );
+        if (!response.ok) {
+            throw new Error(`Cartesia API error: ${response.status} ${response.statusText}`);
+        }
+
+        if (!response.body) {
+            throw new Error('Cartesia API response has no body');
+        }
+
+        // Convert Web ReadableStream to Node.js stream for .on('data'/'end'/'error')
+        const stream = Readable.fromWeb(response.body);
 
         // Handle streaming SSE response
         let bytesReceived = 0;
@@ -124,7 +137,7 @@ class CartesiaService {
         let isComplete = false;
         let lastProgressSent = -1; // Track last progress to avoid duplicates
 
-        response.data.on('data', (chunk) => {
+        stream.on('data', (chunk) => {
             bytesReceived += chunk.length;
             buffer += chunk.toString();
             
@@ -317,13 +330,13 @@ class CartesiaService {
             }, 100);
             
             // Also handle natural stream end
-            response.data.on('end', async () => {
+            stream.on('end', async () => {
                 console.log(`Cartesia: Stream ended naturally`);
                 clearInterval(completionChecker);
                 await handleCompletion();
             });
             
-            response.data.on('error', (error) => {
+            stream.on('error', (error) => {
                 clearInterval(completionChecker);
                 reject(error);
             });

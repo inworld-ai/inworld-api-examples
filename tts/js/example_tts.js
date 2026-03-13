@@ -30,9 +30,10 @@ function checkApiKey() {
  * @param {string} voiceId - Voice ID to use
  * @param {string} modelId - Model ID to use
  * @param {string} apiKey - API key for authentication
+ * @param {number} sampleRateHz - Sample rate for output (e.g. 16000 or 48000)
  * @returns {Promise<Buffer>} Audio data
  */
-async function synthesizeSpeech(text, voiceId, modelId, apiKey) {
+async function synthesizeSpeech(text, voiceId, modelId, apiKey, sampleRateHz = 48000) {
     // API endpoint
     const url = 'https://api.inworld.ai/tts/v1/voice';
     
@@ -49,7 +50,7 @@ async function synthesizeSpeech(text, voiceId, modelId, apiKey) {
         model_id: modelId,
         audio_config: {
             audio_encoding: 'LINEAR16',
-            sample_rate_hertz: 48000
+            sample_rate_hertz: sampleRateHz
         }
     };
     
@@ -94,8 +95,9 @@ async function synthesizeSpeech(text, voiceId, modelId, apiKey) {
  * Save audio data to a WAV file.
  * @param {Buffer} audioData - Audio data
  * @param {string} outputFile - Output file path
+ * @param {number} sampleRateHz - Sample rate 
  */
-function saveAudioToFile(audioData, outputFile) {
+function saveAudioToFile(audioData, outputFile, sampleRateHz = 48000) {
     try {
         // Skip WAV header if present (first 44 bytes)
         const rawAudio = (audioData.length > 44 && audioData.subarray(0, 4).equals(Buffer.from('RIFF'))) 
@@ -103,7 +105,7 @@ function saveAudioToFile(audioData, outputFile) {
             : audioData;
         
         // Create WAV header
-        const wavHeader = createWavHeader(rawAudio.length, 1, 48000, 16);
+        const wavHeader = createWavHeader(rawAudio.length, 1, sampleRateHz, 16);
         const wavFile = Buffer.concat([wavHeader, rawAudio]);
         
         fs.writeFileSync(outputFile, wavFile);
@@ -168,14 +170,15 @@ async function main() {
     const text = "Hello, adventurer! What a beautiful day, isn't it?";
     const voiceId = 'Dennis';
     const modelId = 'inworld-tts-1.5-max'; // max model for non-streaming: higher quality
+    const sampleRateHz = 48000;
     const outputFile = 'synthesis_output.wav';
     
     try {
         const startTime = Date.now();
-        const audioData = await synthesizeSpeech(text, voiceId, modelId, apiKey);
+        const audioData = await synthesizeSpeech(text, voiceId, modelId, apiKey, sampleRateHz);
         const synthesisTime = (Date.now() - startTime) / 1000;
         
-        saveAudioToFile(audioData, outputFile);
+        saveAudioToFile(audioData, outputFile, sampleRateHz);
         
         console.log(`Synthesis time: ${synthesisTime.toFixed(2)} seconds`);
         console.log(`Synthesis completed successfully! You can play the audio file: ${outputFile}`);

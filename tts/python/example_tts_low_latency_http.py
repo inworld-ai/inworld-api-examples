@@ -61,7 +61,7 @@ def http_streaming_tts(api_key, text, voice_id, model_id):
         "voice_id": voice_id,
         "model_id": model_id,
         "audio_config": {
-            "audio_encoding": "OGG_OPUS",
+            "audio_encoding": "PCM",
             "sample_rate_hertz": 24000,
             "bit_rate": 32000
         }
@@ -78,7 +78,7 @@ def http_streaming_tts(api_key, text, voice_id, model_id):
             "voice_id": voice_id,
             "model_id": model_id,
             "audio_config": {
-                "audio_encoding": "OGG_OPUS",
+                "audio_encoding": "PCM",
                 "sample_rate_hertz": 24000,
                 "bit_rate": 32000
             }

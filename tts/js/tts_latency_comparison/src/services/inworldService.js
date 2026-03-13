@@ -86,14 +86,37 @@ class InworldService {
 
         // Processing start is already sent by main process method
 
-        // Track when we start the request for TTFB calculation
+        const voiceId = process.env.INWORLD_VOICE_ID || 'Alex';
+        const url = 'https://api.inworld.ai/tts/v1/voice:stream';
+        const authHeader = `Basic ${process.env.INWORLD_API_KEY}`;
+        const headers = {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json',
+            'Connection': 'keep-alive'
+        };
+
+        // Warmup
+        const warmupEnabled = process.env.TTS_WARMUP !== 'false';
+        if (warmupEnabled) {
+            const warmupBody = {
+                text: 'hi',
+                voiceId,
+                modelId: 'inworld-tts-1.5-mini',
+                audioConfig: { audioEncoding: 'MP3', sampleRateHertz: 44100 },
+                temperature: 1.0
+            };
+            const warmupResponse = await fetch(url, { method: 'POST', headers, body: JSON.stringify(warmupBody) });
+            if (warmupResponse.body) await warmupResponse.arrayBuffer();
+        }
+
+        // Start TTFB timer after warmup
         const requestStartTime = Date.now();
         let timeToFirstByte = null;
 
-        // Prepare request body
+        // Prepare request body 
         const requestBody = {
             text: text,
-            voiceId: process.env.INWORLD_VOICE_ID || 'Alex', // Default voice, can be made configurable
+            voiceId,
             modelId: 'inworld-tts-1.5-mini',
             audioConfig: {
                 audioEncoding: 'MP3',
@@ -102,20 +125,11 @@ class InworldService {
             temperature: 1.0
         };
 
-        // Create Basic auth header - Inworld expects the API key directly, not base64 encoded
-        const authHeader = `Basic ${process.env.INWORLD_API_KEY}`;
-
-        const response = await fetch(
-            'https://api.inworld.ai/tts/v1/voice:stream',
-            {
-                method: 'POST',
-                headers: {
-                    'Authorization': authHeader,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            }
-        );
+        const response = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(requestBody)
+        });
 
         if (!response.ok) {
             throw new Error(`Inworld TTS request failed: ${response.status} ${response.statusText}`);
