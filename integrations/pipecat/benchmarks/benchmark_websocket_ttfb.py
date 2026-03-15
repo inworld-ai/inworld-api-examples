@@ -1,8 +1,10 @@
 """Benchmark WebSocket TTS TTFB across providers using Pipecat pipelines.
 
-Simulates LLM token-by-token output. The TTS service's sentence aggregator
-collects tokens into sentences before sending to the provider. Measures
-TTFB, TTFT (time to first word timestamp), and TT700 (time to 700ms of audio).
+Simulates LLM token-by-token output via task.queue_frame(), running multiple
+turns over a single pipeline and WS connection. The TTS service's sentence
+aggregator collects tokens into sentences before sending to the provider.
+Measures TTFB, TTFT (time to first word timestamp), and TT700 (time to 700ms
+of audio).
 """
 
 import asyncio
@@ -19,10 +21,10 @@ from loguru import logger as _loguru_logger
 from pipecat.frames.frames import (
     EndFrame,
     Frame,
+    InterruptionFrame,
     LLMFullResponseEndFrame,
     LLMFullResponseStartFrame,
     MetricsFrame,
-    StartFrame,
     TextFrame,
     TTSAudioRawFrame,
     TTSStartedFrame,
@@ -40,7 +42,7 @@ load_dotenv(override=True)
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger("benchmark")
 
-DEFAULT_TEXT = "Hello! Welcome to the TTS benchmark."
+DEFAULT_TEXT = "How are you? Welcome to the TTS benchmark."
 
 
 def save_wav(audio_data: bytes, filename: str, sample_rate: int,
@@ -82,39 +84,6 @@ def compute_stats(values: List[float]) -> Dict:
             "p50": _percentile(s, 50), "p95": _percentile(s, 95), "values": values}
 
 
-class SimulatedLLMProcessor(FrameProcessor):
-    """Emits text tokens one at a time to simulate LLM streaming output."""
-
-    def __init__(self, text: str, token_delay_ms: float = 50, **kwargs):
-        super().__init__(**kwargs)
-        self._text = text
-        self._token_delay_s = token_delay_ms / 1000.0
-        self._started = False
-
-    async def process_frame(self, frame: Frame, direction: FrameDirection):
-        await super().process_frame(frame, direction)
-        if isinstance(frame, StartFrame):
-            await self.push_frame(frame, direction)
-            if not self._started:
-                self._started = True
-                asyncio.create_task(self._emit_tokens())
-        else:
-            await self.push_frame(frame, direction)
-
-    async def _emit_tokens(self):
-        await asyncio.sleep(0.1)
-        await self.push_frame(LLMFullResponseStartFrame())
-        words = self._text.split()
-        for i, word in enumerate(words):
-            token = word if i == 0 else " " + word
-            logger.debug("Emitting token: '%s'", token)
-            await self.push_frame(TextFrame(text=token))
-            await asyncio.sleep(self._token_delay_s)
-        await self.push_frame(LLMFullResponseEndFrame())
-        await asyncio.sleep(0.5)
-        await self.push_frame(EndFrame())
-
-
 class TTFBCollector(FrameProcessor):
     """Collects TTFB, TTFT, TT700 metrics and audio data from the pipeline."""
 
@@ -138,17 +107,15 @@ class TTFBCollector(FrameProcessor):
         self._got_first_ts = False
         self._tts_audio_bytes = 0
         self._got_700ms = False
-        self._done_event = asyncio.Event()
-        self._check_task = None
+        self.turn_done = asyncio.Event()
+
+    def reset_turn(self):
+        self.turn_done.clear()
 
     async def process_frame(self, frame: Frame, direction: FrameDirection):
         await super().process_frame(frame, direction)
 
-        if isinstance(frame, StartFrame):
-            self._check_task = asyncio.create_task(self._check_audio_done())
-        elif isinstance(frame, MetricsFrame):
-            # Plugin's built-in TTFB: time from TTS request to first audio byte
-            # of the first sentence — the metric that matters for agent-turn latency
+        if isinstance(frame, MetricsFrame):
             for data in frame.data:
                 if isinstance(data, TTFBMetricsData):
                     if data.value > 0.01:
@@ -160,7 +127,7 @@ class TTFBCollector(FrameProcessor):
             self._tts_audio_bytes = 0
             self._got_700ms = False
         elif isinstance(frame, TTSStoppedFrame):
-            pass  # TTSTextFrame may still arrive after stop (async words queue)
+            self.turn_done.set()
         elif isinstance(frame, TTSTextFrame):
             if self._tts_start_time and not self._got_first_ts:
                 self._got_first_ts = True
@@ -189,20 +156,6 @@ class TTFBCollector(FrameProcessor):
 
         await self.push_frame(frame, direction)
 
-    async def _check_audio_done(self):
-        while self.first_audio_time is None:
-            await asyncio.sleep(0.1)
-        while True:
-            await asyncio.sleep(0.5)
-            if self.last_audio_time and (time.time() - self.last_audio_time) > 2.0:
-                if self.save_audio:
-                    self._save_audio_files()
-                self._done_event.set()
-                break
-
-    async def wait_for_completion(self):
-        await self._done_event.wait()
-
     def _save_audio_files(self):
         safe_name = self.service_name.lower().replace(" ", "_")
         sr = self.sample_rate or 24000
@@ -222,15 +175,22 @@ class TTFBCollector(FrameProcessor):
         }
 
 
+INWORLD_MODEL = "inworld-tts-1.5-mini"
+ELEVENLABS_MODEL = "eleven_turbo_v2_5"
+CARTESIA_MODEL = "sonic-3"
+
+
 def create_inworld_tts(api_key: str):
     from pipecat.services.inworld.tts import InworldTTSService, InworldTTSSettings
     from pipecat.services.tts_service import TextAggregationMode
-    return InworldTTSService(
+    tts = InworldTTSService(
         api_key=api_key,
         url="wss://api.inworld.ai/tts/v1/voice:streamBidirectional",
-        settings=InworldTTSSettings(voice="Ashley", model="inworld-tts-1.5-mini"),
+        settings=InworldTTSSettings(voice="Ashley", model=INWORLD_MODEL),
         text_aggregation_mode=TextAggregationMode.SENTENCE,
     )
+    tts._pause_frame_processing = False
+    return tts
 
 
 def create_elevenlabs_tts(api_key: str):
@@ -238,7 +198,7 @@ def create_elevenlabs_tts(api_key: str):
     from pipecat.services.tts_service import TextAggregationMode
     return ElevenLabsTTSService(
         api_key=api_key,
-        settings=ElevenLabsTTSSettings(voice="21m00Tcm4TlvDq8ikWAM", model="eleven_turbo_v2_5"),
+        settings=ElevenLabsTTSSettings(voice="hpp4J3VqNfWAUOO0d1Us", model=ELEVENLABS_MODEL),
         text_aggregation_mode=TextAggregationMode.SENTENCE,
     )
 
@@ -248,41 +208,20 @@ def create_cartesia_tts(api_key: str):
     from pipecat.services.tts_service import TextAggregationMode
     return CartesiaTTSService(
         api_key=api_key,
-        settings=CartesiaTTSSettings(voice="79a125e8-cd45-4c13-8a67-188112f4dd22", model="sonic-3"),
+        settings=CartesiaTTSSettings(voice="79a125e8-cd45-4c13-8a67-188112f4dd22", model=CARTESIA_MODEL),
         text_aggregation_mode=TextAggregationMode.SENTENCE,
     )
 
 
-async def _run_pipeline(llm_processor, tts, collector):
-    pipeline = Pipeline([llm_processor, tts, collector])
-    task = PipelineTask(pipeline, params=PipelineParams(
-        enable_metrics=True, enable_usage_metrics=True))
-    runner = PipelineRunner(handle_sigint=False)
-
-    run_task = asyncio.create_task(runner.run(task))
-    await collector.wait_for_completion()
-    await asyncio.sleep(0.5)
-    await task.cancel()
-
-    try:
-        await asyncio.wait_for(run_task, timeout=5.0)
-    except (asyncio.TimeoutError, asyncio.CancelledError):
-        pass
-
-    return collector.get_results()
-
-
-async def run_service_benchmark(
-    service_name: str, create_tts_fn, api_key: str, text: str,
-    token_delay_ms: float = 50, save_audio: bool = True,
-    output_dir: str = "benchmark_audio",
-) -> Dict:
-    llm = SimulatedLLMProcessor(text=text, token_delay_ms=token_delay_ms)
-    collector = TTFBCollector(service_name=service_name, save_audio=save_audio,
-                              output_dir=output_dir)
-    tts = create_tts_fn(api_key)
-    result = await _run_pipeline(llm, tts, collector)
-    return result
+async def _emit_turn(task: PipelineTask, text: str, token_delay_s: float):
+    """Inject one LLM turn's worth of frames into the pipeline."""
+    await task.queue_frame(LLMFullResponseStartFrame())
+    words = text.split()
+    for i, word in enumerate(words):
+        token = word if i == 0 else " " + word
+        await task.queue_frame(TextFrame(text=token))
+        await asyncio.sleep(token_delay_s)
+    await task.queue_frame(LLMFullResponseEndFrame())
 
 
 def _fmt(val, suffix="s"):
@@ -290,7 +229,7 @@ def _fmt(val, suffix="s"):
 
 
 def print_results(results: List[Dict], title: str = "WEBSOCKET TTS BENCHMARK"):
-    w = 90
+    w = 95
     print(f"\n{'=' * w}")
     print(title)
     print("=" * w)
@@ -302,7 +241,7 @@ def print_results(results: List[Dict], title: str = "WEBSOCKET TTS BENCHMARK"):
             continue
 
         print(f"\n📊 {metric_label}")
-        print(f"{'Service':<20} {'Avg':>8} {'StdDev':>8} {'Min':>8} "
+        print(f"{'Service':<25} {'Avg':>8} {'StdDev':>8} {'Min':>8} "
               f"{'Max':>8} {'P50':>8} {'P95':>8} {'N':>5}")
         print("-" * w)
 
@@ -310,11 +249,11 @@ def print_results(results: List[Dict], title: str = "WEBSOCKET TTS BENCHMARK"):
         for r in sorted_r:
             s = r[metric_key]
             if s["count"] > 0:
-                print(f"{r['service']:<20} {_fmt(s['avg']):>8} {_fmt(s['std']):>8} "
+                print(f"{r['service']:<25} {_fmt(s['avg']):>8} {_fmt(s['std']):>8} "
                       f"{_fmt(s['min']):>8} {_fmt(s['max']):>8} "
                       f"{_fmt(s['p50']):>8} {_fmt(s['p95']):>8} {s['count']:>5}")
             else:
-                print(f"{r['service']:<20} {'N/A':>8} {'N/A':>8} {'N/A':>8} "
+                print(f"{r['service']:<25} {'N/A':>8} {'N/A':>8} {'N/A':>8} "
                       f"{'N/A':>8} {'N/A':>8} {'N/A':>8} {'0':>5}")
 
 
@@ -325,8 +264,8 @@ async def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Benchmark WebSocket TTS TTFB (Pipecat)")
-    parser.add_argument("--token-delay", type=float, default=50,
-                        help="Delay between tokens in ms (default: 50)")
+    parser.add_argument("--token-delay", type=float, default=30,
+                        help="Delay between tokens in ms (default: 30)")
     parser.add_argument("--text", type=str, default=None, help="Custom text to synthesize")
     parser.add_argument("-n", "--iterations", type=int, default=5,
                         help="Number of benchmark iterations (default: 5)")
@@ -353,11 +292,11 @@ async def main():
     )
 
     service_configs = {
-        "inworld": {"name": "Inworld WS", "create_fn": create_inworld_tts,
+        "inworld": {"name": f"Inworld {INWORLD_MODEL}", "create_fn": create_inworld_tts,
                      "api_key_env": "INWORLD_API_KEY"},
-        "elevenlabs": {"name": "ElevenLabs WS", "create_fn": create_elevenlabs_tts,
+        "elevenlabs": {"name": f"ElevenLabs {ELEVENLABS_MODEL}", "create_fn": create_elevenlabs_tts,
                        "api_key_env": "ELEVEN_API_KEY"},
-        "cartesia": {"name": "Cartesia WS", "create_fn": create_cartesia_tts,
+        "cartesia": {"name": f"Cartesia {CARTESIA_MODEL}", "create_fn": create_cartesia_tts,
                      "api_key_env": "CARTESIA_API_KEY"},
     }
 
@@ -383,37 +322,60 @@ async def main():
     print(f"🔄 Iterations: {args.iterations} (+ {args.warmup} warmup)\n")
 
     total_iters = args.warmup + args.iterations
+    token_delay_s = args.token_delay / 1000.0
 
     async def _bench_service(sid, cfg, api_key):
-        results_list = []
-        for iteration in range(total_iters):
-            is_warmup = iteration < args.warmup
-            label = f"warmup {iteration + 1}/{args.warmup}" if is_warmup else \
-                    f"{iteration - args.warmup + 1}/{args.iterations}"
-            print(f"[{cfg['name']}] {'⏳' if is_warmup else '📊'} {label}", flush=True)
+        tts = cfg["create_fn"](api_key)
+        collector = TTFBCollector(
+            service_name=cfg["name"],
+            save_audio=not args.no_save_audio,
+            output_dir="benchmark_audio",
+        )
+        pipeline = Pipeline([tts, collector])
+        task = PipelineTask(pipeline, params=PipelineParams(
+            enable_metrics=True, enable_usage_metrics=True))
+        runner = PipelineRunner(handle_sigint=False)
+        run_task = asyncio.create_task(runner.run(task))
 
+        try:
+            for iteration in range(total_iters):
+                is_warmup = iteration < args.warmup
+                label = f"warmup {iteration + 1}/{args.warmup}" if is_warmup else \
+                        f"{iteration - args.warmup + 1}/{args.iterations}"
+                print(f"[{cfg['name']}] {'⏳' if is_warmup else '📊'} {label}", flush=True)
+
+                collector.reset_turn()
+                await _emit_turn(task, text, token_delay_s)
+                try:
+                    await asyncio.wait_for(collector.turn_done.wait(), timeout=30.0)
+                except asyncio.TimeoutError:
+                    logger.warning("[%s] Turn timed out after 30s", cfg["name"])
+                await task.queue_frame(InterruptionFrame())
+                await asyncio.sleep(0.5)
+
+                if is_warmup:
+                    collector.ttfb_values.clear()
+                    collector.ttft_values.clear()
+                    collector.tt700_values.clear()
+                elif collector.total_audio_bytes == 0:
+                    print(f"[{cfg['name']}] ⚠️ No audio received!")
+
+            if collector.save_audio:
+                collector._save_audio_files()
+        finally:
+            await task.queue_frame(EndFrame())
             try:
-                result = await run_service_benchmark(
-                    service_name=cfg["name"], create_tts_fn=cfg["create_fn"],
-                    api_key=api_key, text=text, token_delay_ms=args.token_delay,
-                    save_audio=not args.no_save_audio and iteration == args.warmup,
-                )
-                if not is_warmup:
-                    results_list.append(result)
-                    if result["audio_bytes"] == 0:
-                        print(f"[{cfg['name']}] ⚠️ No audio received!")
-            except Exception as e:
-                print(f"[{cfg['name']}] ❌ {e}")
+                await asyncio.wait_for(run_task, timeout=5.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                run_task.cancel()
+                try:
+                    await run_task
+                except (asyncio.CancelledError, Exception):
+                    pass
 
-            await asyncio.sleep(1.0)
-
-        merged = {"service": cfg["name"]}
-        for key in ["ttfb", "ttft", "tt700"]:
-            all_vals = []
-            for r in results_list:
-                all_vals.extend(r[key].get("values", []))
-            merged[key] = compute_stats(all_vals)
-        return merged
+        result = collector.get_results()
+        return {"service": cfg["name"],
+                "ttfb": result["ttfb"], "ttft": result["ttft"], "tt700": result["tt700"]}
 
     aggregated = await asyncio.gather(*[
         _bench_service(sid, cfg, api_key) for sid, cfg, api_key in available
