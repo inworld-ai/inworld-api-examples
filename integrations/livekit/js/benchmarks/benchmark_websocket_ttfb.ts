@@ -300,7 +300,7 @@ async function main() {
         console.log(`[${svc.config.name}] ❌ ${err}`);
       }
 
-      await delay(1000);
+      await delay(500);
     }
     return { service: svc.config.name, ttfb: computeStats(ttfbVals) };
   }

@@ -271,7 +271,7 @@ async def main():
             except Exception as e:
                 print(f"[{cfg['name']}] ❌ {e}")
 
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(0.5)
         return {"service": cfg["name"], "ttfb": compute_stats(ttfb_vals)}
 
     try:
