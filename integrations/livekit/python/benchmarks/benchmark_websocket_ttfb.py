@@ -23,7 +23,7 @@ load_dotenv(override=True)
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger("benchmark")
 
-DEFAULT_TEXT = "Hello! Welcome to the TTS benchmark."
+DEFAULT_TEXT = "How are you? Welcome to the TTS benchmark."
 
 
 def save_wav(audio_data: bytes, filename: str, sample_rate: int,
@@ -65,10 +65,15 @@ def compute_stats(values: List[float]) -> Dict:
             "p50": _percentile(s, 50), "p95": _percentile(s, 95), "values": values}
 
 
+INWORLD_MODEL = "inworld-tts-1.5-mini"
+ELEVENLABS_MODEL = "eleven_turbo_v2_5"
+CARTESIA_MODEL = "sonic-3"
+
+
 def create_inworld_tts(session: aiohttp.ClientSession, api_key: str):
     from livekit.plugins import inworld
     return inworld.TTS(
-        api_key=api_key, voice="Ashley", model="inworld-tts-1.5-mini",
+        api_key=api_key, voice="Ashley", model=INWORLD_MODEL,
         http_session=session, ws_url="wss://api.inworld.ai/",
     )
 
@@ -76,8 +81,8 @@ def create_inworld_tts(session: aiohttp.ClientSession, api_key: str):
 def create_elevenlabs_tts(session: aiohttp.ClientSession, api_key: str):
     from livekit.plugins import elevenlabs
     return elevenlabs.TTS(
-        api_key=api_key, voice_id="21m00Tcm4TlvDq8ikWAM",
-        model="eleven_turbo_v2_5", http_session=session,
+        api_key=api_key, voice_id="hpp4J3VqNfWAUOO0d1Us",
+        model=ELEVENLABS_MODEL, http_session=session,
     )
 
 
@@ -85,12 +90,12 @@ def create_cartesia_tts(session: aiohttp.ClientSession, api_key: str):
     from livekit.plugins import cartesia
     return cartesia.TTS(
         api_key=api_key, voice="79a125e8-cd45-4c13-8a67-188112f4dd22",
-        model="sonic-3", http_session=session,
+        model=CARTESIA_MODEL, http_session=session,
     )
 
 
 async def benchmark_stream(
-    tts, text: str, service_name: str, token_delay_ms: float = 50,
+    tts, text: str, service_name: str, token_delay_ms: float = 30,
     save_audio: bool = False, output_dir: str = "benchmark_audio",
 ) -> Dict:
     """Push tokens with delay, measure provider-reported TTFB."""
@@ -155,13 +160,13 @@ def _fmt(val, suffix="s"):
 
 
 def print_results(results: List[Dict], title: str):
-    w = 90
+    w = 95
     print(f"\n{'=' * w}")
     print(title)
     print("=" * w)
 
     print(f"\n📊 TTFB")
-    print(f"{'Service':<20} {'Avg':>8} {'StdDev':>8} {'Min':>8} "
+    print(f"{'Service':<25} {'Avg':>8} {'StdDev':>8} {'Min':>8} "
           f"{'Max':>8} {'P50':>8} {'P95':>8} {'N':>5}")
     print("-" * w)
 
@@ -169,11 +174,11 @@ def print_results(results: List[Dict], title: str):
     for r in sorted_r:
         s = r["ttfb"]
         if s["count"] > 0:
-            print(f"{r['service']:<20} {_fmt(s['avg']):>8} {_fmt(s['std']):>8} "
+            print(f"{r['service']:<25} {_fmt(s['avg']):>8} {_fmt(s['std']):>8} "
                   f"{_fmt(s['min']):>8} {_fmt(s['max']):>8} "
                   f"{_fmt(s['p50']):>8} {_fmt(s['p95']):>8} {s['count']:>5}")
         else:
-            print(f"{r['service']:<20} {'N/A':>8} {'N/A':>8} {'N/A':>8} "
+            print(f"{r['service']:<25} {'N/A':>8} {'N/A':>8} {'N/A':>8} "
                   f"{'N/A':>8} {'N/A':>8} {'N/A':>8} {'0':>5}")
 
 
@@ -184,8 +189,8 @@ async def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Benchmark WebSocket TTS TTFB (LiveKit Python)")
-    parser.add_argument("--token-delay", type=float, default=50,
-                        help="Delay between tokens in ms (default: 50)")
+    parser.add_argument("--token-delay", type=float, default=30,
+                        help="Delay between tokens in ms (default: 30)")
     parser.add_argument("--text", type=str, default=None, help="Custom text to synthesize")
     parser.add_argument("-n", "--iterations", type=int, default=5,
                         help="Number of benchmark iterations (default: 5)")
@@ -209,11 +214,11 @@ async def main():
     )
 
     service_configs = {
-        "inworld": {"name": "Inworld WS", "create_fn": create_inworld_tts,
+        "inworld": {"name": f"Inworld {INWORLD_MODEL}", "create_fn": create_inworld_tts,
                      "api_key_env": "INWORLD_API_KEY"},
-        "elevenlabs": {"name": "ElevenLabs WS", "create_fn": create_elevenlabs_tts,
+        "elevenlabs": {"name": f"ElevenLabs {ELEVENLABS_MODEL}", "create_fn": create_elevenlabs_tts,
                        "api_key_env": "ELEVEN_API_KEY"},
-        "cartesia": {"name": "Cartesia WS", "create_fn": create_cartesia_tts,
+        "cartesia": {"name": f"Cartesia {CARTESIA_MODEL}", "create_fn": create_cartesia_tts,
                      "api_key_env": "CARTESIA_API_KEY"},
     }
 
@@ -266,7 +271,7 @@ async def main():
             except Exception as e:
                 print(f"[{cfg['name']}] ❌ {e}")
 
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(0.5)
         return {"service": cfg["name"], "ttfb": compute_stats(ttfb_vals)}
 
     try:
