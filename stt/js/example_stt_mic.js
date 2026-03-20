@@ -63,7 +63,7 @@ function streamMicToStt(apiKey, options = {}) {
     const url = `${wsUrl}/stt/v1/transcribe:streamBidirectional`;
     const headers = { Authorization: `Basic ${apiKey}` };
 
-    const modelId = options.modelId || 'assemblyai/universal-streaming-multilingual';
+    const modelId = options.modelId || 'inworld/inworld-stt-1';
     const finalTexts = [];
     let lastPartial = '';
 

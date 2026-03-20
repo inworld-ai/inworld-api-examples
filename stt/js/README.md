@@ -69,7 +69,7 @@ node example_stt_mic.js
 ## Configuration
 
 - **Sync:** Uses `groq/whisper-large-v3`; see [API reference](https://docs.inworld.ai/api-reference/sttAPI/speechtotext/transcribe) for the full request body.
-- **WebSocket (file or mic):** Uses STT WebSocket with LINEAR16, 16 kHz, 1 channel. Model is `assemblyai/universal-streaming-english` or `assemblyai/universal-streaming-multilingual`; see [API reference](https://docs.inworld.ai/api-reference/sttAPI/speechtotext/transcribe-stream-websocket) for the full request body.
+- **WebSocket (file or mic):** Uses STT WebSocket with LINEAR16, 16 kHz, 1 channel. Default model is `inworld/inworld-stt-1`; see [STT overview](https://docs.inworld.ai/stt/overview) for all supported models and the [API reference](https://docs.inworld.ai/api-reference/sttAPI/speechtotext/transcribe-stream-websocket) for the full request body.
 
 ## API Endpoints
 

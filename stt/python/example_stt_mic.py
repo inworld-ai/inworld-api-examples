@@ -46,7 +46,7 @@ def check_api_key():
 
 async def stream_mic_to_stt(
     api_key: str,
-    model_id: str = "assemblyai/universal-streaming-multilingual",
+    model_id: str = "inworld/inworld-stt-1",
     language: str | None = None,
 ):
     """Stream microphone PCM to STT WebSocket. Returns list of final transcript segments."""
