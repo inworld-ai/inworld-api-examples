@@ -17,10 +17,11 @@ try { require('dotenv').config(); } catch (_) {}
 // Configuration
 const INPUT_FILE_PATH = '../tests-data/text/chapter1.txt';  // Path to input text file (relative to this script)
 const MIN_CHUNK_SIZE = 500;   // Minimum characters before looking for break point
-const MAX_CHUNK_SIZE = 1900;  // Maximum chunk size (API limit is 2000)
+const MAX_CHUNK_SIZE = 1600;  // Maximum chunk size (API limit is 2000)
 const MAX_CONCURRENT_REQUESTS = 2;  // Limit parallel requests to avoid RPS limits
 const MAX_RETRIES = 3;        // Maximum retries for rate limit errors
 const RETRY_BASE_DELAY = 1000; // Base delay for exponential backoff (ms)
+const CHARS_PER_SECOND = 12.0; // Approx speaking rate; used to convert <break> durations to equivalent char counts
 
 // Audio configuration for MP3
 const SAMPLE_RATE = 48000;
@@ -37,6 +38,27 @@ function checkApiKey() {
         return null;
     }
     return apiKey;
+}
+
+/**
+ * Return text length with SSML <break> durations converted to equivalent char counts.
+ * Without this, chunks stuffed with <break time="Xs"/> tags look short in chars
+ * but produce huge audio, exceeding the gRPC 16 MB limit.
+ *
+ * @param {string} text - Text to measure
+ * @param {number} [charsPerSecond=CHARS_PER_SECOND] - Speaking rate for conversion
+ * @returns {number} Effective length
+ */
+function estimateEffectiveLength(text, charsPerSecond = CHARS_PER_SECOND) {
+    const breakPattern = /<break\s+time="([\d.]+)s"\s*\/?>/gi;
+    let totalBreakSeconds = 0;
+    let m;
+    while ((m = breakPattern.exec(text)) !== null) {
+        const val = parseFloat(m[1]);
+        if (!isNaN(val)) totalBreakSeconds += val;
+    }
+    const rawLength = text.replace(/<break\s[^>]*\/?>/gi, '').length;
+    return rawLength + Math.floor(totalBreakSeconds * charsPerSecond);
 }
 
 /**
@@ -133,8 +155,8 @@ function chunkText(text) {
     while (currentPosition < text.length) {
         const remainingText = text.slice(currentPosition);
         
-        // If remaining text is short enough, take it all
-        if (remainingText.length <= MAX_CHUNK_SIZE) {
+        // If remaining text fits within the effective budget, take it all
+        if (estimateEffectiveLength(remainingText) <= MAX_CHUNK_SIZE) {
             const chunkContent = remainingText.trim();
             if (chunkContent.length > 0) {
                 chunks.push({
@@ -146,8 +168,20 @@ function chunkText(text) {
             break;
         }
         
-        // Find the best break point
-        const chunkEnd = findBreakPoint(remainingText, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE, chunks.length);
+        // Shrink search window when <break> tags inflate effective length
+        const candidate = remainingText.slice(0, MAX_CHUNK_SIZE);
+        const effLen = estimateEffectiveLength(candidate);
+        let effectiveMax, effectiveMin;
+        if (effLen > MAX_CHUNK_SIZE) {
+            const scale = MAX_CHUNK_SIZE / effLen;
+            effectiveMax = Math.max(1, Math.floor(candidate.length * scale));
+            effectiveMin = Math.max(1, Math.floor(MIN_CHUNK_SIZE * scale));
+        } else {
+            effectiveMax = MAX_CHUNK_SIZE;
+            effectiveMin = MIN_CHUNK_SIZE;
+        }
+
+        const chunkEnd = findBreakPoint(remainingText, effectiveMin, effectiveMax, chunks.length);
         
         const chunkContent = remainingText.slice(0, chunkEnd).trim();
         if (chunkContent.length > 0) {
@@ -452,4 +486,4 @@ if (require.main === module) {
     main().then(process.exit);
 }
 
-module.exports = { chunkText, synthesizeSpeech, combineAudioBuffers, mergeMp3SegmentsWithFfmpeg, synthesizeAllChunks };
+module.exports = { estimateEffectiveLength, chunkText, synthesizeSpeech, combineAudioBuffers, mergeMp3SegmentsWithFfmpeg, synthesizeAllChunks };
