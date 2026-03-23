@@ -30,10 +30,11 @@ import requests
 # Configuration
 INPUT_FILE_PATH = "../tests-data/text/chapter1.txt"  # Path to input text file (relative to this script)
 MIN_CHUNK_SIZE = 500    # Minimum characters before looking for break point
-MAX_CHUNK_SIZE = 1900   # Maximum chunk size (API limit is 2000)
+MAX_CHUNK_SIZE = 1600   # Maximum chunk size (API limit is 2000)
 MAX_CONCURRENT_REQUESTS = 2   # Limit parallel requests to avoid RPS limits
 MAX_RETRIES = 3         # Maximum retries for rate limit errors
 RETRY_BASE_DELAY = 1.0  # Base delay for exponential backoff (seconds)
+CHARS_PER_SECOND = 12.0 # Approx speaking rate; used to convert <break> durations to equivalent char counts
 
 # Audio configuration for MP3
 SAMPLE_RATE = 48000
@@ -64,6 +65,26 @@ def check_api_key() -> Optional[str]:
         print("Please set it with: export INWORLD_API_KEY=your_api_key_here")
         return None
     return api_key
+
+
+def estimate_effective_length(text: str, chars_per_second: float = CHARS_PER_SECOND) -> int:
+    """Return text length with SSML <break> durations converted to equivalent char counts.
+
+    Without this, chunks stuffed with <break time="Xs"/> tags look short in chars
+    but produce huge audio, exceeding the gRPC 16 MB limit.
+    """
+    break_pattern = re.compile(r'<break\s+time="([\d.]+)(m?s)"\s*/?>', re.IGNORECASE)
+
+    total_break_seconds = 0.0
+    for m in break_pattern.finditer(text):
+        try:
+            val = float(m.group(1))
+            total_break_seconds += val / 1000 if m.group(2).lower() == 'ms' else val
+        except ValueError:
+            pass
+
+    raw_length = len(re.sub(r'<break\s[^>]*/?>',  '', text, flags=re.IGNORECASE))
+    return raw_length + int(total_break_seconds * chars_per_second)
 
 
 def find_break_point(text: str, min_pos: int, max_pos: int, chunk_index: int) -> int:
@@ -146,8 +167,8 @@ def chunk_text(text: str) -> list[TextChunk]:
     while current_position < len(text):
         remaining_text = text[current_position:]
         
-        # If remaining text is short enough, take it all
-        if len(remaining_text) <= MAX_CHUNK_SIZE:
+        # If remaining text fits within the effective budget, take it all
+        if estimate_effective_length(remaining_text) <= MAX_CHUNK_SIZE:
             chunk_content = remaining_text.strip()
             if chunk_content:
                 chunks.append(TextChunk(
@@ -157,8 +178,18 @@ def chunk_text(text: str) -> list[TextChunk]:
                 ))
             break
         
-        # Find the best break point
-        chunk_end = find_break_point(remaining_text, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE, len(chunks))
+        # Shrink search window when <break> tags inflate effective length
+        candidate = remaining_text[:MAX_CHUNK_SIZE]
+        eff_len = estimate_effective_length(candidate)
+        if eff_len > MAX_CHUNK_SIZE:
+            scale = MAX_CHUNK_SIZE / eff_len
+            effective_max = max(1, int(len(candidate) * scale))
+            effective_min = max(1, int(MIN_CHUNK_SIZE * scale))
+        else:
+            effective_max = MAX_CHUNK_SIZE
+            effective_min = MIN_CHUNK_SIZE
+
+        chunk_end = find_break_point(remaining_text, effective_min, effective_max, len(chunks))
         
         chunk_content = remaining_text[:chunk_end].strip()
         if chunk_content:
