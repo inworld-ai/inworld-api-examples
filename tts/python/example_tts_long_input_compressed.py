@@ -73,12 +73,13 @@ def estimate_effective_length(text: str, chars_per_second: float = CHARS_PER_SEC
     Without this, chunks stuffed with <break time="Xs"/> tags look short in chars
     but produce huge audio, exceeding the gRPC 16 MB limit.
     """
-    break_pattern = re.compile(r'<break\s+time="([\d.]+)s"\s*/?>', re.IGNORECASE)
+    break_pattern = re.compile(r'<break\s+time="([\d.]+)(m?s)"\s*/?>', re.IGNORECASE)
 
     total_break_seconds = 0.0
     for m in break_pattern.finditer(text):
         try:
-            total_break_seconds += float(m.group(1))
+            val = float(m.group(1))
+            total_break_seconds += val / 1000 if m.group(2).lower() == 'ms' else val
         except ValueError:
             pass
 

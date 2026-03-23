@@ -50,12 +50,12 @@ function checkApiKey() {
  * @returns {number} Effective length
  */
 function estimateEffectiveLength(text, charsPerSecond = CHARS_PER_SECOND) {
-    const breakPattern = /<break\s+time="([\d.]+)s"\s*\/?>/gi;
+    const breakPattern = /<break\s+time="([\d.]+)(m?s)"\s*\/?>/gi;
     let totalBreakSeconds = 0;
     let m;
     while ((m = breakPattern.exec(text)) !== null) {
         const val = parseFloat(m[1]);
-        if (!isNaN(val)) totalBreakSeconds += val;
+        if (!isNaN(val)) totalBreakSeconds += m[2].toLowerCase() === 'ms' ? val / 1000 : val;
     }
     const rawLength = text.replace(/<break\s[^>]*\/?>/gi, '').length;
     return rawLength + Math.floor(totalBreakSeconds * charsPerSecond);
