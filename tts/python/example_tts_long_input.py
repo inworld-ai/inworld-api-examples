@@ -105,7 +105,7 @@ def estimate_effective_length(text: str, chars_per_second: float = CHARS_PER_SEC
         except ValueError:
             pass
 
-    text_without_breaks = re.sub(r'<break\s[^>]*/?>',  '', text, flags=re.IGNORECASE)
+    text_without_breaks = re.sub(r'<break\s[^>]*/?>', '', text, flags=re.IGNORECASE)
     cjk_count = _count_cjk(text_without_breaks)
     raw_length = (len(text_without_breaks) - cjk_count) + int(cjk_count * CJK_CHAR_WEIGHT)
 
