@@ -35,6 +35,7 @@ MAX_CONCURRENT_REQUESTS = 2   # Limit parallel requests to avoid RPS limits
 MAX_RETRIES = 3         # Maximum retries for rate limit errors
 RETRY_BASE_DELAY = 1.0  # Base delay for exponential backoff (seconds)
 CHARS_PER_SECOND = 12.0 # Approx speaking rate; used to convert <break> durations to equivalent char counts
+CJK_CHAR_WEIGHT = 3.0   # CJK chars produce ~3x more audio than Latin chars
 
 # Audio configuration
 SAMPLE_RATE = 48000
@@ -81,11 +82,18 @@ def check_api_key() -> Optional[str]:
     return api_key
 
 
+def _count_cjk(text: str) -> int:
+    """Count CJK characters (Chinese, Japanese Kanji/Kana, Korean Hangul)."""
+    return sum(1 for c in text if '\u4e00' <= c <= '\u9fff'
+               or '\u3040' <= c <= '\u30ff' or '\uac00' <= c <= '\ud7af')
+
+
 def estimate_effective_length(text: str, chars_per_second: float = CHARS_PER_SECOND) -> int:
-    """Return text length with SSML <break> durations converted to equivalent char counts.
+    """Return text length with SSML <break> durations and CJK weight factored in.
 
     Without this, chunks stuffed with <break time="Xs"/> tags look short in chars
-    but produce huge audio, exceeding the gRPC 16 MB limit.
+    but produce huge audio, potentially exceeding API response size limits. CJK characters also
+    produce ~3x more audio per character than Latin text.
     """
     break_pattern = re.compile(r'<break\s+time="([\d.]+)(m?s)"\s*/?>', re.IGNORECASE)
 
@@ -97,7 +105,10 @@ def estimate_effective_length(text: str, chars_per_second: float = CHARS_PER_SEC
         except ValueError:
             pass
 
-    raw_length = len(re.sub(r'<break\s[^>]*/?>',  '', text, flags=re.IGNORECASE))
+    text_without_breaks = re.sub(r'<break\s[^>]*/?>',  '', text, flags=re.IGNORECASE)
+    cjk_count = _count_cjk(text_without_breaks)
+    raw_length = (len(text_without_breaks) - cjk_count) + int(cjk_count * CJK_CHAR_WEIGHT)
+
     return raw_length + int(total_break_seconds * chars_per_second)
 
 

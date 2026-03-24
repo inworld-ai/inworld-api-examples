@@ -22,6 +22,7 @@ const MAX_CONCURRENT_REQUESTS = 2;  // Limit parallel requests to avoid RPS limi
 const MAX_RETRIES = 3;        // Maximum retries for rate limit errors
 const RETRY_BASE_DELAY = 1000; // Base delay for exponential backoff (ms)
 const CHARS_PER_SECOND = 12.0; // Approx speaking rate; used to convert <break> durations to equivalent char counts
+const CJK_CHAR_WEIGHT = 3.0;  // CJK chars produce ~3x more audio than Latin chars
 
 // Audio configuration for MP3
 const SAMPLE_RATE = 48000;
@@ -41,9 +42,23 @@ function checkApiKey() {
 }
 
 /**
- * Return text length with SSML <break> durations converted to equivalent char counts.
+ * Count CJK characters (Chinese, Japanese Kanji/Kana, Korean Hangul).
+ * @param {string} text
+ * @returns {number}
+ */
+function _countCjk(text) {
+    if (!text) return 0;
+    const cjkPattern = /[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]/g;
+    let count = 0;
+    while (cjkPattern.exec(text) !== null) count++;
+    return count;
+}
+
+/**
+ * Return text length with SSML <break> durations and CJK weight factored in.
  * Without this, chunks stuffed with <break time="Xs"/> tags look short in chars
- * but produce huge audio, exceeding the gRPC 16 MB limit.
+ * but produce huge audio, potentially exceeding API response size limits. CJK characters also
+ * produce ~3x more audio per character than Latin text.
  *
  * @param {string} text - Text to measure
  * @param {number} [charsPerSecond=CHARS_PER_SECOND] - Speaking rate for conversion
@@ -57,7 +72,9 @@ function estimateEffectiveLength(text, charsPerSecond = CHARS_PER_SECOND) {
         const val = parseFloat(m[1]);
         if (!isNaN(val)) totalBreakSeconds += m[2].toLowerCase() === 'ms' ? val / 1000 : val;
     }
-    const rawLength = text.replace(/<break\s[^>]*\/?>/gi, '').length;
+    const textWithoutBreaks = text.replace(/<break\s[^>]*\/?>/gi, '');
+    const cjkCount = _countCjk(textWithoutBreaks);
+    const rawLength = (textWithoutBreaks.length - cjkCount) + Math.floor(cjkCount * CJK_CHAR_WEIGHT);
     return rawLength + Math.floor(totalBreakSeconds * charsPerSecond);
 }
 
