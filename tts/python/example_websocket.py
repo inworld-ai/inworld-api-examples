@@ -101,8 +101,9 @@ async def stream_tts_with_context(
                         # Some servers may return either nested audioContent or top-level
                         b64_content = audio_chunk_obj.get("audioContent") or result.get("audioContent")
                         if b64_content:
-                            audio_bytes = base64.b64decode(b64_content)
+                            # Capture timestamp before base64 decoding to measure network/server pacing accurately
                             now = time.time()
+                            audio_bytes = base64.b64decode(b64_content)
                             chunk_count += 1
                             total_audio_size += len(audio_bytes)
                             if chunk_count == 1:
