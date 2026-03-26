@@ -48,21 +48,22 @@ def check_api_key():
     return api_key
 
 
-async def websocket_tts(api_key, text, voice_id, model_id):
+async def websocket_tts(api_key, text, voice_id, model_id, auto_mode):
     """
     Measure low-latency TTS using WebSocket with pre-established context.
-
     Connects and creates the audio context before starting the timer,
     then measures TTFB from text submission to first audio chunk.
-
     Args:
         api_key: API key for authentication
         text: Text to synthesize
         voice_id: Voice ID to use
         model_id: Model ID to use
+        auto_mode: bool
+            Whether to use auto mode. If True, the server will control flushing of the context,
+            so manual flushing is not needed.
 
     Returns:
-        dict: Latency metrics (ttfb, total_time, audio_bytes) or None on error
+        dict: Latency metrics (ttfb, total_time, audio_bytes, chunk_latencies) or None on error
     """
     url = "wss://api.inworld.ai/tts/v1/voice:streamBidirectional"
     headers = {"Authorization": f"Basic {api_key}"}
@@ -71,18 +72,18 @@ async def websocket_tts(api_key, text, voice_id, model_id):
     try:
         async with websockets.connect(url, additional_headers=headers) as ws:
             # Create context (not timed - this is setup)
-            create_msg = {
-                "context_id": context_id,
-                "create": {
-                    "voice_id": voice_id,
-                    "model_id": model_id,
-                    "audio_config": {
-                        "audio_encoding": "PCM",
-                        "sample_rate_hertz": 24000,
-                        "bit_rate": 32000
-                    }
+            create_payload = {
+                "voice_id": voice_id,
+                "model_id": model_id,
+                "audio_config": {
+                    "audio_encoding": "PCM",
+                    "sample_rate_hertz": 24000,
+                    "bit_rate": 32000
                 }
             }
+            if auto_mode:
+                create_payload["autoMode"] = True
+            create_msg = {"context_id": context_id, "create": create_payload}
             await ws.send(json.dumps(create_msg))
 
             # Wait for context creation confirmation
@@ -99,16 +100,12 @@ async def websocket_tts(api_key, text, voice_id, model_id):
             # Start timer - context is ready, measure synthesis latency only
             start_time = time.time()
 
-            # Send text sentence-by-sentence, flushing each for lowest TTFB
             sentences = split_sentences(text)
             for sentence in sentences:
-                text_msg = {
-                    "context_id": context_id,
-                    "send_text": {
-                        "text": sentence,
-                        "flush_context": {}
-                    }
-                }
+                send_text_payload = {"text": sentence}
+                if not auto_mode:
+                    send_text_payload["flush_context"] = {}
+                text_msg = {"context_id": context_id, "send_text": send_text_payload}
                 await ws.send(json.dumps(text_msg))
 
             close_msg = {"context_id": context_id, "close_context": {}}
@@ -117,6 +114,8 @@ async def websocket_tts(api_key, text, voice_id, model_id):
             # Receive audio chunks
             ttfb = None
             total_audio_bytes = 0
+            last_chunk_time = None
+            chunk_latencies = []
 
             async for message in ws:
                 data = json.loads(message)
@@ -138,13 +137,22 @@ async def websocket_tts(api_key, text, voice_id, model_id):
                     audio_chunk = result["audioChunk"]
                     b64_content = audio_chunk.get("audioContent")
                     if b64_content:
+                        now = time.time()
                         if ttfb is None:
-                            ttfb = time.time() - start_time
+                            ttfb = now - start_time
+                        elif last_chunk_time is not None:
+                            chunk_latencies.append((now - last_chunk_time) * 1000)
+                        last_chunk_time = now
                         audio_bytes = base64.b64decode(b64_content)
                         total_audio_bytes += len(audio_bytes)
 
             total_time = time.time() - start_time
-            return {"ttfb": ttfb, "total_time": total_time, "audio_bytes": total_audio_bytes}
+            return {
+                "ttfb": ttfb,
+                "total_time": total_time,
+                "audio_bytes": total_audio_bytes,
+                "chunk_latencies": chunk_latencies,
+            }
 
     except WebSocketException as e:
         print(f"WebSocket error: {e}")
@@ -159,7 +167,6 @@ async def main():
     print("Inworld TTS Low-Latency WebSocket")
     print("=" * 45)
 
-    # Check API key
     api_key = check_api_key()
     if not api_key:
         return 1
@@ -167,20 +174,28 @@ async def main():
     # Configuration
     text = "Life moves pretty fast. Look around once in a while, or you might miss it."
     voice_id = "Dennis"
-    model_id = "inworld-tts-1.5-mini"  # mini model for WebSocket: lower latency
+    model_id = "inworld-tts-1.5-mini"
+    auto_mode = False
 
     print(f"   Text: \"{text}\"")
     print(f"  Voice: {voice_id}")
     print(f"  Model: {model_id}")
+    if auto_mode:
+        print(f"   Auto: enabled")
     print(f"\nConnecting and creating context, then generating audio...\n")
 
     try:
-        result = await websocket_tts(api_key, text, voice_id, model_id)
+        result = await websocket_tts(api_key, text, voice_id, model_id, auto_mode=auto_mode)
 
         if result:
             print(f"TTFB:         {result['ttfb']*1000:.1f} ms")
             print(f"Total time:   {result['total_time']*1000:.1f} ms")
             print(f"Audio bytes:  {result['audio_bytes']}")
+            latencies = result["chunk_latencies"]
+            if latencies:
+                print(f"Inter-chunk:  avg {sum(latencies)/len(latencies):.1f} ms, "
+                      f"min {min(latencies):.1f} ms, max {max(latencies):.1f} ms "
+                      f"({len(latencies)+1} chunks)")
         else:
             print("Synthesis failed.")
             return 1

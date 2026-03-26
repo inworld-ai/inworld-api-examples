@@ -12,7 +12,7 @@ import base64
 import json
 import os
 import time
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator
 
 try:
     from dotenv import load_dotenv
@@ -64,6 +64,8 @@ async def stream_tts_with_context(
             chunk_count = 0
             total_audio_size = 0
             first_chunk_time = None
+            last_chunk_time = None
+            chunk_latencies = []
             recv_start = time.time()
 
             async for message in websocket:
@@ -99,13 +101,20 @@ async def stream_tts_with_context(
                         # Some servers may return either nested audioContent or top-level
                         b64_content = audio_chunk_obj.get("audioContent") or result.get("audioContent")
                         if b64_content:
+                            # Capture timestamp before base64 decoding to measure network/server pacing accurately
+                            now = time.time()
                             audio_bytes = base64.b64decode(b64_content)
                             chunk_count += 1
                             total_audio_size += len(audio_bytes)
                             if chunk_count == 1:
-                                first_chunk_time = time.time() - recv_start
+                                first_chunk_time = now - recv_start
                                 print(f"   Time to first chunk: {first_chunk_time:.2f} seconds")
-                            print(f"   Chunk {chunk_count}: {len(audio_bytes)} bytes")
+                                print(f"   Chunk {chunk_count}: {len(audio_bytes)} bytes")
+                            else:
+                                inter_chunk = (now - last_chunk_time) * 1000
+                                chunk_latencies.append(inter_chunk)
+                                print(f"   Chunk {chunk_count}: {len(audio_bytes)} bytes  (inter-chunk: {inter_chunk:.1f} ms)")
+                            last_chunk_time = now
                             yield audio_bytes
 
                         # Optional timestamp info
@@ -125,6 +134,11 @@ async def stream_tts_with_context(
                     continue
 
             print(f"\nStream finished. Total chunks: {chunk_count}, total bytes: {total_audio_size}")
+            if chunk_latencies:
+                avg_latency = sum(chunk_latencies) / len(chunk_latencies)
+                min_latency = min(chunk_latencies)
+                max_latency = max(chunk_latencies)
+                print(f"Inter-chunk latency — avg: {avg_latency:.1f} ms, min: {min_latency:.1f} ms, max: {max_latency:.1f} ms")
 
     except ConnectionClosedError as e:
         print(f"WebSocket connection closed unexpectedly: {e}")
@@ -165,9 +179,9 @@ async def synthesize_and_save_with_context(api_key: str, requests: list, output_
     await save_websocket_audio_to_file(audio_generator, output_file)
 
 
-def create_websocket_requests(context_id: str, voice_id: str, model_id: str, text: str, timestamp_type: str = None):
+def create_websocket_requests(context_id: str, voice_id: str, model_id: str, text: str,
+                              timestamp_type: str = None, auto_mode: bool = False):
     """Create the sequence of WebSocket requests for synthesis."""
-    # Prepare create context request
     create_request = {
         "context_id": context_id,
         "create": {
@@ -181,21 +195,24 @@ def create_websocket_requests(context_id: str, voice_id: str, model_id: str, tex
         },
     }
     
-    # Add timestamp type if specified
     if timestamp_type is not None:
         if timestamp_type == "word":
             create_request["create"]["timestampType"] = "WORD"
         elif timestamp_type == "character":
             create_request["create"]["timestampType"] = "CHARACTER"
-    
+
+    if auto_mode:
+        create_request["create"]["autoMode"] = True
+
+    send_text_payload = {"text": text}
+    if not auto_mode:
+        send_text_payload["flush_context"] = {}
+
     return [
         create_request,
         {
             "context_id": context_id,
-            "send_text": {
-                "text": text,
-                "flush_context": {}
-            }
+            "send_text": send_text_payload
         },
         {
             "context_id": context_id,
@@ -231,6 +248,12 @@ Examples:
                        help="Voice ID to use (default: Ashley)")
     parser.add_argument("--text", default="Hello, adventurer! What a beautiful day, isn't it?...",
                        help="Text to synthesize")
+    parser.add_argument("--auto-mode", action="store_true",
+                       help=(
+                           "Enable auto mode: server controls flushing for optimal latency/quality balance.\n"
+                           "Manual flushing is not needed if this is enabled but full sentences/phrases\n"
+                           "are expected in each send_text request."
+                       ))
     parser.add_argument("--output-file", default="synthesis_websocket_output.ogg",
                        help="Output OGG file path (default: synthesis_websocket_output.ogg)")
     
@@ -244,6 +267,8 @@ Examples:
     print(f" Model: {args.model_id}")
     if args.timestamp is not None:
         print(f" Timestamp: {args.timestamp}")
+    if args.auto_mode:
+        print(f"  Auto mode: enabled")
     print(f"Output: {args.output_file}")
     print()
     
@@ -258,7 +283,8 @@ Examples:
         voice_id=args.voice_id,
         model_id=args.model_id,
         text=args.text,
-        timestamp_type=args.timestamp
+        timestamp_type=args.timestamp,
+        auto_mode=args.auto_mode
     )
     
     try:
