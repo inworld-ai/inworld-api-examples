@@ -175,7 +175,7 @@ async def main():
     text = "Life moves pretty fast. Look around once in a while, or you might miss it."
     voice_id = "Dennis"
     model_id = "inworld-tts-1.5-mini"
-    auto_mode = True
+    auto_mode = False
 
     print(f"   Text: \"{text}\"")
     print(f"  Voice: {voice_id}")
