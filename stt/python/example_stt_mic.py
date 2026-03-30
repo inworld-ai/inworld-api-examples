@@ -102,7 +102,7 @@ async def stream_mic_to_stt(
 
     async with websockets.connect(
         ws_url,
-        extra_headers={"Authorization": f"Basic {api_key}"},
+        additional_headers={"Authorization": f"Basic {api_key}"},
     ) as ws:
         await ws.send(json.dumps({"transcribeConfig": transcribe_config}))
 

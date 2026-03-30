@@ -91,7 +91,7 @@ async def stream_transcribe(
         except asyncio.CancelledError:
             pass
 
-    async with websockets.connect(ws_url, extra_headers=headers) as ws:
+    async with websockets.connect(ws_url, additional_headers=headers) as ws:
         await ws.send(json.dumps({
             "transcribeConfig": {
                 "modelId": model_id,
