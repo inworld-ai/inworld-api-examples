@@ -2,16 +2,6 @@
 /**
  * Example script for Inworld STT WebSocket transcription with VAD configuration.
  *
- * Same as example_stt_websocket.js but demonstrates how to configure VAD
- * (Voice Activity Detection) parameters for the inworld/inworld-stt-1 model.
- *
- * Configurable VAD parameters:
- *   - vadThreshold: Voice activity detection threshold [0.0, 1.0]. Default: 0.15.
- *   - minEndOfTurnSilenceWhenConfident: Minimum silence (ms) before ending a turn
- *     when confidence is high. Default: 300.
- *   - endOfTurnConfidenceThreshold: Confidence threshold for end-of-turn prediction
- *     [0.0, 1.0]. Default: 0.4.
- *
  * Sends raw LINEAR16 PCM over the STT WebSocket. Audio must be 16 kHz, 1 channel.
  * Default input: tests-data/audio/test-pcm-audio.pcm.
  */
@@ -52,7 +42,7 @@ function checkApiKey() {
  * @param {number} sampleRate - Sample rate in Hz
  * @param {number} channels - Number of channels
  * @param {string} apiKey - API key
- * @param {Object} options - Optional: modelId, vadThreshold, minEndOfTurnSilenceWhenConfident, endOfTurnConfidenceThreshold
+ * @param {Object} options - Optional: modelId
  * @returns {Promise<{ finalTexts: string[] }>}
  */
 function streamTranscribe(pcmPath, sampleRate, channels, apiKey, options = {}) {
@@ -161,7 +151,7 @@ function streamTranscribe(pcmPath, sampleRate, channels, apiKey, options = {}) {
 
 async function main() {
     console.log('Inworld STT WebSocket Transcription with VAD Config Example');
-    console.log('='.repeat(60));
+    console.log('='.repeat(50));
 
     const apiKey = checkApiKey();
     if (!apiKey) return 1;

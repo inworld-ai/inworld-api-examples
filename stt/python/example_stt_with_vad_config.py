@@ -2,16 +2,6 @@
 """
 Example script for Inworld STT WebSocket transcription with VAD configuration.
 
-Same as example_stt_websocket.py but demonstrates how to configure VAD
-(Voice Activity Detection) parameters for the inworld/inworld-stt-1 model.
-
-Configurable VAD parameters:
-  - vad_threshold: Voice activity detection threshold [0.0, 1.0]. Default: 0.15.
-  - min_end_of_turn_silence_when_confident: Minimum silence (ms) before ending
-    a turn when confidence is high. Default: 300.
-  - end_of_turn_confidence_threshold: Confidence threshold for end-of-turn
-    prediction [0.0, 1.0]. Default: 0.4.
-
 Sends raw LINEAR16 PCM over the STT WebSocket. Audio must be 16 kHz, 1 channel.
 Default input: tests-data/audio/test-pcm-audio.pcm.
 """
@@ -176,7 +166,7 @@ async def stream_transcribe(
 
 def main():
     print("Inworld STT WebSocket Transcription with VAD Config Example")
-    print("=" * 60)
+    print("=" * 50)
 
     api_key = check_api_key()
     if not api_key:
