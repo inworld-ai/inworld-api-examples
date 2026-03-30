@@ -53,7 +53,20 @@ node example_stt_websocket.js [pcm_file]
 
 **Output:** [interim] and [FINAL] segments, then full transcript. Ensures all segments (including the last word) are received before closing the stream.
 
-### 3. Real-time from microphone (`example_stt_mic.js`)
+### 3. Streaming with VAD config (`example_stt_with_vad_config.js`)
+
+Same as `example_stt_websocket.js` but demonstrates how to configure VAD (Voice Activity Detection) parameters for the `inworld/inworld-stt-1` model: `vadThreshold`, `minEndOfTurnSilenceWhenConfident`, and `endOfTurnConfidenceThreshold`.
+
+**Usage:**
+```bash
+npm run stt-vad-config
+# or
+node example_stt_with_vad_config.js [pcm_file]
+```
+
+**Output:** [interim] and [FINAL] segments with custom VAD configuration, then full transcript.
+
+### 4. Real-time from microphone (`example_stt_mic.js`)
 
 Real-time transcription from the microphone. Captures live audio (via SoX) and sends it over the STT WebSocket. Requires SoX installed (e.g. `brew install sox` on macOS). Press Ctrl+C to stop.
 

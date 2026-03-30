@@ -1,4 +1,4 @@
 python-dotenv
 requests
 sounddevice
-websockets
+websockets>=13.0,<17.0
