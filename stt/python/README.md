@@ -55,7 +55,20 @@ python example_stt_websocket.py [pcm_file]
 
 **Output:** [interim] and [FINAL] segments, then full transcript. Ensures all segments (including the last word) are received before closing the stream.
 
-### 3. `example_stt_mic.py` - Real-time from microphone
+### 3. `example_stt_with_vad_config.py` - Streaming with VAD config
+
+Same as `example_stt_websocket.py` but demonstrates how to configure VAD (Voice Activity Detection) parameters for the `inworld/inworld-stt-1` model: `vad_threshold`, `min_end_of_turn_silence_when_confident`, and `end_of_turn_confidence_threshold`.
+
+**Usage:**
+```bash
+python example_stt_with_vad_config.py
+# or
+python example_stt_with_vad_config.py [pcm_file]
+```
+
+**Output:** [interim] and [FINAL] segments with custom VAD configuration, then full transcript.
+
+### 4. `example_stt_mic.py` - Real-time from microphone
 
 Real-time transcription from the microphone. Captures live audio (via sounddevice) and sends it over the STT WebSocket. Requires `pip install sounddevice`. Press Ctrl+C to stop.
 
