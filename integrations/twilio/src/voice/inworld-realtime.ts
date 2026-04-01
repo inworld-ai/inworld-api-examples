@@ -127,7 +127,6 @@ export class InworldRealtimeClient extends EventEmitter {
         break;
 
       case "response.output_audio.done":
-      case "response.audio.done":
         this.emit("audioDone");
         break;
 

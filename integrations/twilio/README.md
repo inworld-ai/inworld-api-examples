@@ -18,14 +18,14 @@ Caller ↔ Twilio ↔ WebSocket ↔ Inworld Realtime
 
 1. **Get your Inworld API key** — sign up at [inworld.ai](https://www.inworld.ai/), go to your workspace, and create an API key for the Realtime API.
 
-2. **Get your Twilio credentials** — from the [Twilio Console](https://console.twilio.com/), grab your Account SID, Auth Token, and phone number.
+2. **Get a Twilio phone number** — sign up at [twilio.com](https://www.twilio.com/) and buy a phone number with Voice capability.
 
 3. **Set up ngrok** — [install ngrok](https://ngrok.com/download), then reserve a free static domain in the [ngrok dashboard](https://dashboard.ngrok.com/domains).
 
 4. **Configure environment:**
    ```bash
    cp .env.example .env
-   # Fill in INWORLD_API_KEY, TWILIO_* credentials, and SERVER_URL (your ngrok URL)
+   # Fill in INWORLD_API_KEY and SERVER_URL (your ngrok URL)
    ```
 
 5. **Install dependencies:**

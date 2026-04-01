@@ -26,18 +26,18 @@ const MIN_PCM16_BYTES = 2400;  // 24000 Hz × 0.05s × 2 bytes/sample
 export function handleCallStream(twilioWs: WebSocket): void {
   let streamSid: string | null = null;
   let inworld: InworldRealtimeClient | null = null;
-  let outBuffer = Buffer.alloc(0);  // mulaw to Twilio
-  let inBuffer = Buffer.alloc(0);   // PCM16 to Inworld
+  let outBuffer = Buffer.alloc(0);
+  let inBuffer = Buffer.alloc(0);
 
-  function sendToTwilio(payload: string) {
+  function sendToTwilio(payload: Buffer) {
     if (twilioWs.readyState === WebSocket.OPEN && streamSid) {
-      twilioWs.send(JSON.stringify({ event: "media", streamSid, media: { payload } }));
+      twilioWs.send(JSON.stringify({ event: "media", streamSid, media: { payload: payload.toString("base64") } }));
     }
   }
 
   function flushOutBuffer() {
     while (outBuffer.length >= MIN_MULAW_BYTES) {
-      sendToTwilio(outBuffer.subarray(0, MIN_MULAW_BYTES).toString("base64"));
+      sendToTwilio(outBuffer.subarray(0, MIN_MULAW_BYTES));
       outBuffer = outBuffer.subarray(MIN_MULAW_BYTES);
     }
   }
@@ -53,13 +53,14 @@ export function handleCallStream(twilioWs: WebSocket): void {
         inworld = new InworldRealtimeClient();
 
         inworld.on("audio", (base64Audio) => {
-          outBuffer = Buffer.concat([outBuffer, Buffer.from(inworldToTwilio(base64Audio), "base64")]);
+          const pcmBuf = Buffer.from(base64Audio, "base64");
+          outBuffer = Buffer.concat([outBuffer, inworldToTwilio(pcmBuf)]);
           flushOutBuffer();
         });
 
         inworld.on("audioDone", () => {
           if (outBuffer.length > 0) {
-            sendToTwilio(outBuffer.toString("base64"));
+            sendToTwilio(outBuffer);
             outBuffer = Buffer.alloc(0);
           }
         });
@@ -85,7 +86,8 @@ export function handleCallStream(twilioWs: WebSocket): void {
 
       case "media":
         if (inworld && msg.media) {
-          inBuffer = Buffer.concat([inBuffer, Buffer.from(twilioToInworld(msg.media.payload), "base64")]);
+          const mulawBuf = Buffer.from(msg.media.payload, "base64");
+          inBuffer = Buffer.concat([inBuffer, twilioToInworld(mulawBuf)]);
           while (inBuffer.length >= MIN_PCM16_BYTES) {
             inworld.sendAudio(inBuffer.subarray(0, MIN_PCM16_BYTES).toString("base64"));
             inBuffer = inBuffer.subarray(MIN_PCM16_BYTES);

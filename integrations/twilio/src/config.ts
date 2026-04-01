@@ -11,10 +11,6 @@ function optional(name: string, fallback: string): string {
 }
 
 export const config = {
-  twilioAccountSid: optional("TWILIO_ACCOUNT_SID", ""),
-  twilioAuthToken: optional("TWILIO_AUTH_TOKEN", ""),
-  twilioPhoneNumber: optional("TWILIO_PHONE_NUMBER", ""),
-
   inworldApiKey: required("INWORLD_API_KEY"),
 
   port: parseInt(optional("PORT", "3000"), 10),

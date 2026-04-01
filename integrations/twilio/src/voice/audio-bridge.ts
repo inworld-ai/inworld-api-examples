@@ -1,18 +1,18 @@
 /**
  * Audio format conversion: Twilio mulaw 8kHz ↔ Inworld PCM16 24kHz.
- * All functions take base64 in and return base64 out.
  */
 
 const BIAS = 0x84;
 const MAX = 32635;
 
 function mulawDecode(byte: number): number {
-  const inv = ~byte;
-  const sign = inv & 0x80;
-  const exponent = (inv >> 4) & 0x07;
-  const mantissa = inv & 0x0f;
-  const magnitude = ((mantissa << 3) | BIAS) << (exponent - 1);
-  return sign ? magnitude : -magnitude;
+  byte = ~byte;
+  const sign = byte & 0x80;
+  const exponent = (byte >> 4) & 0x07;
+  const mantissa = byte & 0x0f;
+  let sample = ((mantissa << 3) + BIAS) << exponent;
+  sample -= BIAS;
+  return sign ? sample : -sample;
 }
 
 function mulawEncode(sample: number): number {
@@ -59,11 +59,11 @@ function pcmToMulaw(buf: Buffer): Buffer {
 }
 
 /** Twilio mulaw 8kHz → Inworld PCM16 24kHz */
-export function twilioToInworld(base64Mulaw: string): string {
-  return resample(mulawToPcm(Buffer.from(base64Mulaw, "base64")), 8000, 24000).toString("base64");
+export function twilioToInworld(mulawBuf: Buffer): Buffer {
+  return resample(mulawToPcm(mulawBuf), 8000, 24000);
 }
 
 /** Inworld PCM16 24kHz → Twilio mulaw 8kHz */
-export function inworldToTwilio(base64Pcm: string): string {
-  return pcmToMulaw(resample(Buffer.from(base64Pcm, "base64"), 24000, 8000)).toString("base64");
+export function inworldToTwilio(pcmBuf: Buffer): Buffer {
+  return pcmToMulaw(resample(pcmBuf, 24000, 8000));
 }
