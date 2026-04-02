@@ -91,6 +91,7 @@ export class InworldRealtimeClient extends EventEmitter {
             output_modalities: ["audio", "text"],
             audio: {
               input: {
+                format: "g711_ulaw",
                 transcription: { model: "assemblyai/universal-streaming-multilingual" },
                 turn_detection: {
                   type: "semantic_vad",
@@ -100,6 +101,7 @@ export class InworldRealtimeClient extends EventEmitter {
                 },
               },
               output: {
+                format: "g711_ulaw",
                 model: "inworld-tts-1.5-max",
                 voice: "Sarah",
               },

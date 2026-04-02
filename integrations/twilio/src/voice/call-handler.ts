@@ -1,15 +1,11 @@
 /**
  * Bridges a Twilio Media Stream WebSocket to an Inworld Realtime WebSocket.
  *
- * Audio pipeline:
- *   Twilio (mulaw 8kHz) → decode + resample → PCM16 24kHz → Inworld
- *   Inworld (PCM16 24kHz) → resample + encode → mulaw 8kHz → Twilio
- *
- * Both directions buffer to ≥50ms chunks before sending.
+ * Both Twilio and Inworld use G.711 μ-law at 8kHz, so audio passes through
+ * as-is with no format conversion. We only buffer to ≥50ms chunks.
  */
 import WebSocket from "ws";
 import { InworldRealtimeClient } from "./inworld-realtime.js";
-import { twilioToInworld, inworldToTwilio } from "./audio-bridge.js";
 import { config } from "../config.js";
 
 interface TwilioMediaMessage {
@@ -19,9 +15,8 @@ interface TwilioMediaMessage {
   media?: { payload: string };
 }
 
-// 50ms minimum chunk sizes
-const MIN_MULAW_BYTES = 400;   // 8000 Hz × 0.05s × 1 byte/sample
-const MIN_PCM16_BYTES = 2400;  // 24000 Hz × 0.05s × 2 bytes/sample
+// 50ms of mulaw 8kHz = 400 bytes (8000 samples/sec × 0.05s × 1 byte/sample)
+const MIN_CHUNK_BYTES = 400;
 
 export function handleCallStream(twilioWs: WebSocket): void {
   let streamSid: string | null = null;
@@ -36,9 +31,9 @@ export function handleCallStream(twilioWs: WebSocket): void {
   }
 
   function flushOutBuffer() {
-    while (outBuffer.length >= MIN_MULAW_BYTES) {
-      sendToTwilio(outBuffer.subarray(0, MIN_MULAW_BYTES));
-      outBuffer = outBuffer.subarray(MIN_MULAW_BYTES);
+    while (outBuffer.length >= MIN_CHUNK_BYTES) {
+      sendToTwilio(outBuffer.subarray(0, MIN_CHUNK_BYTES));
+      outBuffer = outBuffer.subarray(MIN_CHUNK_BYTES);
     }
   }
 
@@ -53,8 +48,7 @@ export function handleCallStream(twilioWs: WebSocket): void {
         inworld = new InworldRealtimeClient();
 
         inworld.on("audio", (base64Audio) => {
-          const pcmBuf = Buffer.from(base64Audio, "base64");
-          outBuffer = Buffer.concat([outBuffer, inworldToTwilio(pcmBuf)]);
+          outBuffer = Buffer.concat([outBuffer, Buffer.from(base64Audio, "base64")]);
           flushOutBuffer();
         });
 
@@ -86,11 +80,10 @@ export function handleCallStream(twilioWs: WebSocket): void {
 
       case "media":
         if (inworld && msg.media) {
-          const mulawBuf = Buffer.from(msg.media.payload, "base64");
-          inBuffer = Buffer.concat([inBuffer, twilioToInworld(mulawBuf)]);
-          while (inBuffer.length >= MIN_PCM16_BYTES) {
-            inworld.sendAudio(inBuffer.subarray(0, MIN_PCM16_BYTES).toString("base64"));
-            inBuffer = inBuffer.subarray(MIN_PCM16_BYTES);
+          inBuffer = Buffer.concat([inBuffer, Buffer.from(msg.media.payload, "base64")]);
+          while (inBuffer.length >= MIN_CHUNK_BYTES) {
+            inworld.sendAudio(inBuffer.subarray(0, MIN_CHUNK_BYTES).toString("base64"));
+            inBuffer = inBuffer.subarray(MIN_CHUNK_BYTES);
           }
         }
         break;
