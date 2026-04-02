@@ -1,7 +1,7 @@
 {
   "name": "twilio-inworld",
   "version": "0.1.0",
-  "description": "Twilio voice bot powered by Inworld Realtime API",
+  "description": "Twilio voice agent powered by Inworld Realtime API",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

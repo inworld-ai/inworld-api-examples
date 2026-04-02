@@ -1,6 +1,6 @@
-# Telnyx + Inworld Realtime Voice Bot
+# Telnyx + Inworld Realtime Voice Agent
 
-A voice bot that connects phone calls to the [Inworld Realtime API](https://docs.inworld.ai/realtime/overview) for speech-to-speech conversations. One WebSocket to Inworld handles STT + LLM + TTS.
+A voice agent that connects phone calls to the [Inworld Realtime API](https://docs.inworld.ai/realtime/overview) for speech-to-speech conversations. One WebSocket to Inworld handles STT + LLM + TTS.
 
 ```
 Caller ↔ Telnyx ↔ WebSocket ↔ Inworld Realtime

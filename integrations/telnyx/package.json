@@ -1,7 +1,7 @@
 {
   "name": "telnyx-inworld",
   "version": "0.1.0",
-  "description": "Telnyx voice bot powered by Inworld Realtime API",
+  "description": "Telnyx voice agent powered by Inworld Realtime API",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
