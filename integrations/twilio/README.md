@@ -4,7 +4,7 @@ A voice bot that connects phone calls to the [Inworld Realtime API](https://docs
 
 ```
 Caller ↔ Twilio ↔ WebSocket ↔ Inworld Realtime
-         mulaw 8kHz           PCM16 24kHz
+              mulaw 8kHz (passthrough)
 ```
 
 ## Prerequisites
@@ -53,5 +53,5 @@ Call your Twilio number — the bot will greet you and you can have a conversati
 
 1. Inbound call hits `/voice` → returns TwiML with `<Connect><Stream>`
 2. Twilio opens a Media Stream WebSocket to `/media-stream`
-3. Server bridges audio between Twilio and Inworld, resampling both directions
+3. Server passes mulaw audio between Twilio and Inworld (no format conversion needed)
 4. Barge-in: on speech detection, clears Twilio buffer and cancels Inworld response
