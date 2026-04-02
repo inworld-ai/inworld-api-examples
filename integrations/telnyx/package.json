@@ -1,7 +1,7 @@
 {
-  "name": "twilio-inworld",
+  "name": "telnyx-inworld",
   "version": "0.1.0",
-  "description": "Twilio voice agent powered by Inworld Realtime API",
+  "description": "Telnyx voice agent powered by Inworld Realtime API",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -12,7 +12,6 @@
   "dependencies": {
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
-    "twilio": "^5.8.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {
