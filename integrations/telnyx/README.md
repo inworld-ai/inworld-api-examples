@@ -54,7 +54,7 @@ ngrok http 3000 --url=<your-ngrok-domain>
 npm run dev
 ```
 
-Call your Telnyx number — the bot will greet you and you can have a conversation.
+Call your Telnyx number — the agent will greet you and you can have a conversation.
 
 ## How it works
 
