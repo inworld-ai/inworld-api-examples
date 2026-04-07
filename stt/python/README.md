@@ -68,7 +68,20 @@ python example_stt_with_vad_config.py [pcm_file]
 
 **Output:** [interim] and [FINAL] segments with custom VAD configuration, then full transcript.
 
-### 4. `example_stt_mic.py` - Real-time from microphone
+### 4. `example_stt_with_voice_profile.py` - Streaming with voice profile detection
+
+Same as `example_stt_websocket.py` but demonstrates how to enable voice profile detection, which returns speaker voice characteristics (age, gender, emotion, vocal style, accent) alongside transcription results. Configures `voiceProfileConfig` with `enableVoiceProfile` and `topN` parameters.
+
+**Usage:**
+```bash
+python example_stt_with_voice_profile.py
+# or
+python example_stt_with_voice_profile.py [pcm_file]
+```
+
+**Output:** [interim] and [FINAL] segments with voice profile analysis on final segments, then full transcript.
+
+### 5. `example_stt_mic.py` - Real-time from microphone
 
 Real-time transcription from the microphone. Captures live audio (via sounddevice) and sends it over the STT WebSocket. Requires `pip install sounddevice`. Press Ctrl+C to stop.
 
