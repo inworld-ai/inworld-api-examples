@@ -7,7 +7,8 @@
     "stt": "node example_stt.js",
     "stt-stream": "node example_stt_websocket.js",
     "stt-mic": "node example_stt_mic.js",
-    "stt-vad-config": "node example_stt_with_vad_config.js"
+    "stt-vad-config": "node example_stt_with_vad_config.js",
+    "stt-voice-profile": "node example_stt_with_voice_profile.js"
   },
   "keywords": [
     "inworld",

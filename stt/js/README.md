@@ -66,7 +66,20 @@ node example_stt_with_vad_config.js [pcm_file]
 
 **Output:** [interim] and [FINAL] segments with custom VAD configuration, then full transcript.
 
-### 4. Real-time from microphone (`example_stt_mic.js`)
+### 4. Streaming with voice profile detection (`example_stt_with_voice_profile.js`)
+
+Same as `example_stt_websocket.js` but demonstrates how to enable voice profile detection, which returns speaker voice characteristics (age, gender, emotion, vocal style, accent) alongside transcription results. Configures `voiceProfileConfig` with `enableVoiceProfile` and `topN` parameters.
+
+**Usage:**
+```bash
+npm run stt-voice-profile
+# or
+node example_stt_with_voice_profile.js [pcm_file]
+```
+
+**Output:** [interim] and [FINAL] segments with voice profile analysis on final segments, then full transcript.
+
+### 5. Real-time from microphone (`example_stt_mic.js`)
 
 Real-time transcription from the microphone. Captures live audio (via SoX) and sends it over the STT WebSocket. Requires SoX installed (e.g. `brew install sox` on macOS). Press Ctrl+C to stop.
 
