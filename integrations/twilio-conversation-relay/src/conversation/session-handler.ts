@@ -109,18 +109,18 @@ export function handleConversation(ws: WebSocket): void {
     }
   }
 
-  ws.on("message", (data: Buffer) => {
+  ws.on("message", async (data: Buffer) => {
     const msg: IncomingMessage = JSON.parse(data.toString());
 
     switch (msg.type) {
       case "setup":
         console.log(`[conversation] Call connected (sid: ${msg.callSid}, from: ${msg.from})`);
-        handleSetup();
+        await handleSetup();
         break;
 
       case "prompt":
         console.log(`[conversation] User: ${msg.voicePrompt}`);
-        handlePrompt(msg.voicePrompt);
+        await handlePrompt(msg.voicePrompt);
         break;
 
       case "interrupt":
