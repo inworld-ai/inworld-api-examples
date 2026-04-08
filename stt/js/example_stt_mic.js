@@ -73,6 +73,27 @@ function streamMicToStt(apiKey, options = {}) {
         let micProcess = null;
         let chunkBuffer = Buffer.alloc(0);
 
+        function finish() {
+            const fullParts = lastPartial.trim() ? [...finalTexts, lastPartial.trim()] : finalTexts;
+            resolve({ finalTexts: fullParts });
+        }
+
+        function stopMic() {
+            if (micProcess) {
+                try { micProcess.kill('SIGTERM'); } catch (_) {}
+                micProcess = null;
+            }
+            if (ws.readyState === WebSocket.OPEN) {
+                if (chunkBuffer.length > 0) {
+                    ws.send(JSON.stringify({
+                        audioChunk: { content: chunkBuffer.toString('base64') }
+                    }));
+                    chunkBuffer = Buffer.alloc(0);
+                }
+                ws.send(JSON.stringify({ closeStream: {} }));
+            }
+        }
+
         ws.on('error', (err) => {
             console.log(`WebSocket error: ${err.message}`);
             reject(err);
@@ -125,19 +146,6 @@ function streamMicToStt(apiKey, options = {}) {
             micProcess.on('error', (err) => {
                 console.log(`Microphone error: ${err.message}`);
             });
-
-            micProcess.on('exit', () => {
-                // Flush remaining buffered audio
-                if (chunkBuffer.length > 0 && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        audioChunk: { content: chunkBuffer.toString('base64') }
-                    }));
-                    chunkBuffer = Buffer.alloc(0);
-                }
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ closeStream: {} }));
-                }
-            });
         });
 
         ws.on('message', (raw) => {
@@ -160,23 +168,17 @@ function streamMicToStt(apiKey, options = {}) {
             } catch (_) {}
         });
 
-        ws.on('close', () => {
-            const fullParts = lastPartial.trim() ? [...finalTexts, lastPartial.trim()] : finalTexts;
-            resolve({ finalTexts: fullParts });
-        });
-
-        function stopMic() {
-            if (micProcess) {
-                try { micProcess.kill('SIGTERM'); } catch (_) {}
-                micProcess = null;
-            }
-        }
+        ws.on('close', finish);
 
         process.on('SIGINT', () => {
             console.log('\nStopping...');
             stopMic();
+            finish();
         });
-        process.on('SIGTERM', stopMic);
+        process.on('SIGTERM', () => {
+            stopMic();
+            finish();
+        });
     });
 }
 
