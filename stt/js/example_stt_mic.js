@@ -14,8 +14,6 @@ const API_BASE = 'https://api.inworld.ai';
 const SAMPLE_RATE = 16000;
 const CHANNELS = 1;
 const CHUNK_DURATION_MS = 100;
-const END_OF_AUDIO_DELAY_MS = 350;
-const CLOSE_GRACE_MS = 2500;
 
 function checkApiKey() {
     const apiKey = process.env.INWORLD_API_KEY;
@@ -74,22 +72,10 @@ function streamMicToStt(apiKey, options = {}) {
         const ws = new WebSocket(url, { headers });
         let micProcess = null;
         let chunkBuffer = Buffer.alloc(0);
-        let closed = false;
-
-        function finish(result) {
-            if (closed) return;
-            closed = true;
-            if (micProcess) {
-                try { micProcess.kill('SIGTERM'); } catch (_) {}
-                micProcess = null;
-            }
-            const fullParts = lastPartial.trim() ? [...finalTexts, lastPartial.trim()] : finalTexts;
-            resolve(Object.assign(result || {}, { finalTexts: fullParts }));
-        }
 
         ws.on('error', (err) => {
             console.log(`WebSocket error: ${err.message}`);
-            if (!closed) reject(err);
+            reject(err);
         });
 
         ws.on('open', () => {
@@ -140,9 +126,16 @@ function streamMicToStt(apiKey, options = {}) {
                 console.log(`Microphone error: ${err.message}`);
             });
 
-            micProcess.on('exit', (code) => {
-                if (code !== null && code !== 0 && code !== 143) {
-                    console.log(`SoX exited with code ${code}`);
+            micProcess.on('exit', () => {
+                // Flush remaining buffered audio
+                if (chunkBuffer.length > 0 && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        audioChunk: { content: chunkBuffer.toString('base64') }
+                    }));
+                    chunkBuffer = Buffer.alloc(0);
+                }
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ closeStream: {} }));
                 }
             });
         });
@@ -167,37 +160,23 @@ function streamMicToStt(apiKey, options = {}) {
             } catch (_) {}
         });
 
-        ws.on('close', () => finish());
+        ws.on('close', () => {
+            const fullParts = lastPartial.trim() ? [...finalTexts, lastPartial.trim()] : finalTexts;
+            resolve({ finalTexts: fullParts });
+        });
 
-        function stopStream() {
-            if (closed) return;
+        function stopMic() {
             if (micProcess) {
                 try { micProcess.kill('SIGTERM'); } catch (_) {}
                 micProcess = null;
-            }
-            if (ws.readyState === WebSocket.OPEN) {
-                const sendEnd = () => {
-                    ws.send(JSON.stringify({ endTurn: {} }));
-                    ws.send(JSON.stringify({ closeStream: {} }));
-                    setTimeout(() => {
-                        if (ws.readyState === WebSocket.OPEN) ws.close();
-                    }, CLOSE_GRACE_MS);
-                };
-                if (chunkBuffer.length > 0) {
-                    ws.send(JSON.stringify({
-                        audioChunk: { content: chunkBuffer.toString('base64') }
-                    }));
-                    chunkBuffer = Buffer.alloc(0);
-                }
-                setTimeout(sendEnd, END_OF_AUDIO_DELAY_MS);
             }
         }
 
         process.on('SIGINT', () => {
             console.log('\nStopping...');
-            stopStream();
+            stopMic();
         });
-        process.on('SIGTERM', stopStream);
+        process.on('SIGTERM', stopMic);
     });
 }
 
