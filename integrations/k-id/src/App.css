@@ -1,0 +1,346 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+    sans-serif;
+  background: #000;
+  color: #e0e0e0;
+  min-height: 100vh;
+}
+
+/* -- App shell: full viewport, vertically centered -- */
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.app-header h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.125rem;
+  color: #fff;
+}
+
+.app-header p {
+  font-size: 0.8125rem;
+  color: #666;
+}
+
+/* Fixed-size container for all screens */
+.app-main {
+  width: 36rem;
+  height: 34rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0a0a0a;
+  border: 1px solid #1a1a1a;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+/* -- Buttons -- */
+
+.btn {
+  padding: 0.625rem 1.5rem;
+  border: 1px solid #333;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #000;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btn:hover:not(:disabled) {
+  background: #e0e0e0;
+}
+
+.btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.btn-stop {
+  background: #000;
+  color: #999;
+  border-color: #444;
+}
+
+.btn-stop:hover:not(:disabled) {
+  background: #111;
+  color: #ccc;
+}
+
+/* -- Age gate (form) -- */
+
+.age-gate {
+  width: 100%;
+  max-width: 22rem;
+  padding: 2rem;
+}
+
+.card {
+  width: 100%;
+}
+
+.card h2 {
+  font-size: 1.125rem;
+  margin-bottom: 0.5rem;
+  color: #fff;
+}
+
+.card > p {
+  font-size: 0.8125rem;
+  color: #666;
+  margin-bottom: 1.5rem;
+}
+
+/* -- Form -- */
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+  margin-bottom: 0.375rem;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #222;
+  border-radius: 0.375rem;
+  background: #000;
+  color: #e0e0e0;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  border-color: #555;
+}
+
+form .btn {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+/* -- Verification screen -- */
+
+.verification-screen {
+  width: 100%;
+  height: 100%;
+}
+
+.verification-card {
+  width: 100%;
+  height: 100%;
+}
+
+.iframe-container {
+  width: 100%;
+  height: 100%;
+}
+
+.iframe-container iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* -- Transition screens (validating / success) -- */
+
+.transition-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.transition-card {
+  text-align: center;
+}
+
+.transition-text {
+  font-size: 1rem;
+  color: #999;
+  margin-top: 1rem;
+}
+
+.transition-check {
+  font-size: 3rem;
+  color: #fff;
+  line-height: 1;
+}
+
+.spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid #333;
+  border-top-color: #999;
+  border-radius: 50%;
+  margin: 0 auto;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* -- Denied screen -- */
+
+.denied-screen {
+  text-align: center;
+  padding: 3rem 2rem;
+}
+
+.denied-card h2 {
+  font-size: 1.125rem;
+  margin-bottom: 0.75rem;
+  color: #fff;
+}
+
+.denied-card p {
+  font-size: 0.875rem;
+  color: #666;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+/* -- Realtime chat -- */
+
+.realtime-chat {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+}
+
+.chat-header {
+  text-align: center;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #1a1a1a;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+}
+
+.chat-header h2 {
+  font-size: 1.125rem;
+  margin-bottom: 0.25rem;
+  color: #fff;
+}
+
+.chat-header p {
+  font-size: 0.8125rem;
+  color: #666;
+  margin-bottom: 0.75rem;
+}
+
+.transcript {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem 0;
+}
+
+.transcript-empty {
+  color: #444;
+  font-size: 0.875rem;
+  text-align: center;
+  padding-top: 3rem;
+}
+
+.turn {
+  margin-bottom: 1rem;
+}
+
+.turn-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.125rem;
+  color: #555;
+}
+
+.turn-label.user {
+  color: #888;
+}
+
+.turn-label.agent {
+  color: #aaa;
+}
+
+.turn-text {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: #ccc;
+}
+
+/* -- Typing dots animation -- */
+
+.typing-dots::after {
+  content: "";
+  animation: dots 1.2s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0% {
+    content: "";
+  }
+  25% {
+    content: ".";
+  }
+  50% {
+    content: "..";
+  }
+  75% {
+    content: "...";
+  }
+  100% {
+    content: "";
+  }
+}
+
+/* -- Responsive -- */
+
+@media (max-width: 40rem) {
+  .app {
+    justify-content: flex-start;
+    padding-top: 2rem;
+  }
+
+  .app-main {
+    width: calc(100vw - 2rem);
+    height: calc(100vh - 8rem);
+  }
+}
