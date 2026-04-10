@@ -10,6 +10,6 @@
     "forceConsistentCasingInFileNames": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
-  "include": ["src/**/*"],
+  "include": ["client/**/*"],
   "exclude": ["node_modules", "dist"]
 }

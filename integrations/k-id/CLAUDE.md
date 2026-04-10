@@ -12,7 +12,7 @@ server/
   config.ts          Environment variable loading
   kid-routes.ts      /api/kid/* routes — proxies to k-ID API
   inworld-proxy.ts   /ws WebSocket relay between browser and Inworld
-src/
+client/
   main.tsx           React entry
   App.tsx            Screen state machine: age-gate -> verification -> approved/denied
   App.css            All styles (greyscale palette)
