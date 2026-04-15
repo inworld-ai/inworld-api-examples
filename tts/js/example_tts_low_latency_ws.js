@@ -150,23 +150,23 @@ async function websocketTts(apiKey, text, voiceId, modelId) {
                     return;
                 }
 
+                // Audio chunk - base64-encoded PCM
+                if (result.audioChunk) {
+                    const b64Content = result.audioChunk.audioContent;
+                    if (b64Content) {
+                        const audioChunk = Buffer.from(b64Content, 'base64');
+                        if (ttfb === null) {
+                            ttfb = (Date.now() - startTime) / 1000;
+                        }
+                        totalAudioBytes += audioChunk.length;
+                    }
+                }
+
                 // Context closed - all audio received
                 if (result.contextClosed !== undefined) {
                     const totalTime = (Date.now() - startTime) / 1000;
                     finish({ ttfb, totalTime, audioBytes: totalAudioBytes });
                     return;
-                }
-
-                // Audio chunk
-                if (result.audioChunk) {
-                    const b64Content = result.audioChunk.audioContent;
-                    if (b64Content) {
-                        if (ttfb === null) {
-                            ttfb = (Date.now() - startTime) / 1000;
-                        }
-                        const audioBytes = Buffer.from(b64Content, 'base64');
-                        totalAudioBytes += audioBytes.length;
-                    }
                 }
 
             } catch {
