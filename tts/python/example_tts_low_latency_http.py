@@ -9,7 +9,6 @@ Key technique: Use a persistent session to pre-establish the TCP+TLS connection
 with a small warmup request, then measure only the synthesis latency.
 """
 
-import json
 import os
 import time
 
