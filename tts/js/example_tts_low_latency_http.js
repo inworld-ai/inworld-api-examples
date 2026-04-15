@@ -100,33 +100,16 @@ async function httpStreamingTts(apiKey, text, voiceId, modelId) {
         }
 
         const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-
-            for (const line of lines) {
-                if (line.trim()) {
-                    try {
-                        const chunkData = JSON.parse(line);
-                        const result = chunkData.result;
-                        if (result && result.audioContent) {
-                            const audioChunk = Buffer.from(result.audioContent, 'base64');
-                            if (ttfb === null) {
-                                ttfb = (Date.now() - startTime) / 1000;
-                            }
-                            totalAudioBytes += audioChunk.length;
-                        }
-                    } catch {
-                        continue;
-                    }
+            if (value && value.length > 0) {
+                if (ttfb === null) {
+                    ttfb = (Date.now() - startTime) / 1000;
                 }
+                totalAudioBytes += value.length;
             }
         }
 

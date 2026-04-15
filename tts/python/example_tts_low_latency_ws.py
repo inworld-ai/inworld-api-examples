@@ -134,8 +134,7 @@ async def websocket_tts(api_key, text, voice_id, model_id, auto_mode):
                     break
 
                 if "audioChunk" in result:
-                    audio_chunk = result["audioChunk"]
-                    b64_content = audio_chunk.get("audioContent")
+                    b64_content = result["audioChunk"].get("audioContent")
                     if b64_content:
                         now = time.time()
                         if ttfb is None:

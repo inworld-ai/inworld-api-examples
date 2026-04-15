@@ -9,8 +9,6 @@ Key technique: Use a persistent session to pre-establish the TCP+TLS connection
 with a small warmup request, then measure only the synthesis latency.
 """
 
-import base64
-import json
 import os
 import time
 
@@ -96,18 +94,11 @@ def http_streaming_tts(api_key, text, voice_id, model_id):
         with session.post(url, json=request_data, stream=True) as response:
             response.raise_for_status()
 
-            for line in response.iter_lines(decode_unicode=True):
-                if line.strip():
-                    try:
-                        chunk_data = json.loads(line)
-                        result = chunk_data.get("result")
-                        if result and "audioContent" in result:
-                            audio_chunk = base64.b64decode(result["audioContent"])
-                            if ttfb is None:
-                                ttfb = time.time() - start_time
-                            total_audio_bytes += len(audio_chunk)
-                    except json.JSONDecodeError:
-                        continue
+            for chunk in response.iter_content(chunk_size=None):
+                if chunk:
+                    if ttfb is None:
+                        ttfb = time.time() - start_time
+                    total_audio_bytes += len(chunk)
 
         total_time = time.time() - start_time
         return {"ttfb": ttfb, "total_time": total_time, "audio_bytes": total_audio_bytes}
