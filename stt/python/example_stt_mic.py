@@ -27,8 +27,6 @@ API_BASE = "https://api.inworld.ai"
 SAMPLE_RATE = 16000
 CHANNELS = 1
 CHUNK_DURATION_MS = 100
-END_OF_AUDIO_DELAY_MS = 350
-CLOSE_GRACE_MS = 2500
 
 # ~100 ms of samples per block (16-bit = 2 bytes per sample)
 BLOCK_SIZE = int(SAMPLE_RATE * CHUNK_DURATION_MS / 1000)
@@ -56,16 +54,15 @@ async def stream_mic_to_stt(
     final_texts = []
     last_partial = ""
     loop = asyncio.get_running_loop()
-    audio_queue = asyncio.Queue(maxsize=10)  # bounded to limit memory; drop if consumer is slow
+    audio_queue = asyncio.Queue(maxsize=10)
     stop_requested = asyncio.Event()
     stream = None
 
     def _enqueue_chunk(chunk: bytes) -> None:
-        """Enqueue audio on the asyncio thread (called via call_soon_threadsafe)."""
         try:
             audio_queue.put_nowait(chunk)
         except asyncio.QueueFull:
-            pass  # drop chunk to avoid blocking the audio thread
+            pass
 
     def audio_callback(indata, frame_count, time_info, status):
         if status:
@@ -73,9 +70,8 @@ async def stream_mic_to_stt(
         if indata is None or len(indata) == 0:
             return
         chunk = indata.tobytes() if hasattr(indata, "tobytes") else bytes(indata)
-        if not chunk:
-            return
-        loop.call_soon_threadsafe(_enqueue_chunk, chunk)
+        if chunk:
+            loop.call_soon_threadsafe(_enqueue_chunk, chunk)
 
     def request_stop():
         stop_requested.set()
@@ -84,12 +80,11 @@ async def stream_mic_to_stt(
         loop.add_signal_handler(signal.SIGINT, request_stop)
         loop.add_signal_handler(signal.SIGTERM, request_stop)
     except (NotImplementedError, RuntimeError, ValueError, OSError):
-        # add_signal_handler not supported (e.g. Windows); fall back to signal.signal where possible
         try:
             signal.signal(signal.SIGINT, lambda *_: request_stop())
             signal.signal(signal.SIGTERM, lambda *_: request_stop())
         except (ValueError, OSError, RuntimeError):
-            pass  # signal handling not available
+            pass
 
     transcribe_config = {
         "modelId": model_id,
@@ -133,16 +128,6 @@ async def stream_mic_to_stt(
                         continue
                     except asyncio.CancelledError:
                         break
-
-                # Flush remaining queued audio
-                while not audio_queue.empty():
-                    try:
-                        chunk = audio_queue.get_nowait()
-                        await ws.send(json.dumps({
-                            "audioChunk": {"content": base64.b64encode(chunk).decode("utf-8")},
-                        }))
-                    except asyncio.QueueEmpty:
-                        break
             finally:
                 if stream is not None:
                     try:
@@ -151,14 +136,7 @@ async def stream_mic_to_stt(
                     except Exception:
                         pass
 
-            await asyncio.sleep(END_OF_AUDIO_DELAY_MS / 1000)
-            await ws.send(json.dumps({"endTurn": {}}))
             await ws.send(json.dumps({"closeStream": {}}))
-            await asyncio.sleep(CLOSE_GRACE_MS / 1000)
-            try:
-                await ws.close()
-            except Exception:
-                pass
 
         send_task = asyncio.create_task(send_audio())
 
