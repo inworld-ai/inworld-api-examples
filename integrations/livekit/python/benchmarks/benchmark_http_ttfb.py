@@ -69,10 +69,15 @@ def compute_stats(values: List[float]) -> Dict:
             "p50": _percentile(s, 50), "p95": _percentile(s, 95), "values": values}
 
 
+INWORLD_MODEL = "inworld-tts-1.5-mini"
+ELEVENLABS_MODEL = "eleven_turbo_v2_5"
+CARTESIA_MODEL = "sonic-3"
+
+
 def create_inworld_tts(session: aiohttp.ClientSession, api_key: str):
     from livekit.plugins import inworld
     return inworld.TTS(
-        api_key=api_key, voice="Ashley", model="inworld-tts-1.5-max",
+        api_key=api_key, voice="Ashley", model=INWORLD_MODEL,
         http_session=session, base_url="https://api.inworld.ai/",
     )
 
@@ -80,8 +85,8 @@ def create_inworld_tts(session: aiohttp.ClientSession, api_key: str):
 def create_elevenlabs_tts(session: aiohttp.ClientSession, api_key: str):
     from livekit.plugins import elevenlabs
     return elevenlabs.TTS(
-        api_key=api_key, voice_id="21m00Tcm4TlvDq8ikWAM",
-        model="eleven_turbo_v2_5", http_session=session,
+        api_key=api_key, voice_id="hpp4J3VqNfWAUOO0d1Us",
+        model=ELEVENLABS_MODEL, http_session=session,
     )
 
 
@@ -89,7 +94,7 @@ def create_cartesia_tts(session: aiohttp.ClientSession, api_key: str):
     from livekit.plugins import cartesia
     return cartesia.TTS(
         api_key=api_key, voice="79a125e8-cd45-4c13-8a67-188112f4dd22",
-        model="sonic-3", http_session=session,
+        model=CARTESIA_MODEL, http_session=session,
     )
 
 
@@ -139,13 +144,13 @@ def _fmt(val, suffix="s"):
 
 
 def print_results(results: List[Dict], title: str):
-    w = 90
+    w = 95
     print(f"\n{'=' * w}")
     print(title)
     print("=" * w)
 
     print(f"\n📊 TTFB")
-    print(f"{'Service':<20} {'Avg':>8} {'StdDev':>8} {'Min':>8} "
+    print(f"{'Service':<25} {'Avg':>8} {'StdDev':>8} {'Min':>8} "
           f"{'Max':>8} {'P50':>8} {'P95':>8} {'N':>5}")
     print("-" * w)
 
@@ -153,11 +158,11 @@ def print_results(results: List[Dict], title: str):
     for r in sorted_r:
         s = r["ttfb"]
         if s["count"] > 0:
-            print(f"{r['service']:<20} {_fmt(s['avg']):>8} {_fmt(s['std']):>8} "
+            print(f"{r['service']:<25} {_fmt(s['avg']):>8} {_fmt(s['std']):>8} "
                   f"{_fmt(s['min']):>8} {_fmt(s['max']):>8} "
                   f"{_fmt(s['p50']):>8} {_fmt(s['p95']):>8} {s['count']:>5}")
         else:
-            print(f"{r['service']:<20} {'N/A':>8} {'N/A':>8} {'N/A':>8} "
+            print(f"{r['service']:<25} {'N/A':>8} {'N/A':>8} {'N/A':>8} "
                   f"{'N/A':>8} {'N/A':>8} {'N/A':>8} {'0':>5}")
 
 
@@ -191,11 +196,11 @@ async def main():
     )
 
     service_configs = {
-        "inworld": {"name": "Inworld HTTP", "create_fn": create_inworld_tts,
+        "inworld": {"name": f"Inworld {INWORLD_MODEL}", "create_fn": create_inworld_tts,
                      "api_key_env": "INWORLD_API_KEY"},
-        "elevenlabs": {"name": "ElevenLabs HTTP", "create_fn": create_elevenlabs_tts,
+        "elevenlabs": {"name": f"ElevenLabs {ELEVENLABS_MODEL}", "create_fn": create_elevenlabs_tts,
                        "api_key_env": "ELEVEN_API_KEY"},
-        "cartesia": {"name": "Cartesia HTTP", "create_fn": create_cartesia_tts,
+        "cartesia": {"name": f"Cartesia {CARTESIA_MODEL}", "create_fn": create_cartesia_tts,
                      "api_key_env": "CARTESIA_API_KEY"},
         "minimax": {"name": "MiniMax HTTP", "create_fn": create_minimax_tts,
                     "api_key_env": "MINIMAX_API_KEY"},
