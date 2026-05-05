@@ -89,6 +89,14 @@ def create_cartesia_tts(session: aiohttp.ClientSession, api_key: str):
     )
 
 
+def create_minimax_tts(session: aiohttp.ClientSession, api_key: str):
+    from livekit.plugins import minimax
+    return minimax.TTS(
+        api_key=api_key, voice="English_radiant_girl",
+        model="speech-02-turbo", http_session=session,
+    )
+
+
 async def benchmark_stream(
     tts, text: str, service_name: str, token_delay_ms: float = 50,
     save_audio: bool = False, output_dir: str = "benchmark_audio",
@@ -190,7 +198,7 @@ async def main():
     parser.add_argument("-n", "--iterations", type=int, default=5,
                         help="Number of benchmark iterations (default: 5)")
     parser.add_argument("--services", type=str, default="all",
-                        help="Comma-separated services: inworld,elevenlabs,cartesia or 'all'")
+                        help="Comma-separated services: inworld,elevenlabs,cartesia,minimax or 'all'")
     parser.add_argument("--no-save-audio", action="store_true", help="Disable saving audio files")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     parser.add_argument("--warmup", type=int, default=1,
@@ -203,7 +211,7 @@ async def main():
     text = args.text or DEFAULT_TEXT
 
     services_to_run = (
-        ["inworld", "elevenlabs", "cartesia"]
+        ["inworld", "elevenlabs", "cartesia", "minimax"]
         if args.services.lower() == "all"
         else [s.strip().lower() for s in args.services.split(",")]
     )
@@ -215,6 +223,8 @@ async def main():
                        "api_key_env": "ELEVEN_API_KEY"},
         "cartesia": {"name": "Cartesia WS", "create_fn": create_cartesia_tts,
                      "api_key_env": "CARTESIA_API_KEY"},
+        "minimax": {"name": "MiniMax WS", "create_fn": create_minimax_tts,
+                    "api_key_env": "MINIMAX_API_KEY"},
     }
 
     available = []
@@ -230,7 +240,8 @@ async def main():
         available.append((sid, cfg, api_key))
 
     if not available:
-        print("No services available. Set INWORLD_API_KEY, ELEVEN_API_KEY, or CARTESIA_API_KEY.")
+        print("No services available. Set INWORLD_API_KEY, ELEVEN_API_KEY, "
+              "CARTESIA_API_KEY, or MINIMAX_API_KEY.")
         return
 
     print(f"\n🚀 Benchmarking {len(available)} service(s): {', '.join(c[1]['name'] for c in available)}")

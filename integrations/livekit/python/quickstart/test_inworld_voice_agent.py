@@ -3,6 +3,7 @@
 import logging
 from collections.abc import AsyncGenerator, AsyncIterable
 from pathlib import Path
+import os
 
 from dotenv import load_dotenv
 
@@ -71,6 +72,7 @@ async def entrypoint(ctx: JobContext):
         tts=inworld.TTS(
             voice="Alex", timestamp_type="WORD", model="inworld-tts-1.5-max",
             ws_url="wss://api.inworld.ai/",
+            api_key=os.getenv("INWORLD_API_KEY"),
         ),
         vad=ctx.proc.userdata["vad"],
         use_tts_aligned_transcript=True,
