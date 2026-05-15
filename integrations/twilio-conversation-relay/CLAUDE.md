@@ -52,7 +52,7 @@ ngrok http 3000 --url=<your-ngrok-domain>
 - `SYSTEM_PROMPT` -- system instructions for the voice assistant
 - `INWORLD_MODEL` -- model or router name (default: `openai/gpt-4.1-mini`)
 - `TTS_VOICE` -- Inworld TTS voice name (default: `Clive`)
-- `TTS_MODEL` -- Inworld TTS model (default: `inworld-tts-1.5-max`)
+- `TTS_MODEL` -- Inworld TTS model (default: `inworld-tts-2`)
 - `TRANSCRIPTION_PROVIDER` -- STT provider (default: `Deepgram`)
 - `WELCOME_GREETING` -- greeting spoken when the call connects
 

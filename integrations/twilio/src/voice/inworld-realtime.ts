@@ -102,7 +102,7 @@ export class InworldRealtimeClient extends EventEmitter {
               },
               output: {
                 format: "g711_ulaw",
-                model: "inworld-tts-1.5-max",
+                model: "inworld-tts-2",
                 voice: "Sarah",
               },
             },

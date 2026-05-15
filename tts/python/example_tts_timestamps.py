@@ -191,8 +191,8 @@ def main():
 
     # Configuration (sample rate must match between API request and WAV file)
     text = "Hello, adventurer! What a beautiful day, isn't it?"
-    voice_id = "Dennis"
-    model_id = "inworld-tts-1.5-max"  # max model for non-streaming: higher quality
+    voice_id = "Clive"
+    model_id = "inworld-tts-2"  # newest default; supports delivery_mode and language. Use inworld-tts-1.5-max for the previous flagship.
     sample_rate_hz = 48000
     output_file = "synthesis_timestamps_output.wav"
 

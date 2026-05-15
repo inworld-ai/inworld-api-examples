@@ -130,7 +130,7 @@ The server maintains full conversation history (system prompt plus all user and 
 | `SYSTEM_PROMPT` | No | Generic assistant prompt | System instructions sent to the LLM |
 | `INWORLD_MODEL` | No | `openai/gpt-4.1-mini` | LLM model or Inworld router name |
 | `TTS_VOICE` | No | `Clive` | Inworld TTS voice name |
-| `TTS_MODEL` | No | `inworld-tts-1.5-max` | Inworld TTS model (`inworld-tts-1.5-max` or `inworld-tts-1.5-mini`) |
+| `TTS_MODEL` | No | `inworld-tts-2` | Inworld TTS model (`inworld-tts-2`, `inworld-tts-1.5-max`, or `inworld-tts-1.5-mini`) |
 | `TRANSCRIPTION_PROVIDER` | No | `Deepgram` | Speech-to-text provider used by ConversationRelay |
 | `WELCOME_GREETING` | No | Generic greeting | Message spoken when the call connects |
 

@@ -25,7 +25,7 @@ export const config = {
 
   // Inworld TTS settings
   ttsVoice: optional("TTS_VOICE", "Clive"),
-  ttsModel: optional("TTS_MODEL", "inworld-tts-1.5-max"),
+  ttsModel: optional("TTS_MODEL", "inworld-tts-2"),
 
   transcriptionProvider: optional("TRANSCRIPTION_PROVIDER", "Deepgram"),
 

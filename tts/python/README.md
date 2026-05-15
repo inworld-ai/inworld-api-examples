@@ -168,19 +168,19 @@ python example_tts_low_latency_ws.py
 - Support for all synthesis methods (basic, streaming, WebSocket)
 - Batch testing with JSON sample files
 - Performance benchmarking
-- Advanced configuration options (temperature, timestamps, normalization)
+- Optional flags for timestamps and text normalization
 - Statistics and timing analysis
 
 **Usage:**
 ```bash
-# Basic synthesis
+# Basic synthesis (defaults to inworld-tts-2)
 python tts_cli.py --output-file output.wav --text "Hello world"
 
 # Streaming synthesis with timestamp alignment
 python tts_cli.py --output-file output.wav --text "Hello world" --stream --timestamp word
 
-# Custom temperature and text normalization
-python tts_cli.py --output-file output.wav --temperature 0.8 --text-normalization off
+# Text normalization off
+python tts_cli.py --output-file output.wav --text-normalization off
 
 # Batch testing with JSON samples
 python tts_cli.py --json-example ../tests-data/tts/tts_marketing_samples.json
@@ -188,7 +188,7 @@ python tts_cli.py --json-example ../tests-data/tts/tts_marketing_samples.json
 # Batch testing with streaming and character-level timestamps
 python tts_cli.py --json-example ../tests-data/tts/tts_marketing_samples.json --stream --timestamp character
 
-# Custom voice and model with all options
+# Pin to a specific tts-1.5 model (temperature only supported on tts-1.5)
 python tts_cli.py --output-file output.wav --voice-id Dennis --model-id inworld-tts-1.5-max --temperature 1.2 --timestamp word --text-normalization on
 ```
 
@@ -235,11 +235,13 @@ python example_voice_design_publish.py
 
 All examples support the following configuration through code modification:
 
-- **Voice ID:** Choose from available voices (default: "Dennis")
-- **Model ID:** TTS model to use (default: "inworld-tts-1.5-max")
+- **Voice ID:** Choose from available voices. Examples rotate across `Sarah`, `Jason`, `Clive`, `Dennis`, and `Hana`.
+- **Model ID:** TTS model to use (default: `inworld-tts-2`; `inworld-tts-1.5-max` and `inworld-tts-1.5-mini` are still supported)
 - **Audio Format:** LINEAR16, 48kHz for non-streaming; streaming examples (`example_tts_stream.py`, `example_tts_stream_timestamps.py`) use MP3
 - **Output File:** Customize output filename and location
-- **Temperature:** Control voice variation (0.0-1.0)
+- **Delivery Mode** *(`inworld-tts-2` only)*: `STABLE`, `BALANCED` (default), or `CREATIVE` — see [docs](https://docs.inworld.ai/api-reference/ttsAPI/texttospeech/synthesize-speech-stream#body-delivery-mode).
+- **Language** *(`inworld-tts-2` only)*: BCP-47 tag such as `en-US`, `fr-FR`, `ja-JP` — see [docs](https://docs.inworld.ai/api-reference/ttsAPI/texttospeech/synthesize-speech-stream#body-language).
+- **Temperature** *(`inworld-tts-1.5` only)*: Control voice variation (0.0-2.0). Ignored on `inworld-tts-2`.
 - **Timestamps:** Get word-level timing information
 - **Text Normalization:** Control how text is processed
 - **Batch Processing:** Process multiple texts from JSON files

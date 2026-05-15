@@ -125,8 +125,8 @@ def main():
     
     # Configuration
     text = "Hello, adventurer! What a beautiful day, isn't it?"
-    voice_id = "Dennis"
-    model_id = "inworld-tts-1.5-max"  # max model for non-streaming: higher quality
+    voice_id = "Sarah"
+    model_id = "inworld-tts-2"  # newest default; supports delivery_mode and language. Use inworld-tts-1.5-max for the previous flagship.
     sample_rate_hz = 48000
     output_file = "synthesis_output.wav"
 

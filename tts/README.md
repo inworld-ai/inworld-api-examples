@@ -8,6 +8,15 @@
 
 See each subdirectory's README for setup and usage.
 
+## Models
+
+All examples default to **`inworld-tts-2`**, the newest model. It supports 100+ languages and exposes two tts-2-only knobs:
+
+- [`deliveryMode`](https://docs.inworld.ai/api-reference/ttsAPI/texttospeech/synthesize-speech-stream#body-delivery-mode) — `STABLE`, `BALANCED` (default), or `CREATIVE` to trade off consistency vs. expressiveness.
+- [`language`](https://docs.inworld.ai/api-reference/ttsAPI/texttospeech/synthesize-speech-stream#body-language) — BCP-47 language tag (e.g., `en-US`, `fr-FR`, `ja-JP`).
+
+The previous-generation models `inworld-tts-1.5-max` and `inworld-tts-1.5-mini` are still supported — pass them via `model_id`/`modelId` (or `--model-id` on the CLI) if you need them. Temperature is only honored by the 1.5 family.
+
 ## TTS example options: when to use which
 
 For real-time use cases, minimizing latency is critical. Inworld offers three ways to synthesize speech; choose based on your latency and integration needs:

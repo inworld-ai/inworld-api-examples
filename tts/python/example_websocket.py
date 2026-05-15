@@ -235,17 +235,17 @@ Examples:
   # WebSocket synthesis with word-level timestamps
   python example_websocket.py --timestamp word
   
-  # WebSocket synthesis with custom model and character timestamps
+  # WebSocket synthesis with the previous-generation streaming model
   python example_websocket.py --model-id inworld-tts-1.5-mini --timestamp character
         """
     )
-    
-    parser.add_argument("--model-id", default="inworld-tts-1.5-mini", 
-                       help="Model ID to use (default: inworld-tts-1.5-mini)")
+
+    parser.add_argument("--model-id", default="inworld-tts-2",
+                       help="Model ID to use (default: inworld-tts-2; supports delivery_mode and language)")
     parser.add_argument("--timestamp", choices=["word", "character"], default=None,
                        help="Enable timestamp alignment: 'word' for word-level, 'character' for character-level")
-    parser.add_argument("--voice-id", default="Ashley",
-                       help="Voice ID to use (default: Ashley)")
+    parser.add_argument("--voice-id", default="Hana",
+                       help="Voice ID to use (default: Hana)")
     parser.add_argument("--text", default="Hello, adventurer! What a beautiful day, isn't it?...",
                        help="Text to synthesize")
     parser.add_argument("--auto-mode", action="store_true",
