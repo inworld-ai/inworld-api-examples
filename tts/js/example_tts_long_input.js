@@ -529,8 +529,8 @@ async function main() {
     if (!apiKey) return 1;
     
     // Configuration - modify these for your use case
-    const voiceId = 'Edward';
-    const modelId = 'inworld-tts-1.5-max'; // max model for non-streaming: higher quality
+    const voiceId = 'Dennis';
+    const modelId = 'inworld-tts-2'; // newest default; supports deliveryMode and language. Use 'inworld-tts-1.5-max' for the previous flagship.
     const outputFile = 'synthesis_long_output.wav';
     const inputFile = path.join(__dirname, INPUT_FILE_PATH);
     

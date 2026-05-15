@@ -101,9 +101,8 @@ class InworldService {
             const warmupBody = {
                 text: 'hi',
                 voiceId,
-                modelId: 'inworld-tts-1.5-mini',
-                audioConfig: { audioEncoding: 'MP3', sampleRateHertz: 44100 },
-                temperature: 1.0
+                modelId: 'inworld-tts-2',
+                audioConfig: { audioEncoding: 'MP3', sampleRateHertz: 44100 }
             };
             const warmupResponse = await fetch(url, { method: 'POST', headers, body: JSON.stringify(warmupBody) });
             if (warmupResponse.body) await warmupResponse.arrayBuffer();
@@ -113,16 +112,15 @@ class InworldService {
         const requestStartTime = Date.now();
         let timeToFirstByte = null;
 
-        // Prepare request body 
+        // Prepare request body
         const requestBody = {
             text: text,
             voiceId,
-            modelId: 'inworld-tts-1.5-mini',
+            modelId: 'inworld-tts-2',
             audioConfig: {
                 audioEncoding: 'MP3',
                 sampleRateHertz: 44100  // Standardized to 44.1kHz for better browser compatibility
-            },
-            temperature: 1.0
+            }
         };
 
         const response = await fetch(url, {

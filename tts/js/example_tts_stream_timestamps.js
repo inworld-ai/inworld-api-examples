@@ -273,8 +273,8 @@ async function main() {
 
     // Configuration
     const text = "Hello, adventurer! What a beautiful day, isn't it?";
-    const voiceId = 'Dennis';
-    const modelId = 'inworld-tts-1.5-mini'; // mini model for streaming: lower latency
+    const voiceId = 'Hana';
+    const modelId = 'inworld-tts-2'; // newest default; supports deliveryMode and language. Use 'inworld-tts-1.5-mini' for the fastest legacy model.
     const outputFile = 'synthesis_stream_timestamps_output.mp3';
 
     try {

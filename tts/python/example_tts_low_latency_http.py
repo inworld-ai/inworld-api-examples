@@ -128,8 +128,8 @@ def main():
 
     # Configuration
     text = "Life moves pretty fast. Look around once in a while, or you might miss it."
-    voice_id = "Dennis"
-    model_id = "inworld-tts-1.5-mini"  # mini model for streaming: lower latency
+    voice_id = "Jason"
+    model_id = "inworld-tts-2"  # newest default; supports delivery_mode and language. Use inworld-tts-1.5-mini for the fastest legacy model.
 
     print(f"   Text: \"{text}\"")
     print(f"  Voice: {voice_id}")

@@ -172,8 +172,8 @@ async def main():
 
     # Configuration
     text = "Life moves pretty fast. Look around once in a while, or you might miss it."
-    voice_id = "Dennis"
-    model_id = "inworld-tts-1.5-mini"
+    voice_id = "Clive"
+    model_id = "inworld-tts-2"  # newest default; supports delivery_mode and language. Use inworld-tts-1.5-mini for the fastest legacy model.
     auto_mode = False
 
     print(f"   Text: \"{text}\"")

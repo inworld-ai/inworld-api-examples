@@ -137,8 +137,8 @@ async function main() {
 
     // Configuration
     const text = "Life moves pretty fast. Look around once in a while, or you might miss it.";
-    const voiceId = 'Dennis';
-    const modelId = 'inworld-tts-1.5-mini'; // mini model for streaming: lower latency
+    const voiceId = 'Jason';
+    const modelId = 'inworld-tts-2'; // newest default; supports deliveryMode and language. Use 'inworld-tts-1.5-mini' for the fastest legacy model.
 
     console.log(`   Text: "${text}"`);
     console.log(`  Voice: ${voiceId}`);

@@ -408,8 +408,8 @@ def main():
         return 1
     
     # Configuration - modify these for your use case
-    voice_id = "Edward"
-    model_id = "inworld-tts-1.5-max"  # max model for non-streaming: higher quality
+    voice_id = "Sarah"
+    model_id = "inworld-tts-2"  # newest default; supports delivery_mode and language. Use inworld-tts-1.5-max for the previous flagship.
     output_file = "synthesis_long_output.mp3"
     
     script_dir = Path(__file__).parent

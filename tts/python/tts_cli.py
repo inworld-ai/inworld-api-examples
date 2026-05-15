@@ -260,28 +260,29 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Basic synthesis
+  # Basic synthesis (uses inworld-tts-2)
   python tts_cli.py --output-file output.wav --text "Hello world"
-  
+
   # Streaming synthesis with timestamp alignment
   python tts_cli.py --output-file output.wav --text "Hello world" --stream --timestamp word
-  
-  # Custom temperature and text normalization
-  python tts_cli.py --output-file output.wav --temperature 0.8 --text-normalization off
-  
+
+  # Text normalization off
+  python tts_cli.py --output-file output.wav --text-normalization off
+
   # Batch testing with JSON samples
   python tts_cli.py --json-example ../tests-data/tts/tts_marketing_samples.json
 
   # Batch testing with streaming and character-level timestamps
   python tts_cli.py --json-example ../tests-data/tts/tts_marketing_samples.json --stream --timestamp character
-  
-  # Custom voice and model with all options
+
+  # Pin to a specific tts-1.5 model (temperature only supported on tts-1.5)
   python tts_cli.py --output-file output.wav --voice-id Dennis --model-id inworld-tts-1.5-mini --temperature 1.2 --timestamp word --text-normalization on
         """
     )
-    
+
     # Required parameters
-    parser.add_argument("--model-id", default="inworld-tts-1.5-mini", help="Model ID to use (default: inworld-tts-1.5-mini)")
+    parser.add_argument("--model-id", default="inworld-tts-2",
+                       help="Model ID to use (default: inworld-tts-2; pass inworld-tts-1.5-max or inworld-tts-1.5-mini for the previous generation)")
     parser.add_argument("--voice-id", default="Dennis", help="Voice ID to use (default: Dennis)")
     
     # Text input options
@@ -292,8 +293,8 @@ Examples:
     # Audio options
     parser.add_argument("--sample-rate", type=int, default=48000, help="Sample rate (default: 48000)")
     parser.add_argument("--stream", action="store_true", help="Use streaming synthesis")
-    parser.add_argument("--temperature", type=float, default=None, 
-                       help="Sampling temperature (0.0-2.0). Higher values = more random/expressive")
+    parser.add_argument("--temperature", type=float, default=None,
+                       help="Sampling temperature (0.0-2.0). Only supported on inworld-tts-1.5 models; ignored on inworld-tts-2")
     parser.add_argument("--timestamp", choices=["word", "character"], default=None,
                        help="Enable timestamp alignment: 'word' for word-level, 'character' for character-level")
     parser.add_argument("--text-normalization", choices=["on", "off"], default=None,

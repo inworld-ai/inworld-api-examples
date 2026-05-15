@@ -263,8 +263,8 @@ async function main() {
         {
             context_id: 'ctx-1',
             create: {
-                voice_id: 'Ashley',
-                model_id: 'inworld-tts-1.5-mini', // mini model for WebSocket: lower latency
+                voice_id: 'Hana',
+                model_id: 'inworld-tts-2', // newest default; supports deliveryMode and language. Use 'inworld-tts-1.5-mini' for the fastest legacy model.
                 audio_config: {
                     audio_encoding: 'OGG_OPUS',
                     sample_rate_hertz: 24000,

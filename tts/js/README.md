@@ -163,8 +163,8 @@ All examples use the following default configuration:
 ```javascript
 const config = {
     text: "Hello, adventurer! What a beautiful day, isn't it?",
-    voiceId: "Dennis", // or "Ashley" for WebSocket example
-    modelId: "inworld-tts-1.5-max", // timestamp examples use "inworld-tts-1.5-max"
+    voiceId: "Sarah", // examples rotate across Sarah, Jason, Clive, Dennis, Hana
+    modelId: "inworld-tts-2", // newest default; inworld-tts-1.5-max / inworld-tts-1.5-mini still supported
     audioConfig: {
         audioEncoding: "LINEAR16",  // use "MP3" for streaming examples (example_tts_stream.js, example_tts_stream_timestamps.js)
         sampleRateHertz: 48000
@@ -174,6 +174,13 @@ const config = {
 ```
 
 You can modify these values in each example file to test different voices, models, or text content.
+
+### `inworld-tts-2`-only options
+
+- [`deliveryMode`](https://docs.inworld.ai/api-reference/ttsAPI/texttospeech/synthesize-speech-stream#body-delivery-mode) — `STABLE`, `BALANCED` (default), or `CREATIVE` to trade off consistency vs. expressiveness.
+- [`language`](https://docs.inworld.ai/api-reference/ttsAPI/texttospeech/synthesize-speech-stream#body-language) — BCP-47 tag (e.g., `en-US`, `fr-FR`, `ja-JP`) to drive the localized voice prompt.
+
+`temperature` is only honored by `inworld-tts-1.5` models and is ignored on `inworld-tts-2`.
 
 ## API Endpoints
 

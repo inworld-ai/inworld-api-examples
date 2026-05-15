@@ -168,8 +168,8 @@ async function main() {
     
     // Configuration
     const text = "Hello, adventurer! What a beautiful day, isn't it?";
-    const voiceId = 'Dennis';
-    const modelId = 'inworld-tts-1.5-max'; // max model for non-streaming: higher quality
+    const voiceId = 'Sarah';
+    const modelId = 'inworld-tts-2'; // newest default; supports deliveryMode and language. Use 'inworld-tts-1.5-max' for the previous flagship.
     const sampleRateHz = 48000;
     const outputFile = 'synthesis_output.wav';
     

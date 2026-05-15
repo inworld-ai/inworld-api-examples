@@ -152,8 +152,8 @@ def main():
     
     # Configuration
     text = "Hello, adventurer! What a beautiful day, isn't it?"
-    voice_id = "Dennis"
-    model_id = "inworld-tts-1.5-mini"  # mini model for streaming: lower latency
+    voice_id = "Jason"
+    model_id = "inworld-tts-2"  # newest default; supports delivery_mode and language. Use inworld-tts-1.5-mini for the fastest legacy model.
     output_file = "synthesis_stream_output.mp3"
     
     try:
