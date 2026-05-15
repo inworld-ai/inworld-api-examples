@@ -169,6 +169,7 @@ python example_tts_low_latency_ws.py
 - Batch testing with JSON sample files
 - Performance benchmarking
 - Optional flags for timestamps and text normalization
+- Optional `--temperature` control for `inworld-tts-1.5-*` models
 - Statistics and timing analysis
 
 **Usage:**
