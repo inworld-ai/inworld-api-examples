@@ -1,0 +1,22 @@
+{
+  "private": true,
+  "name": "livekit-tts-benchmarks-js",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "TTS TTFB benchmarks for LiveKit Agents JS plugins (Inworld, ElevenLabs, Cartesia)",
+  "scripts": {
+    "bench:ws": "tsx benchmark_websocket_ttfb.ts",
+    "bench:http": "tsx benchmark_http_ttfb.ts"
+  },
+  "devDependencies": {
+    "@livekit/agents": "link:../agents-js/agents",
+    "@livekit/agents-plugin-inworld": "link:../agents-js/plugins/inworld",
+    "@livekit/agents-plugin-elevenlabs": "link:../agents-js/plugins/elevenlabs",
+    "@livekit/agents-plugin-cartesia": "link:../agents-js/plugins/cartesia",
+    "@livekit/rtc-node": "^0.13.24",
+    "dotenv": "^16.4.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.0.0",
+    "ws": "^8.16.0"
+  }
+}
