@@ -18,15 +18,18 @@ struct KeychainStore {
         return String(data: data, encoding: .utf8)
     }
 
-    func set(_ value: String, forKey key: String) {
+    @discardableResult
+    func set(_ value: String, forKey key: String) -> Bool {
         let data = Data(value.utf8)
         var query = baseQuery(key: key)
         let attributes = [kSecValueData as String: data]
         let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
         if status == errSecItemNotFound {
             query[kSecValueData as String] = data
-            SecItemAdd(query as CFDictionary, nil)
+            query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
         }
+        return status == errSecSuccess
     }
 
     func remove(forKey key: String) {

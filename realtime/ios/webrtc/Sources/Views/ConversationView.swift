@@ -43,10 +43,10 @@ struct ConversationView: View {
                 .padding()
             }
             .onChange(of: model.conversation.transcript) {
+                // No withAnimation: transcript mutates on every streaming delta, and
+                // animating each scroll causes jank during token-by-token output.
                 if let last = model.conversation.transcript.last {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        proxy.scrollTo(last.id, anchor: .bottom)
-                    }
+                    proxy.scrollTo(last.id, anchor: .bottom)
                 }
             }
         }

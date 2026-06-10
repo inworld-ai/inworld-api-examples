@@ -32,10 +32,17 @@ struct BackendJWTAuthProvider: AuthProvider {
         } catch {
             throw AuthError.backendRequestFailed("invalid config payload")
         }
+        var callsURL: URL?
+        if let urlString = config.url, !urlString.isEmpty {
+            guard let parsed = URL(string: urlString) else {
+                throw AuthError.backendRequestFailed("backend returned an invalid calls url: \(urlString)")
+            }
+            callsURL = parsed
+        }
         return RealtimeCredentials(
             authorizationHeader: "Bearer \(config.jwt)",
             apiBaseURL: URL(string: "https://api.inworld.ai")!,
-            callsURL: config.url.flatMap(URL.init(string:)),
+            callsURL: callsURL,
             preFetchedIceServers: config.iceServers
         )
     }
