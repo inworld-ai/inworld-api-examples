@@ -1,0 +1,6 @@
+*.xcodeproj
+Sources/App/Secrets.swift
+DerivedData/
+.DS_Store
+xcuserdata/
+.build/

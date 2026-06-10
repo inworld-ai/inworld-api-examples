@@ -1,0 +1,46 @@
+name: InworldVoiceAgent
+options:
+  bundleIdPrefix: ai.inworld
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  WebRTC:
+    url: https://github.com/stasel/WebRTC
+    exactVersion: 148.0.0
+targets:
+  InworldVoiceAgent:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+        excludes: ["**/*.example"]
+    dependencies:
+      - package: WebRTC
+    info:
+      path: Sources/Info.plist
+      properties:
+        NSMicrophoneUsageDescription: "Microphone is used to talk to the voice agent."
+        UIBackgroundModes: [audio]
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    settings:
+      base:
+        SWIFT_VERSION: "5.10"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        INFOPLIST_KEY_CFBundleDisplayName: Inworld Voice
+  InworldVoiceAgentTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests]
+    dependencies:
+      - target: InworldVoiceAgent
+    settings:
+      base:
+        SWIFT_VERSION: "5.10"
+        GENERATE_INFOPLIST_FILE: YES
