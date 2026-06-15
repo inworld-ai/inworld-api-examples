@@ -13,7 +13,7 @@
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
     "twilio": "^5.8.0",
-    "ws": "^8.18.3"
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.1",
