@@ -14,11 +14,6 @@ try { require('dotenv').config(); } catch (_) {}
 
 const API_BASE = 'https://api.inworld.ai';
 const CHUNK_DURATION_MS = 100;
-/** Delay after last audio chunk before endTurn so the server can process trailing samples. */
-const END_OF_AUDIO_DELAY_MS = 350;
-/** After endTurn, wait this long with no new message before sending closeStream (so server can send all finals including last word). */
-const SILENCE_BEFORE_CLOSE_MS = 1500;
-const CLOSE_GRACE_MS = 2500;
 const DEFAULT_SAMPLE_RATE = 16000;
 const DEFAULT_CHANNELS = 1;
 
@@ -79,24 +74,9 @@ function streamTranscribe(pcmPath, sampleRate, channels, apiKey, options = {}) {
 
     const finalTexts = [];
     let lastPartial = '';
-    let audioComplete = false;
-    let silenceTimeout = null;
 
     return new Promise((resolve, reject) => {
         const ws = new WebSocket(url, { headers });
-
-        function checkClose() {
-            if (!audioComplete) return;
-            if (silenceTimeout) clearTimeout(silenceTimeout);
-            silenceTimeout = setTimeout(() => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ closeStream: {} }));
-                    setTimeout(() => {
-                        if (ws.readyState === WebSocket.OPEN) ws.close();
-                    }, CLOSE_GRACE_MS);
-                }
-            }, SILENCE_BEFORE_CLOSE_MS);
-        }
 
         ws.on('error', (err) => {
             console.log(`WebSocket error: ${err.message}`);
@@ -130,17 +110,11 @@ function streamTranscribe(pcmPath, sampleRate, channels, apiKey, options = {}) {
                     }));
                     await new Promise(r => setTimeout(r, CHUNK_DURATION_MS));
                 }
-                await new Promise(r => setTimeout(r, END_OF_AUDIO_DELAY_MS));
-                audioComplete = true;
-                ws.send(JSON.stringify({ endTurn: {} }));
-                checkClose();
+                ws.send(JSON.stringify({ closeStream: {} }));
             })().catch(reject);
         });
 
         ws.on('message', (raw) => {
-            if (silenceTimeout) clearTimeout(silenceTimeout);
-            silenceTimeout = null;
-
             try {
                 const msg = JSON.parse(raw.toString());
                 const transcription = msg.result && msg.result.transcription;
@@ -163,8 +137,6 @@ function streamTranscribe(pcmPath, sampleRate, channels, apiKey, options = {}) {
                     console.log(`Voice profile:\n${formatVoiceProfile(voiceProfile)}`);
                 }
             } catch (_) {}
-
-            if (audioComplete) checkClose();
         });
 
         ws.on('close', () => {
