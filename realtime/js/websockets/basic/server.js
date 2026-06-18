@@ -10,10 +10,10 @@ dotenv.config({ path: resolve(__dirname, '../../.env') });
 
 const API_KEY = process.env.INWORLD_API_KEY || '';
 
-const html = readFileSync(resolve(__dirname, 'index.html'));
+const indexPath = resolve(__dirname, 'index.html');
 const server = createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/html' });
-  res.end(html);
+  res.end(readFileSync(indexPath));
 });
 const wss = new WebSocketServer({ server, path: '/ws' });
 

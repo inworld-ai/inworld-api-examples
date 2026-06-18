@@ -3,46 +3,81 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WebSocket Voice Agent</title>
+<title>Realtime API Feature Tester</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0a0a0a; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
-  #toolbar { padding: 12px 16px; border-bottom: 1px solid #222; flex-shrink: 0; }
-  #btn { padding: 8px 20px; border: 1px solid #444; border-radius: 6px; background: #1a1a1a; color: #e0e0e0; font-size: 14px; cursor: pointer; transition: background .15s; }
+  #toolbar { padding: 10px 16px; border-bottom: 1px solid #222; flex-shrink: 0; display: flex; align-items: center; gap: 12px; }
+  #toolbar h1 { font-size: 13px; font-weight: 600; color: #aaa; letter-spacing: .04em; }
+  #btn { padding: 7px 18px; border: 1px solid #444; border-radius: 6px; background: #1a1a1a; color: #e0e0e0; font-size: 13px; cursor: pointer; transition: background .15s; margin-left: auto; }
   #btn:hover:not(:disabled) { background: #2a2a2a; }
   #btn:disabled { opacity: .4; cursor: default; }
   #btn.active { border-color: #c44; color: #c44; }
-  #panes { display: flex; flex: 1; overflow: hidden; }
-  .pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-  .pane + .pane { border-left: 1px solid #222; }
-  .pane-header { padding: 8px 16px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #666; border-bottom: 1px solid #1a1a1a; flex-shrink: 0; }
-  .pane-body { flex: 1; overflow-y: auto; padding: 12px 16px; font-size: 13px; line-height: 1.6; }
+  #panes { display: grid; grid-template-columns: 320px 1fr 1fr; flex: 1; overflow: hidden; }
+  .pane { display: flex; flex-direction: column; overflow: hidden; border-left: 1px solid #222; }
+  .pane:first-child { border-left: none; }
+  .pane-header { padding: 7px 14px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: #666; border-bottom: 1px solid #1a1a1a; flex-shrink: 0; }
+  .pane-body { flex: 1; overflow-y: auto; padding: 12px 14px; font-size: 13px; line-height: 1.6; }
+
+  /* Controls */
+  details { margin-bottom: 8px; border: 1px solid #1a1a1a; border-radius: 4px; }
+  details > summary { padding: 7px 10px; cursor: pointer; font-size: 11.5px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: .05em; list-style: none; user-select: none; background: #0e0e0e; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::before { content: '▸ '; color: #555; font-size: 9px; }
+  details[open] > summary::before { content: '▾ '; }
+  details > .group-body { padding: 10px 12px; border-top: 1px solid #1a1a1a; }
+  .row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; }
+  .row:last-child { margin-bottom: 0; }
+  .row label { color: #999; min-width: 78px; font-size: 11px; }
+  .row input[type="text"], .row select, .row textarea { flex: 1; background: #050505; border: 1px solid #222; color: #ddd; padding: 4px 7px; border-radius: 3px; font-size: 11.5px; font-family: inherit; }
+  .row textarea { min-height: 54px; resize: vertical; font-family: 'SF Mono', monospace; }
+  .row input[type="checkbox"] { accent-color: #6b9eff; }
+  .apply-btn { width: 100%; padding: 5px 8px; border: 1px solid #2a2a2a; background: #1a1a1a; color: #888; border-radius: 3px; font-size: 10.5px; cursor: pointer; text-transform: uppercase; letter-spacing: .05em; margin-top: 4px; }
+  .apply-btn:hover:not(:disabled) { background: #232323; color: #ccc; }
+  .apply-btn:disabled { opacity: .35; cursor: default; }
+  .hint { font-size: 10.5px; color: #555; margin-top: 4px; line-height: 1.4; }
+
+  /* Transcript */
   .turn { margin-bottom: 12px; }
   .turn-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
   .turn-label.user { color: #6b9eff; }
   .turn-label.agent { color: #7ecf8a; }
   .turn-text { white-space: pre-wrap; word-wrap: break-word; }
+
+  /* Events */
   .evt { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 11.5px; line-height: 1.5; border-bottom: 1px solid #111; word-break: break-all; }
   .evt-row { padding: 3px 0; cursor: pointer; }
   .evt-row:hover { background: #151515; }
   .evt-type { color: #b8b; }
+  .evt-type.feat-backchannel { color: #f5b342; }
+  .evt-type.feat-responsiveness { color: #42c5f5; }
+  .evt-type.feat-smartturn { color: #f59ed3; }
+  .evt-type.feat-memory { color: #b5e342; }
+  .evt-type.feat-usage { color: #c5a3ff; }
   .evt-dir { display: inline-block; width: 16px; text-align: center; margin-right: 4px; }
   .evt-dir.in { color: #6b9eff; }
   .evt-dir.out { color: #e8a45a; }
   .evt-time { color: #444; margin-right: 6px; }
-  .evt-json { display: none; padding: 4px 8px; margin: 2px 0 4px 20px; background: #111; border-radius: 4px; font-size: 10.5px; color: #888; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
+  .evt-json { display: none; padding: 4px 8px; margin: 2px 0 4px 20px; background: #111; border-radius: 4px; font-size: 10.5px; color: #888; white-space: pre-wrap; max-height: 220px; overflow-y: auto; }
   .evt-json.open { display: block; }
-  @media (max-width: 640px) {
-    #events-pane { display: none; }
-    .pane + .pane { border-left: none; }
+
+  @media (max-width: 900px) {
+    #panes { grid-template-columns: 1fr; }
+    .pane { border-left: none; border-top: 1px solid #222; }
+    .pane:first-child { border-top: none; }
   }
 </style>
 </head>
 <body>
   <div id="toolbar">
+    <h1>Realtime API Feature Tester</h1>
     <button id="btn" onclick="toggle()">Start Conversation</button>
   </div>
   <div id="panes">
+    <div class="pane" id="controls-pane">
+      <div class="pane-header">Controls</div>
+      <div class="pane-body" id="controls"></div>
+    </div>
     <div class="pane" id="transcript-pane">
       <div class="pane-header">Transcript</div>
       <div class="pane-body" id="transcript"></div>
@@ -55,6 +90,7 @@
 
   <script>
     const btn = document.getElementById('btn');
+    const controlsEl = document.getElementById('controls');
     const transcriptEl = document.getElementById('transcript');
     const eventsEl = document.getElementById('events');
     let ws, stream, active = false;
@@ -64,7 +100,296 @@
     let sessionStart;
     let currentTurn = null;
 
-    /* ── UI helpers (identical to webrtc) ─────────────────────────── */
+    /* ── Config state ─────────────────────────────────────────────── */
+
+    const cfg = {
+      model: 'openai/gpt-4o-mini',
+      instructions: 'You are a friendly voice assistant. Keep responses brief.',
+      voice: 'Clive',
+      ttsModel: 'inworld-tts-2',
+      sttModel: 'inworld/inworld-stt-1',
+      deliveryMode: 'STABLE',
+      conversational: false,
+      vadType: 'semantic_vad',
+      eagerness: 'high',
+      language: 'en-US',
+      backchannelEnabled: false,
+      backchannelAllowedPhrases: '',
+      backchannelPromptTemplate: '',
+      backchannelDeciderKind: 'llm',
+      responsivenessEnabled: false,
+      responsivenessPromptTemplate: '',
+      responsivenessPauseText: '',
+      memoryEnabled: false,
+    };
+
+    /* ── Controls UI ──────────────────────────────────────────────── */
+
+    const FEAT_CLASS = {
+      'response.backchannel.audio.delta': 'feat-backchannel',
+      'response.backchannel.audio.done': 'feat-backchannel',
+      'response.backchannel.skipped': 'feat-backchannel',
+      'response.responsiveness.audio.delta': 'feat-responsiveness',
+      'response.responsiveness.audio.done': 'feat-responsiveness',
+      'input_audio_buffer.turn_suggestion': 'feat-smartturn',
+      'input_audio_buffer.turn_suggestion_revoked': 'feat-smartturn',
+      'input_audio_buffer.timeout_triggered': 'feat-smartturn',
+      'response.memory.extracted': 'feat-memory',
+    };
+
+    function buildTurnDetection() {
+      if (cfg.vadType === 'semantic_vad') {
+        return { type: 'semantic_vad', eagerness: cfg.eagerness, create_response: true, interrupt_response: true };
+      }
+      return { type: 'server_vad', create_response: true, interrupt_response: true };
+    }
+
+    function buildProviderData() {
+      const pd = {
+        tts: {
+          delivery_mode: cfg.deliveryMode,
+          conversational: cfg.conversational,
+          language: cfg.language,
+        }
+      };
+      if (cfg.backchannelEnabled) pd.backchannel = buildBackchannelConfig();
+      if (cfg.responsivenessEnabled) pd.responsiveness = buildResponsivenessConfig();
+      if (cfg.memoryEnabled) pd.memory = { enabled: true, turn_interval: 5, max_facts: 50 };
+      return pd;
+    }
+
+    function parsePhrases(raw) {
+      // Accept newline- or comma-separated. Trim. Drop empty.
+      return raw.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
+    }
+
+    function buildBackchannelConfig() {
+      const bc = { enabled: true, decider_kind: cfg.backchannelDeciderKind };
+      const phrases = parsePhrases(cfg.backchannelAllowedPhrases);
+      if (cfg.backchannelAllowedPhrases.trim()) bc.allowed_phrases = phrases;
+      if (cfg.backchannelPromptTemplate.trim()) bc.prompt_template = cfg.backchannelPromptTemplate;
+      return bc;
+    }
+
+    function buildResponsivenessConfig() {
+      const r = { enabled: true };
+      if (cfg.responsivenessPromptTemplate.trim()) r.prompt_template = cfg.responsivenessPromptTemplate;
+      if (cfg.responsivenessPauseText.trim()) r.pause_text = cfg.responsivenessPauseText;
+      return r;
+    }
+
+    function buildFullSessionUpdate() {
+      return {
+        type: 'session.update',
+        session: {
+          type: 'realtime',
+          model: cfg.model,
+          instructions: cfg.instructions,
+          output_modalities: ['audio', 'text'],
+          audio: {
+            input: {
+              transcription: { model: cfg.sttModel },
+              turn_detection: buildTurnDetection(),
+            },
+            output: { model: cfg.ttsModel, voice: cfg.voice },
+          },
+          providerData: buildProviderData(),
+        }
+      };
+    }
+
+    function renderControls() {
+      controlsEl.innerHTML = `
+        <details open>
+          <summary>Model &amp; Instructions</summary>
+          <div class="group-body">
+            <div class="row"><label>LLM</label><input type="text" id="c-model" value="${attr(cfg.model)}"></div>
+            <div class="row"><label>Prompt</label><textarea id="c-instructions">${escHtml(cfg.instructions)}</textarea></div>
+            <button class="apply-btn" data-apply="prompt">Apply mid-session</button>
+            <div class="hint">Mid-session session.update with model + instructions only.</div>
+          </div>
+        </details>
+
+        <details open>
+          <summary>Turn Detection (VAD)</summary>
+          <div class="group-body">
+            <div class="row"><label>Type</label><select id="c-vadType">
+              <option value="semantic_vad">semantic_vad</option>
+              <option value="server_vad">server_vad</option>
+            </select></div>
+            <div class="row" id="c-eagerness-row"><label>Eagerness</label><select id="c-eagerness">
+              <option value="low">low</option>
+              <option value="medium">medium</option>
+              <option value="high">high</option>
+              <option value="auto">auto</option>
+            </select></div>
+            <button class="apply-btn" data-apply="vad">Apply mid-session</button>
+            <div class="hint">With <code>server_vad</code>, watch for <code>input_audio_buffer.turn_suggestion</code> / <code>turn_suggestion_revoked</code> (smart-turn detector).</div>
+          </div>
+        </details>
+
+        <details open>
+          <summary>TTS Output</summary>
+          <div class="group-body">
+            <div class="row"><label>Model</label><input type="text" id="c-ttsModel" value="${attr(cfg.ttsModel)}"></div>
+            <div class="row"><label>Voice</label><input type="text" id="c-voice" value="${attr(cfg.voice)}"></div>
+            <div class="row"><label>Delivery</label><select id="c-deliveryMode">
+              <option value="STABLE">STABLE</option>
+              <option value="BALANCED">BALANCED</option>
+              <option value="CREATIVE">CREATIVE</option>
+            </select></div>
+            <div class="row"><label>Conversational</label><input type="checkbox" id="c-conversational"></div>
+            <button class="apply-btn" data-apply="tts">Apply mid-session</button>
+            <div class="hint"><code>conversational</code> locks the upstream TTS path at session-open. Mid-session toggles echo back in <code>session.updated</code> but runtime behavior won't change.</div>
+          </div>
+        </details>
+
+        <details>
+          <summary>Language (hot-swap)</summary>
+          <div class="group-body">
+            <div class="row"><label>Language</label><select id="c-language">
+              <option value="en-US">en-US</option>
+              <option value="fr-FR">fr-FR</option>
+              <option value="es-ES">es-ES</option>
+              <option value="es-MX">es-MX</option>
+              <option value="de-DE">de-DE</option>
+              <option value="it-IT">it-IT</option>
+              <option value="pt-BR">pt-BR</option>
+              <option value="ja-JP">ja-JP</option>
+              <option value="ko-KR">ko-KR</option>
+              <option value="zh-CN">zh-CN</option>
+              <option value="ru-RU">ru-RU</option>
+            </select></div>
+            <button class="apply-btn" data-apply="language">Apply mid-session</button>
+            <div class="hint">Partial <code>session.update</code> with only <code>providerData.tts.language</code> — TTS should flip on the next response.</div>
+          </div>
+        </details>
+
+        <details>
+          <summary>Backchannel</summary>
+          <div class="group-body">
+            <div class="row"><label>Enabled</label><input type="checkbox" id="c-backchannelEnabled"></div>
+            <div class="row"><label>Phrases</label><textarea id="c-backchannelAllowedPhrases" placeholder="One per line. Empty = server default bank.">${escHtml(cfg.backchannelAllowedPhrases)}</textarea></div>
+            <div class="row"><label>Prompt</label><textarea id="c-backchannelPromptTemplate" placeholder="Override decider system prompt. Go template — supports {{.PhrasesList}}, {{.History}}, {{.Partial}}. Append a language directive (e.g. 'Reply in French only.') for non-English.">${escHtml(cfg.backchannelPromptTemplate)}</textarea></div>
+            <div class="row"><label>Decider</label><select id="c-backchannelDeciderKind">
+              <option value="llm">llm (small LLM picks a phrase)</option>
+              <option value="rule">rule (random from bank)</option>
+            </select></div>
+            <button class="apply-btn" data-apply="backchannel">Apply mid-session</button>
+            <div class="hint">Acknowledgements during user speech. <span class="evt-type feat-backchannel">response.backchannel.*</span> events. Voice/language of the *audio* uses your TTS settings; *what's said* is controlled by Phrases / Prompt above.</div>
+          </div>
+        </details>
+
+        <details>
+          <summary>Responsiveness (filler)</summary>
+          <div class="group-body">
+            <div class="row"><label>Enabled</label><input type="checkbox" id="c-responsivenessEnabled"></div>
+            <div class="row"><label>Prompt</label><textarea id="c-responsivenessPromptTemplate" placeholder="Override filler LLM system prompt. Append a language directive (e.g. 'Reply in French only.') — default is English-biased.">${escHtml(cfg.responsivenessPromptTemplate)}</textarea></div>
+            <div class="row"><label>Pause text</label><input type="text" id="c-responsivenessPauseText" placeholder="Optional bridge phrase TTS'd between filler and main answer" value="${attr(cfg.responsivenessPauseText)}"></div>
+            <button class="apply-btn" data-apply="responsiveness">Apply mid-session</button>
+            <div class="hint">Short filler audio (e.g. "let me think") TTS'd between user speech and the main response. Audio rides on <code>response.output_audio.delta</code>. Voice/language uses your TTS settings.</div>
+          </div>
+        </details>
+
+        <details>
+          <summary>Memory</summary>
+          <div class="group-body">
+            <div class="row"><label>Enabled</label><input type="checkbox" id="c-memoryEnabled"></div>
+            <button class="apply-btn" data-apply="memory">Apply mid-session</button>
+            <div class="hint">Extracts facts every N turns. Watch <span class="evt-type feat-memory">response.memory.*</span>.</div>
+          </div>
+        </details>
+      `;
+
+      // Bind inputs → cfg
+      const inputs = [
+        ['c-model', 'model'],
+        ['c-instructions', 'instructions'],
+        ['c-voice', 'voice'],
+        ['c-ttsModel', 'ttsModel'],
+        ['c-deliveryMode', 'deliveryMode'],
+        ['c-vadType', 'vadType'],
+        ['c-eagerness', 'eagerness'],
+        ['c-language', 'language'],
+        ['c-backchannelAllowedPhrases', 'backchannelAllowedPhrases'],
+        ['c-backchannelPromptTemplate', 'backchannelPromptTemplate'],
+        ['c-backchannelDeciderKind', 'backchannelDeciderKind'],
+        ['c-responsivenessPromptTemplate', 'responsivenessPromptTemplate'],
+        ['c-responsivenessPauseText', 'responsivenessPauseText'],
+      ];
+      for (const [id, key] of inputs) {
+        const el = document.getElementById(id);
+        if (el.tagName === 'SELECT') el.value = cfg[key];
+        el.addEventListener('input', () => { cfg[key] = el.value; });
+      }
+      const bools = [
+        ['c-conversational', 'conversational'],
+        ['c-backchannelEnabled', 'backchannelEnabled'],
+        ['c-responsivenessEnabled', 'responsivenessEnabled'],
+        ['c-memoryEnabled', 'memoryEnabled'],
+      ];
+      for (const [id, key] of bools) {
+        const el = document.getElementById(id);
+        el.checked = cfg[key];
+        el.addEventListener('change', () => { cfg[key] = el.checked; });
+      }
+
+      // Hide eagerness when server_vad
+      const vadSel = document.getElementById('c-vadType');
+      const eagRow = document.getElementById('c-eagerness-row');
+      const syncEag = () => { eagRow.style.display = vadSel.value === 'semantic_vad' ? 'flex' : 'none'; };
+      vadSel.addEventListener('change', syncEag);
+      syncEag();
+
+      // Apply buttons
+      controlsEl.querySelectorAll('[data-apply]').forEach(b => {
+        b.addEventListener('click', () => applyMidSession(b.dataset.apply));
+      });
+      updateApplyButtons();
+    }
+
+    function updateApplyButtons() {
+      const enabled = active;
+      controlsEl.querySelectorAll('.apply-btn').forEach(b => { b.disabled = !enabled; });
+    }
+
+    /* ── Partial session.update senders ──────────────────────────── */
+
+    function applyMidSession(section) {
+      if (!active) return;
+      let session;
+      switch (section) {
+        case 'prompt':
+          session = { type: 'realtime', model: cfg.model, instructions: cfg.instructions };
+          break;
+        case 'vad':
+          session = { type: 'realtime', audio: { input: { turn_detection: buildTurnDetection() } } };
+          break;
+        case 'tts':
+          session = {
+            type: 'realtime',
+            audio: { output: { model: cfg.ttsModel, voice: cfg.voice } },
+            providerData: { tts: { delivery_mode: cfg.deliveryMode, conversational: cfg.conversational } }
+          };
+          break;
+        case 'language':
+          session = { type: 'realtime', providerData: { tts: { language: cfg.language } } };
+          break;
+        case 'backchannel':
+          session = { type: 'realtime', providerData: { backchannel: cfg.backchannelEnabled ? buildBackchannelConfig() : { enabled: false } } };
+          break;
+        case 'responsiveness':
+          session = { type: 'realtime', providerData: { responsiveness: cfg.responsivenessEnabled ? buildResponsivenessConfig() : { enabled: false } } };
+          break;
+        case 'memory':
+          session = { type: 'realtime', providerData: cfg.memoryEnabled ? { memory: { enabled: true, turn_interval: 5, max_facts: 50 } } : { memory: { enabled: false } } };
+          break;
+        default: return;
+      }
+      sendWs({ type: 'session.update', session });
+    }
+
+    /* ── UI helpers ──────────────────────────────────────────────── */
 
     function appendTurn(role) {
       const div = document.createElement('div');
@@ -102,7 +427,8 @@
       const elapsed = ((Date.now() - sessionStart) / 1000).toFixed(1);
       const row = document.createElement('div');
       row.className = 'evt-row';
-      row.innerHTML = `<span class="evt-time">${elapsed}s</span><span class="evt-dir ${dir}">${dir === 'in' ? '◂' : '▸'}</span><span class="evt-type">${escHtml(type)}</span>`;
+      const cls = FEAT_CLASS[type] ? ' ' + FEAT_CLASS[type] : (type === 'response.done' && fullPayload?.response?.usage ? ' feat-usage' : '');
+      row.innerHTML = `<span class="evt-time">${elapsed}s</span><span class="evt-dir ${dir}">${dir === 'in' ? '◂' : '▸'}</span><span class="evt-type${cls}">${escHtml(type)}</span>`;
       const jsonDiv = document.createElement('div');
       jsonDiv.className = 'evt-json';
       jsonDiv.textContent = JSON.stringify(fullPayload, null, 2);
@@ -114,6 +440,7 @@
     }
 
     function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function attr(s) { return String(s).replace(/"/g, '&quot;'); }
 
     /* ── WebSocket send helper ────────────────────────────────────── */
 
@@ -166,6 +493,18 @@
         const idx = activeSources.indexOf(src);
         if (idx !== -1) activeSources.splice(idx, 1);
       };
+    }
+
+    function queueBackchannelAudio(base64) {
+      // Backchannel audio plays immediately during user speech — bypass `interrupted` gate.
+      if (!playbackCtx) return;
+      const f32 = base64ToFloat32(base64);
+      const buf = playbackCtx.createBuffer(1, f32.length, 24000);
+      buf.getChannelData(0).set(f32);
+      const src = playbackCtx.createBufferSource();
+      src.buffer = buf;
+      src.connect(playbackCtx.destination);
+      src.start();
     }
 
     function flushAudio() {
@@ -253,35 +592,30 @@
 
         switch (type) {
           case 'session.created':
-            sendWs({
-              type: 'session.update',
-              session: {
-                type: 'realtime',
-                model: 'openai/gpt-4o-mini',
-                instructions: 'You are a friendly voice assistant. Keep responses brief.',
-                output_modalities: ['audio', 'text'],
-                audio: {
-                  input: { turn_detection: { type: 'semantic_vad', eagerness: 'high', create_response: true, interrupt_response: true } },
-                  output: { model: 'inworld-tts-2', voice: 'Clive' }
-                }
-              }
-            });
+            sendWs(buildFullSessionUpdate());
             break;
 
           case 'session.updated':
-            btn.textContent = 'Stop'; btn.className = 'active'; btn.disabled = false; active = true;
-            await startCapture();
-            sendWs({
-              type: 'conversation.item.create',
-              item: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'Say hello and ask how you can help. One sentence max.' }] }
-            });
-            sendWs({ type: 'response.create' });
+            if (!active) {
+              btn.textContent = 'Stop'; btn.className = 'active'; btn.disabled = false; active = true;
+              updateApplyButtons();
+              await startCapture();
+              sendWs({
+                type: 'conversation.item.create',
+                item: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'Say hello and ask how you can help. One sentence max.' }] }
+              });
+              sendWs({ type: 'response.create' });
+            }
             break;
 
           /* ── audio playback ── */
           case 'response.audio.delta':
           case 'response.output_audio.delta':
             if (msg.delta) queueAudio(msg.delta);
+            break;
+
+          case 'response.backchannel.audio.delta':
+            if (msg.delta) queueBackchannelAudio(msg.delta);
             break;
 
           /* ── transcript deltas ── */
@@ -342,9 +676,12 @@
       stream = null;
       active = false; interrupted = false; currentTurn = null;
       btn.textContent = 'Start Conversation'; btn.className = ''; btn.disabled = false;
+      updateApplyButtons();
     }
 
     function toggle() { active ? stop() : start().catch(e => { console.error(e); stop(); }); }
+
+    renderControls();
   </script>
 </body>
 </html>
