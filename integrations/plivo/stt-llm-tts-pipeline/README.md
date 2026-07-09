@@ -98,7 +98,7 @@ On startup the server **auto-configures Plivo** — it creates (or updates) a Pl
 
 ## Example implementation
 
-- [Plivo + Inworld cascaded (STT + LLM + TTS) integration example](https://github.com/sarveshpatil-plivo/inworld-api-examples/tree/plivo-inworld-services/integrations/plivo/stt-llm-tts-pipeline) — a complete Node.js reference implementation that bridges Plivo audio streaming to Inworld STT, the Router/LLM, and TTS.
+- [Plivo + Inworld cascaded (STT + LLM + TTS) integration example](./) — a complete Node.js reference implementation that bridges Plivo audio streaming to Inworld STT, the Router/LLM, and TTS.
 
 ## Further Reading
 
