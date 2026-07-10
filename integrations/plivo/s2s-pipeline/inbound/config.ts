@@ -17,7 +17,7 @@ export const config = {
   publicUrl: required("PUBLIC_URL").replace(/\/$/, ""),
   plivoAuthId: required("PLIVO_AUTH_ID"),
   plivoAuthToken: required("PLIVO_AUTH_TOKEN"),
-  plivoPhoneNumber: required("PLIVO_PHONE_NUMBER"),
+  plivoPhoneNumber: optional("PLIVO_PHONE_NUMBER", ""),
 
   llmModel: "openai/gpt-4.1",
   sttModel: "inworld/inworld-stt-1",
