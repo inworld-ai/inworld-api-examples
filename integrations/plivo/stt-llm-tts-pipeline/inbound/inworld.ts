@@ -1,5 +1,6 @@
 // Inworld cascaded clients — STT and TTS over WebSocket, Router/LLM over OpenAI-compatible SSE.
-// Audio is μ-law 8 kHz on both ends, so it flows to and from Plivo with no conversion.
+// Caller audio is μ-law 8 kHz, decoded to LINEAR16 PCM for STT (see ulawToPcm in utils);
+// TTS returns μ-law 8 kHz that plays back to Plivo with no conversion.
 import WebSocket from "ws";
 import { EventEmitter } from "node:events";
 import { ulawToPcm } from "../utils.js";

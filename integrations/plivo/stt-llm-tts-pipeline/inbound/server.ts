@@ -68,7 +68,7 @@ function answerHandler(req: express.Request, res: express.Response) {
   const to = String(req.body?.To ?? req.query.To ?? "");
   console.log(`[answer] Incoming call: CallUUID=${callId}, From=${from}, To=${to}`);
 
-  const body = Buffer.from(JSON.stringify({ call_uuid: callId, from, to })).toString("base64");
+  const body = Buffer.from(JSON.stringify({ call_uuid: callId, from, to })).toString("base64url");
   const wsUrl = `${config.publicUrl.replace(/^http/, "ws")}/ws?body=${body}`;
 
   const response: any = new (plivo as any).Response();
@@ -100,7 +100,7 @@ wss.on("connection", (ws: WebSocket, req) => {
   let meta: { call_uuid?: string; from?: string; to?: string } = {};
   try {
     const bodyParam = new URL(req.url, "http://x").searchParams.get("body");
-    if (bodyParam) meta = JSON.parse(Buffer.from(bodyParam, "base64").toString());
+    if (bodyParam) meta = JSON.parse(Buffer.from(bodyParam, "base64url").toString());
   } catch { }
 
   ws.once("message", (data: Buffer) => {
@@ -128,12 +128,19 @@ wss.on("connection", (ws: WebSocket, req) => {
 });
 
 async function main() {
-  console.log("[server] Configuring Plivo webhooks...");
-  provisioned = await configurePlivoWebhooks();
-  if (provisioned) {
-    console.log(`[server] Ready! Call +${normalizePhoneNumber(config.plivoPhoneNumber)} to test`);
+  if (config.plivoPhoneNumber) {
+    console.log("[server] Configuring Plivo webhooks...");
+    provisioned = await configurePlivoWebhooks();
+    if (provisioned) {
+      console.log(`[server] Ready! Call +${normalizePhoneNumber(config.plivoPhoneNumber)} to test`);
+    } else {
+      console.warn("[server] ⚠ SETUP INCOMPLETE — Plivo auto-config failed; inbound calls will not route until the number is mapped. Fix the error above.");
+    }
   } else {
-    console.warn("[server] ⚠ SETUP INCOMPLETE — Plivo auto-config failed; inbound calls will not route until the number is mapped. Fix the error above.");
+    // Manual mode: no number to auto-provision. Serve /answer and let the
+    // operator set the number's Answer URL in the Plivo console by hand.
+    provisioned = true;
+    console.log(`[server] PLIVO_PHONE_NUMBER not set — skipping auto-provisioning. Set your number's Answer URL manually to ${config.publicUrl}/answer`);
   }
 
   server.listen(config.port, () => {
