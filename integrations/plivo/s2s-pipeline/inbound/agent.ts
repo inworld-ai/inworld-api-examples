@@ -116,6 +116,7 @@ export function runAgent(opts: AgentOptions): Promise<void> {
     if (isSpeaking()) farewellStarted = true;
     log("end_call", reason || "requested");
   });
+  inworld.on("error", (err) => log("inworld-error", err.message));
   inworld.on("closed", () => finish());
 
   return new Promise<void>((resolve) => {

@@ -12,6 +12,7 @@ interface RealtimeEvents {
   userTranscript: (text: string) => void;
   speechStarted: () => void;
   toolCall: (callId: string, name: string, args: string) => void;
+  error: (err: Error) => void;
   closed: () => void;
 }
 
@@ -78,8 +79,11 @@ export class InworldRealtime extends EventEmitter {
       case "input_audio_buffer.speech_started": this.emit("speechStarted"); break;
       case "conversation.item.input_audio_transcription.completed":
         if (m.transcript) this.emit("userTranscript", m.transcript as string); break;
-      case "error":
-        console.error(`[inworld] error frame: ${JSON.stringify(m.error)}`); this.emit("closed"); break;
+      case "error": {
+        const message = (m.error as { message?: string } | undefined)?.message;
+        this.emit("error", new Error(message || "Inworld Realtime error"));
+        break;
+      }
     }
   }
 

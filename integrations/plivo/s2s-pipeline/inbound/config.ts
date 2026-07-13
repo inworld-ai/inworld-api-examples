@@ -19,7 +19,7 @@ export const config = {
   plivoAuthToken: required("PLIVO_AUTH_TOKEN"),
   plivoPhoneNumber: optional("PLIVO_PHONE_NUMBER", ""),
 
-  llmModel: "openai/gpt-4.1",
+  llmModel: "openai/gpt-4.1-mini",
   sttModel: "inworld/inworld-stt-1",
   ttsModel: "inworld-tts-2",
   vadEagerness: "high",
