@@ -149,12 +149,12 @@ export class InworldTTS extends EventEmitter {
 
   beginTurn(): void {
     this.ctx = `turn-${++this.seq}`;
-    this.send({ context_id: this.ctx, create: { voice_id: this.cfg.voice, model_id: this.cfg.ttsModel, audio_config: { audio_encoding: "MULAW", sample_rate_hertz: this.cfg.plivoRate } } });
+    this.send({ context_id: this.ctx, create: { voice_id: this.cfg.voice, model_id: this.cfg.ttsModel, audio_config: { audio_encoding: "MULAW", sample_rate_hertz: this.cfg.plivoRate }, autoMode: true } });
   }
 
   speak(text: string): void {
     if (!this.ctx) this.beginTurn();
-    this.send({ context_id: this.ctx, send_text: { text, flush_context: {} } });
+    this.send({ context_id: this.ctx, send_text: { text } });
   }
 
   endTurn(): void {

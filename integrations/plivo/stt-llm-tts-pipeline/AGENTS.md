@@ -26,7 +26,7 @@ pipeline flow, API contracts, and file map.
 
 - STT: `wss://api.inworld.ai/stt/v1/transcribe:streamBidirectional` — `transcribeConfig` / `audioChunk` / `result.transcription`.
 - LLM: `POST /v1/chat/completions` — SSE `choices[0].delta.content` and `delta.tool_calls`; tools come from the `TOOLS` array.
-- TTS: `wss://api.inworld.ai/tts/v1/voice:streamBidirectional` — `create` / `send_text{flush_context}` / `close_context`;
+- TTS: `wss://api.inworld.ai/tts/v1/voice:streamBidirectional` — `create{autoMode}` / `send_text` / `close_context`;
   responses carry `result.contextId` and `result.audioChunk.audioContent` (base64 raw μ-law 8 kHz).
 
 ## Debugging

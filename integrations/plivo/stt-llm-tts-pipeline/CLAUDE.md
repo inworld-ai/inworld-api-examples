@@ -50,8 +50,9 @@ Local testing needs a public tunnel: `ngrok http 3000` → put the HTTPS URL in 
   and `choices[0].delta.tool_calls` (streamed fragments accumulated by index). Tools are defined in the
   `TOOLS` array in `agent.ts` and passed straight through.
 - **TTS** — `wss://api.inworld.ai/tts/v1/voice:streamBidirectional`, `Basic` auth. Per turn:
-  `{context_id, create:{voice_id, model_id, audio_config:{audio_encoding:"MULAW", sample_rate_hertz:8000}}}`,
-  then `{context_id, send_text:{text, flush_context:{}}}` per sentence, then `{context_id, close_context:{}}`.
+  `{context_id, create:{voice_id, model_id, audio_config:{audio_encoding:"MULAW", sample_rate_hertz:8000}, autoMode:true}}`,
+  then `{context_id, send_text:{text}}` per sentence, then `{context_id, close_context:{}}`. `autoMode` lets
+  the server control flushing for smoother continuity across sentences, so no per-`send_text` `flush_context`.
   Responses carry `result.contextId` and `result.audioChunk.audioContent` (base64 raw μ-law 8 kHz — no
   header), ending with `result.contextClosed`. Requesting `MULAW`/`8000` means Inworld returns Plivo's
   wire format directly, so there is no conversion in our code.
