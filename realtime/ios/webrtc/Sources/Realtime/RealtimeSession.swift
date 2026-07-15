@@ -32,6 +32,12 @@ struct SessionConfig {
         var enableOnFirstReply: Bool
     }
 
+    struct WebSearchConfig {
+        var engine = "google"
+        var maxResults = 3
+        var maxSteps = 1
+    }
+
     var model: String
     var instructions: String
     var temperature: Double?
@@ -45,6 +51,7 @@ struct SessionConfig {
     var transcriptionLanguage: String?
     var noiseReduction: String?
     var turnDetection: TurnDetection = .semanticVAD(eagerness: "high")
+    var webSearch: WebSearchConfig?
     var createResponse = true
     var interruptResponse = true
 
