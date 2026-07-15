@@ -136,7 +136,7 @@ final class SettingsStore {
         self.defaults = defaults
         apiKey = keychain.string(forKey: Self.apiKeyKeychainKey) ?? Secrets.inworldAPIKey
 
-        model = defaults.string(forKey: "model") ?? "openai/gpt-4o-mini"
+        model = defaults.string(forKey: "model") ?? "inworld/models/gemma-4-26b-a4b-it"
         instructions = defaults.string(forKey: "instructions")
             ?? "You are a friendly voice assistant. Keep responses brief."
         greetingPrompt = defaults.string(forKey: "greetingPrompt")
