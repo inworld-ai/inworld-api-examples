@@ -7,7 +7,7 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 import kotlin.io.encoding.Base64
@@ -26,9 +26,8 @@ class BackchannelAudioPlayer {
     private var track: AudioTrack? = null
 
     // Single thread keeps chunk order; AudioTrack.write blocks, so keep it off main.
-    private val writeScope = CoroutineScope(
-        SupervisorJob() + Executors.newSingleThreadExecutor().asCoroutineDispatcher(),
-    )
+    private val writeDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+    private val writeScope = CoroutineScope(SupervisorJob() + writeDispatcher)
 
     @OptIn(ExperimentalEncodingApi::class)
     fun enqueue(base64Pcm16: String) {
@@ -44,7 +43,8 @@ class BackchannelAudioPlayer {
     }
 
     fun stop() {
-        writeScope.coroutineContext.cancelChildren()
+        writeScope.cancel()
+        writeDispatcher.close()
         track?.run {
             runCatching { pause() }
             runCatching { flush() }

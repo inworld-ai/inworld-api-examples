@@ -35,6 +35,7 @@ class ConversationViewModel(
     private var streamingUserItemId: String? = null
 
     fun connect(settings: Settings) {
+        disconnect() // tear down any previous session and collectors before starting anew
         _uiState.update { it.copy(transcript = emptyList(), isMicMuted = false) }
         streamingAgentItemId = null
         streamingUserItemId = null
