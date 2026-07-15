@@ -88,6 +88,7 @@ final class SettingsStore {
     var temperature: Double { didSet { defaults.set(temperature, forKey: "temperature") } }
     /// 0 means "server default" (not sent).
     var maxOutputTokens: Int { didSet { defaults.set(maxOutputTokens, forKey: "maxOutputTokens") } }
+    var webSearchEnabled: Bool { didSet { defaults.set(webSearchEnabled, forKey: "webSearchEnabled") } }
 
     // Voice output
     var ttsModel: String { didSet { defaults.set(ttsModel, forKey: "ttsModel") } }
@@ -144,6 +145,7 @@ final class SettingsStore {
         temperatureEnabled = defaults.bool(forKey: "temperatureEnabled")
         temperature = defaults.object(forKey: "temperature") as? Double ?? 0.7
         maxOutputTokens = defaults.integer(forKey: "maxOutputTokens")
+        webSearchEnabled = defaults.bool(forKey: "webSearchEnabled")
 
         ttsModel = defaults.string(forKey: "ttsModel") ?? "inworld-tts-2"
         voice = defaults.string(forKey: "voice") ?? "Clive"
@@ -214,6 +216,7 @@ final class SettingsStore {
             transcriptionLanguage: transcriptionLanguage.isEmpty ? nil : transcriptionLanguage,
             noiseReduction: noiseReduction == .off ? nil : noiseReduction.rawValue,
             turnDetection: turnDetection,
+            webSearch: webSearchEnabled ? SessionConfig.WebSearchConfig() : nil,
             createResponse: createResponse,
             interruptResponse: interruptResponse,
             backchannel: backchannelEnabled ? SessionConfig.BackchannelConfig(

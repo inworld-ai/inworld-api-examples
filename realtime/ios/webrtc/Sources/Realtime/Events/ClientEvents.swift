@@ -51,7 +51,19 @@ struct SessionUpdateEvent: Encodable {
         var maxOutputTokens: Int?
         var outputModalities = ["audio", "text"]
         var audio: Audio
+        var tools: [Tool]?
         var providerData: ProviderData?
+    }
+
+    struct Tool: Encodable {
+        var type: String
+        var providerData: ToolProviderData?
+    }
+
+    struct ToolProviderData: Encodable {
+        var engine: String
+        var maxResults: Int?
+        var maxSteps: Int?
     }
 
     struct ProviderData: Encodable {
@@ -187,6 +199,13 @@ struct SessionUpdateEvent: Encodable {
                     speed: config.speechSpeed
                 )
             ),
+            tools: config.webSearch.map {
+                [Tool(type: "web_search", providerData: ToolProviderData(
+                    engine: $0.engine,
+                    maxResults: $0.maxResults,
+                    maxSteps: $0.maxSteps
+                ))]
+            },
             providerData: providerData
         )
     }

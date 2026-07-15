@@ -66,6 +66,7 @@ struct SettingsView: View {
             } label: {
                 Label("Browse available models", systemImage: "list.bullet")
             }
+            Toggle("Google web search", isOn: settings.webSearchEnabled)
             Toggle("Custom temperature", isOn: settings.temperatureEnabled)
             if settings.wrappedValue.temperatureEnabled {
                 LabeledSlider(

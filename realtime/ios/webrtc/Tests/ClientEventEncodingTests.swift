@@ -17,6 +17,26 @@ final class ClientEventEncodingTests: XCTestCase {
         )
     }
 
+    func testSessionUpdateWithWebSearchEncodesToolWithCamelCaseProviderData() throws {
+        var config = makeBaseConfig()
+        config.webSearch = SessionConfig.WebSearchConfig()
+
+        let data = try ClientEventEncoder.encode(SessionUpdateEvent(config: config))
+        let raw = try XCTUnwrap(String(data: data, encoding: .utf8))
+        XCTAssertTrue(raw.contains("\"providerData\""))
+        XCTAssertFalse(raw.contains("\"provider_data\""))
+
+        let json = try encodeToDictionary(SessionUpdateEvent(config: config))
+        let session = try XCTUnwrap(json["session"] as? [String: Any])
+        let tools = try XCTUnwrap(session["tools"] as? [[String: Any]])
+        XCTAssertEqual(tools.count, 1)
+        XCTAssertEqual(tools[0]["type"] as? String, "web_search")
+        let pd = try XCTUnwrap(tools[0]["providerData"] as? [String: Any])
+        XCTAssertEqual(pd["engine"] as? String, "google")
+        XCTAssertEqual(pd["max_results"] as? Int, 3)
+        XCTAssertEqual(pd["max_steps"] as? Int, 1)
+    }
+
     func testSessionUpdateDefaultShape() throws {
         let json = try encodeToDictionary(SessionUpdateEvent(config: makeBaseConfig()))
 
