@@ -1,0 +1,10 @@
+.gradle/
+build/
+local.properties
+.idea/
+.DS_Store
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+app/src/main/java/ai/inworld/voiceagent/Secrets.kt
