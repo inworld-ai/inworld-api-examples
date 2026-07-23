@@ -116,7 +116,7 @@ async def websocket_tts(api_key, text, voice_id, model_id, auto_mode):
 
                 if "error" in data:
                     print(f"WebSocket error: {data['error']}")
-                    break
+                    return None
 
                 result = data.get("result")
                 if not result:
