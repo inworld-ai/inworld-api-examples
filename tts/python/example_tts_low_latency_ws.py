@@ -3,10 +3,12 @@
 Example script for low-latency TTS synthesis using WebSocket.
 
 This script demonstrates how to achieve the lowest possible time-to-first-byte (TTFB)
-with WebSocket by pre-establishing the connection and audio context before timing.
+with WebSocket by pre-establishing the connection and pipelining messages.
 
-Key technique: Connect and create the audio context ahead of time, then measure
-only from text submission to first audio chunk arrival.
+Key technique: Send the context create message and text back-to-back without
+waiting for the contextCreated acknowledgment. The server processes messages
+in order, so waiting for the ack only adds a network round trip. TTFB is
+measured from the create message to first audio chunk arrival.
 """
 
 import asyncio
@@ -50,9 +52,10 @@ def check_api_key():
 
 async def websocket_tts(api_key, text, voice_id, model_id, auto_mode):
     """
-    Measure low-latency TTS using WebSocket with pre-established context.
-    Connects and creates the audio context before starting the timer,
-    then measures TTFB from text submission to first audio chunk.
+    Measure low-latency TTS using WebSocket with pipelined messages.
+    Sends context create and text back-to-back without waiting for the
+    contextCreated acknowledgment, measuring TTFB from the create message
+    to the first audio chunk.
     Args:
         api_key: API key for authentication
         text: Text to synthesize
@@ -71,7 +74,12 @@ async def websocket_tts(api_key, text, voice_id, model_id, auto_mode):
 
     try:
         async with websockets.connect(url, additional_headers=headers) as ws:
-            # Create context (not timed - this is setup)
+            # Send create, text, and close back-to-back without waiting for
+            # the contextCreated acknowledgment. Messages are processed in
+            # order on the server, so waiting for the ack only adds a full
+            # network round trip before the first audio chunk.
+            start_time = time.time()
+
             create_payload = {
                 "voice_id": voice_id,
                 "model_id": model_id,
@@ -85,20 +93,6 @@ async def websocket_tts(api_key, text, voice_id, model_id, auto_mode):
                 create_payload["autoMode"] = True
             create_msg = {"context_id": context_id, "create": create_payload}
             await ws.send(json.dumps(create_msg))
-
-            # Wait for context creation confirmation
-            while True:
-                msg = await ws.recv()
-                data = json.loads(msg)
-                if "error" in data:
-                    print(f"WebSocket error: {data['error']}")
-                    return None
-                result = data.get("result", {})
-                if "contextCreated" in result:
-                    break
-
-            # Start timer - context is ready, measure synthesis latency only
-            start_time = time.time()
 
             sentences = split_sentences(text)
             for sentence in sentences:
@@ -181,7 +175,7 @@ async def main():
     print(f"  Model: {model_id}")
     if auto_mode:
         print(f"   Auto: enabled")
-    print(f"\nConnecting and creating context, then generating audio...\n")
+    print(f"\nConnecting, then generating audio...\n")
 
     try:
         result = await websocket_tts(api_key, text, voice_id, model_id, auto_mode=auto_mode)
