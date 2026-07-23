@@ -3,10 +3,12 @@
  * Example script for low-latency TTS synthesis using WebSocket.
  *
  * This script demonstrates how to achieve the lowest possible time-to-first-byte (TTFB)
- * with WebSocket by pre-establishing the connection and audio context before timing.
+ * with WebSocket by pre-establishing the connection and pipelining messages.
  *
- * Key technique: Connect and create the audio context ahead of time, then measure
- * only from text submission to first audio chunk arrival.
+ * Key technique: Send the context create message and text back-to-back without
+ * waiting for the contextCreated acknowledgment. The server processes messages
+ * in order, so waiting for the ack only adds a network round trip. TTFB is
+ * measured from the create message to first audio chunk arrival.
  */
 
 const WebSocket = require('ws');
@@ -49,11 +51,11 @@ function splitSentences(text) {
 }
 
 /**
- * Measure low-latency TTS using WebSocket with pre-established context.
+ * Measure low-latency TTS using WebSocket with pipelined messages.
  *
- * Connects and creates the audio context before starting the timer,
- * then sends text sentence-by-sentence with flush_context on each
- * for lowest time-to-first-byte.
+ * Sends context create and text back-to-back without waiting for the
+ * contextCreated acknowledgment, sending text sentence-by-sentence with
+ * flush_context on each for lowest time-to-first-byte.
  *
  * @param {string} apiKey - API key for authentication
  * @param {string} text - Text to synthesize
@@ -68,7 +70,6 @@ async function websocketTts(apiKey, text, voiceId, modelId) {
 
     return new Promise((resolve) => {
         const ws = new WebSocket(url, { headers });
-        let contextReady = false;
         let startTime = null;
         let ttfb = null;
         let totalAudioBytes = 0;
@@ -88,7 +89,12 @@ async function websocketTts(apiKey, text, voiceId, modelId) {
         });
 
         ws.on('open', () => {
-            // Create context (not timed - this is setup)
+            // Send create, text, and close back-to-back without waiting for
+            // the contextCreated acknowledgment. Messages are processed in
+            // order on the server, so waiting for the ack only adds a full
+            // network round trip before the first audio chunk.
+            startTime = Date.now();
+
             ws.send(JSON.stringify({
                 context_id: contextId,
                 create: {
@@ -100,6 +106,22 @@ async function websocketTts(apiKey, text, voiceId, modelId) {
                         bit_rate: 32000
                     }
                 }
+            }));
+
+            // Send text sentence-by-sentence, flushing each for lowest TTFB
+            const sentences = splitSentences(text);
+            for (const sentence of sentences) {
+                ws.send(JSON.stringify({
+                    context_id: contextId,
+                    send_text: {
+                        text: sentence,
+                        flush_context: {}
+                    }
+                }));
+            }
+            ws.send(JSON.stringify({
+                context_id: contextId,
+                close_context: {}
             }));
         });
 
@@ -114,33 +136,6 @@ async function websocketTts(apiKey, text, voiceId, modelId) {
                 }
 
                 const result = data.result;
-
-                // Wait for context creation confirmation
-                if (!contextReady) {
-                    if (result && result.contextCreated !== undefined) {
-                        contextReady = true;
-
-                        // Start timer - context ready, measure synthesis only
-                        startTime = Date.now();
-
-                        // Send text sentence-by-sentence, flushing each for lowest TTFB
-                        const sentences = splitSentences(text);
-                        for (const sentence of sentences) {
-                            ws.send(JSON.stringify({
-                                context_id: contextId,
-                                send_text: {
-                                    text: sentence,
-                                    flush_context: {}
-                                }
-                            }));
-                        }
-                        ws.send(JSON.stringify({
-                            context_id: contextId,
-                            close_context: {}
-                        }));
-                    }
-                    return;
-                }
 
                 if (!result) {
                     if (data.done) {
@@ -201,7 +196,7 @@ async function main() {
     console.log(`   Text: "${text}"`);
     console.log(`  Voice: ${voiceId}`);
     console.log(`  Model: ${modelId}`);
-    console.log('\nConnecting and creating context, then generating audio...\n');
+    console.log('\nConnecting, then generating audio...\n');
 
     try {
         const result = await websocketTts(apiKey, text, voiceId, modelId);
