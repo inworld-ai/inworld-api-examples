@@ -1,0 +1,25 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+
+# Generated platform runners (run `flutter create .` to populate).
+/android/
+/ios/
+/linux/
+/macos/
+/windows/
+/web/
+
+# The repo-root .gitignore is Python-oriented and ignores `lib/`; re-include the
+# Flutter source directory, then re-exclude the gitignored secrets file.
+!lib/
+!lib/**
+lib/secrets.dart
+
+# Secrets — never commit a real key.
+
+.DS_Store

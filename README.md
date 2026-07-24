@@ -35,7 +35,9 @@ inworld-api-examples/
 └── realtime/
     ├── python/
     ├── js/
-    └── ios/
+    ├── ios/
+    ├── android/
+    └── flutter/
 ```
 
 ## Getting Started
@@ -62,3 +64,5 @@ Covers WebSocket and WebRTC-based real-time voice agents with both basic and JWT
 - **[Python](./realtime/python/)** — Real-time voice agent examples in Python
 - **[JavaScript](./realtime/js/)** — Real-time voice agent examples in JavaScript
 - **[iOS](./realtime/ios/)** — Native SwiftUI WebRTC voice-agent app
+- **[Android](./realtime/android/)** — Native Jetpack Compose WebRTC voice-agent app
+- **[Flutter](./realtime/flutter/)** — Cross-platform (iOS + Android) WebRTC voice-agent app

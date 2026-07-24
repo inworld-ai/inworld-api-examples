@@ -1,0 +1,30 @@
+name: inworld_voice_agent
+description: Inworld Realtime API voice agent over WebRTC — Flutter example.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Stock org.webrtc / WebRTC.framework bindings (unified plan, data channels, audio tracks).
+  flutter_webrtc: ^0.12.5
+  # Settings persistence, the Flutter analog of iOS UserDefaults / Android DataStore.
+  shared_preferences: ^2.3.2
+  # Runtime microphone permission on both platforms.
+  permission_handler: ^11.3.1
+  # Back-channel PCM playback: chunks are buffered, wrapped in a WAV, and played as a clip.
+  audioplayers: ^6.1.0
+  http: ^1.2.2
+  provider: ^6.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
