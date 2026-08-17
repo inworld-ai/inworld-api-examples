@@ -1,0 +1,24 @@
+{
+  "name": "inworld-pronunciation-dictionary-examples",
+  "version": "1.0.0",
+  "description": "Inworld Pronunciation Dictionaries API examples in JavaScript/Node.js",
+  "main": "example_pronunciation_dictionaries.js",
+  "scripts": {
+    "start": "node example_pronunciation_dictionaries.js"
+  },
+  "keywords": [
+    "inworld",
+    "pronunciation",
+    "dictionary",
+    "api",
+    "examples"
+  ],
+  "author": "Inworld AI",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
