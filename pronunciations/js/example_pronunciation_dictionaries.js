@@ -6,6 +6,7 @@ try {
 } catch (_) {}
 
 const DEFAULT_API_BASE_URL = 'https://api.inworld.ai';
+const REQUEST_TIMEOUT_MILLISECONDS = 30_000;
 
 const INITIAL_PRONUNCIATIONS = [
     {
@@ -60,7 +61,6 @@ class PronunciationDictionariesClient {
             method: 'PATCH',
             query: { updateMask: 'displayName,pronunciations' },
             body: {
-                name: dictionary.name,
                 displayName,
                 pronunciations,
                 etag: dictionary.etag,
@@ -93,6 +93,7 @@ class PronunciationDictionariesClient {
 
         const response = await fetch(url, {
             method,
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MILLISECONDS),
             headers: {
                 Authorization: `Basic ${this.apiKey}`,
                 ...(body ? { 'Content-Type': 'application/json' } : {}),

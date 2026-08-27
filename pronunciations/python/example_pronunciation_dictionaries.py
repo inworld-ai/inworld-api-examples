@@ -94,7 +94,6 @@ class PronunciationDictionariesClient:
             self._resource_url(dictionary["name"]),
             params={"updateMask": "displayName,pronunciations"},
             json={
-                "name": dictionary["name"],
                 "displayName": display_name,
                 "pronunciations": pronunciations,
                 "etag": dictionary["etag"],
@@ -127,6 +126,8 @@ class PronunciationDictionariesClient:
                 f"{method} {response.url} failed with HTTP {response.status_code}: "
                 f"{response.text}"
             )
+        if not response.content:
+            return {}
         return response.json()
 
 

@@ -1,6 +1,6 @@
 # Inworld Pronunciation Dictionaries Python Example
 
-This example demonstrates the five synchronous methods in the public Pronunciation Dictionaries API:
+This example demonstrates five operations in the public Pronunciation Dictionaries API:
 
 1. Create a complete dictionary.
 2. List dictionaries in the workspace.

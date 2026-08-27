@@ -9,6 +9,8 @@ These examples manage named pronunciation dictionaries through the public REST A
 
 Each example creates a dictionary, lists dictionaries in the workspace, gets the created resource, atomically replaces its display name and entries, and deletes it. If the example fails after creating the resource, it attempts to delete the resource before exiting.
 
+Keep your API key server-side. The repository ignores `.env` files; never commit one or expose the key in browser code.
+
 Named dictionaries are separate from the workspace saved pronunciations managed in Inworld Portal. The public API manages named dictionaries, but production public TTS requests cannot yet select or apply one.
 
 See [Saved custom pronunciations](https://docs.inworld.ai/tts/capabilities/saved-pronunciations) for behavior, limits, and the distinction between inline, workspace, and named pronunciations.
