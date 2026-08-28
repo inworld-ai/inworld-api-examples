@@ -35,6 +35,10 @@ npm start
 
 ## Important update behavior
 
-The `pronunciations` field is the complete desired dictionary contents. When it is selected in `updateMask`, entries omitted from the request are deleted. Updates and deletes require the current `etag`; retrieve the dictionary again before retrying after an `etag` conflict.
+The example omits the optional `updateMask`, so both mutable fields—`displayName` and `pronunciations`—are updated. The `pronunciations` field is the complete desired dictionary contents: entries omitted from the request are deleted.
+
+For a partial update, add an `updateMask` query parameter using lowerCamelCase field names. For example, `query: { updateMask: 'displayName' }` updates the name without changing the entries. Supported fields are `displayName` and `pronunciations`.
+
+Updates and deletes require the current `etag`; retrieve the dictionary again before retrying after an `etag` conflict.
 
 The script deletes the dictionary at the end and attempts the same cleanup if a later lifecycle step fails.

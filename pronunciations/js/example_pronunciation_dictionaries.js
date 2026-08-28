@@ -59,7 +59,6 @@ class PronunciationDictionariesClient {
     updateDictionary(dictionary, displayName, pronunciations) {
         return this.request(this.resourcePath(dictionary.name), {
             method: 'PATCH',
-            query: { updateMask: 'displayName,pronunciations' },
             body: {
                 displayName,
                 pronunciations,

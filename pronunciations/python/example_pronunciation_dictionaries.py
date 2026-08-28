@@ -92,7 +92,6 @@ class PronunciationDictionariesClient:
         return self._request(
             "PATCH",
             self._resource_url(dictionary["name"]),
-            params={"updateMask": "displayName,pronunciations"},
             json={
                 "displayName": display_name,
                 "pronunciations": pronunciations,
