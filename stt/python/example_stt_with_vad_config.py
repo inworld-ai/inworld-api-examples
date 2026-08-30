@@ -29,10 +29,16 @@ CLOSE_GRACE_MS = 2500
 DEFAULT_SAMPLE_RATE = 16000
 DEFAULT_CHANNELS = 1
 
-# Default VAD configuration values for the inworld/inworld-stt-1 model.
-DEFAULT_VAD_THRESHOLD = 0.15
-DEFAULT_MIN_END_OF_TURN_SILENCE_WHEN_CONFIDENT = 300
-DEFAULT_END_OF_TURN_CONFIDENCE_THRESHOLD = 0.4
+# Server-side defaults for the inworld/inworld-stt-1 model. Passing these is
+# equivalent to omitting them; they are spelled out here so the example shows
+# where each value goes.
+#
+# Lowering them makes turn detection more sensitive, which cuts turns earlier
+# but also makes the model more likely to treat noise or a mid-sentence pause
+# as the end of a turn. Tune against your own audio rather than starting low.
+DEFAULT_VAD_THRESHOLD = 0.4
+DEFAULT_MIN_END_OF_TURN_SILENCE_WHEN_CONFIDENT = 700
+DEFAULT_END_OF_TURN_CONFIDENCE_THRESHOLD = 0.5
 
 
 def check_api_key():
