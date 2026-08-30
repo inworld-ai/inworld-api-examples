@@ -29,8 +29,15 @@ CLOSE_GRACE_MS = 2500
 DEFAULT_SAMPLE_RATE = 16000
 DEFAULT_CHANNELS = 1
 
-# Default VAD configuration values for the inworld/inworld-stt-1 model.
-DEFAULT_VAD_THRESHOLD = 0.15
+# VAD configuration for the inworld/inworld-stt-1 model, tuned for low latency.
+# These are not the server defaults (0.4 / 700 / 0.5): the shorter silence
+# window ends turns sooner, which is usually what you want for live speech.
+#
+# vad_threshold is the value to raise if you see spurious turn breaks. Below
+# ~0.3, background noise and breathing can register as speech, which starts new
+# turns mid-utterance. Raise it further for noisy environments; lower it only
+# if genuine quiet speech is being missed.
+DEFAULT_VAD_THRESHOLD = 0.3
 DEFAULT_MIN_END_OF_TURN_SILENCE_WHEN_CONFIDENT = 300
 DEFAULT_END_OF_TURN_CONFIDENCE_THRESHOLD = 0.4
 
