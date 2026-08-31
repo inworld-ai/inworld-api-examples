@@ -13,4 +13,4 @@ Keep your API key server-side. The repository ignores `.env` files; never commit
 
 Named dictionaries are separate from the workspace saved pronunciations managed in Inworld Portal. The public API manages named dictionaries, but production public TTS requests cannot yet select or apply one.
 
-See [Saved custom pronunciations](https://docs.inworld.ai/tts/capabilities/saved-pronunciations) for behavior, limits, and the distinction between inline, workspace, and named pronunciations.
+See [Pronunciation dictionaries](https://docs.inworld.ai/tts/capabilities/pronunciation-dictionaries) for behavior, limits, permissions, and the distinction between inline, workspace, and named pronunciations.

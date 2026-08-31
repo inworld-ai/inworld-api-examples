@@ -11,8 +11,10 @@ This example demonstrates five operations in the public Pronunciation Dictionari
 ## Prerequisites
 
 - Node.js 20 or higher
-- An Inworld API key
+- A Standard Inworld API key with **Voices Write** access
 - The ID of a workspace the API key can access
+
+The example creates, updates, and deletes a dictionary, so Voices Write access is required. Voices Read access is sufficient only for list and get; there is no separate Custom Pronunciations permission.
 
 ## Run the example
 
