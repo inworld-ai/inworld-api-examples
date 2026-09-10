@@ -1,0 +1,10 @@
+{
+  "displayName": "Pronunciation example",
+  "pronunciations": [
+    { "displayHeadword": "Cat", "languageCode": "en-US", "phoneSymbols": ["ɹ", "ɛ", "d"] },
+    { "displayHeadword": "Ship", "languageCode": "en-US", "phoneSymbols": ["ʃ", "ɪ", "p"] },
+    { "displayHeadword": "Red", "languageCode": "en-US", "phoneSymbols": ["ɹ", "ɛ", "d"] },
+    { "displayHeadword": "Kit", "languageCode": "en-US", "phoneSymbols": ["k", "ɪ", "t"] },
+    { "displayHeadword": "Dip", "languageCode": "en-US", "phoneSymbols": ["d", "ɪ", "p"] }
+  ]
+}

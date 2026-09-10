@@ -4,7 +4,10 @@
   "description": "Inworld Pronunciation Dictionaries API examples in JavaScript/Node.js",
   "main": "example_pronunciation_dictionaries.js",
   "scripts": {
-    "start": "node example_pronunciation_dictionaries.js"
+    "start": "node example_pronunciation_dictionaries.js",
+    "create": "node example_create_dictionary.js",
+    "tts": "node example_tts_with_dictionary.js",
+    "test": "node --test"
   },
   "keywords": [
     "inworld",

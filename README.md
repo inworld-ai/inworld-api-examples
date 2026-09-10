@@ -59,10 +59,10 @@ Covers synthesis, HTTP & WebSocket streaming, word/phoneme timestamps, long-text
 
 ### [Pronunciation dictionaries](./pronunciations/)
 
-Create and manage named pronunciation dictionaries through the public API.
+Create a multi-entry pronunciation dictionary, then use it with TTS to compare baseline and customized audio.
 
-- **[Python](./pronunciations/python/)** — Complete create, list, get, update, and delete lifecycle
-- **[JavaScript](./pronunciations/js/)** — Complete create, list, get, update, and delete lifecycle
+- **[Python](./pronunciations/python/)** — Separate create and synthesis examples, plus an optional CRUD lifecycle
+- **[JavaScript](./pronunciations/js/)** — Separate create and synthesis examples, plus an optional CRUD lifecycle
 
 ### [Realtime](./realtime/)
 

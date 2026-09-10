@@ -1,46 +1,56 @@
-# Inworld Pronunciation Dictionaries Python Example
+# Pronunciation dictionaries with Python
 
-This example demonstrates five operations in the public Pronunciation Dictionaries API:
+Create a five-entry dictionary, then use it in a separate TTS example. See the [shared guide](../README.md) for the sample's intentional Cat → red override, request behavior, and cleanup.
 
-1. Create a complete dictionary.
-2. List dictionaries in the workspace.
-3. Get the created dictionary.
-4. Update its display name and atomically replace all pronunciation entries.
-5. Delete it using its current `etag`.
+## Setup
 
-## Prerequisites
-
-- Python 3.10 or higher
-- A Standard Inworld API key with **Voices Write** access
-- The ID of a workspace the API key can access
-
-The example creates, updates, and deletes a dictionary, so Voices Write access is required. Voices Read access is sufficient only for list and get; there is no separate Custom Pronunciations permission.
-
-## Run the example
+Requires Python 3.10+, a Standard API key with **Voices Write** access, and its workspace ID. Run from this directory:
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# Edit .env and set INWORLD_API_KEY and INWORLD_WORKSPACE_ID.
-python example_pronunciation_dictionaries.py
+# Edit .env: set INWORLD_API_KEY and INWORLD_WORKSPACE_ID.
+# Set INWORLD_API_BASE_URL if not using https://api.inworld.ai.
 ```
 
-You can also export the variables in your shell instead of creating `.env`:
+You can export these variables instead; environment variables take precedence over `.env`. Do not commit your key.
+
+## 1. Create a dictionary
 
 ```bash
-export INWORLD_API_KEY=your_api_key_here
-export INWORLD_WORKSPACE_ID=your_workspace_id_here
+python example_create_dictionary.py
+```
+
+This reads all five entries from [sample-dictionary.json](../sample-dictionary.json), creates one uniquely named dictionary, and prints its returned name and ETag. **It does not delete the dictionary.** You can edit the shared JSON before running it to use your own entries.
+
+## 2. Use it with TTS
+
+Copy the full `name` from step 1 into `PRONUNCIATION_DICTIONARY_NAME` in `.env`, or export it:
+
+```bash
+export PRONUNCIATION_DICTIONARY_NAME='workspaces/my-workspace/pronunciationDictionaries/{dictionary_id}'
+# Replace the entire example value with the server-returned name.
+python example_tts_with_dictionary.py
+```
+
+The script synthesizes the same text with and without selection, saves `baseline.mp3` and `with-dictionary.mp3` to a fresh temporary directory, and prints their paths. It uses `inworld-tts-2`, voice `Ashley`, and `en-US`. Listen for Cat becoming red. The dictionary is read-only in this example; it remains available for reuse.
+
+When finished, follow [explicit cleanup](../README.md#delete-the-retained-sample-when-finished).
+
+## Optional: complete CRUD lifecycle
+
+```bash
 python example_pronunciation_dictionaries.py
 ```
 
-`INWORLD_API_BASE_URL` is optional and defaults to `https://api.inworld.ai`.
+This creates its own temporary dictionary, lists and gets it, replaces its name and entries with an explicit `updateMask`, then deletes it using a current ETag. It does not use or delete `PRONUNCIATION_DICTIONARY_NAME`. See [update and cleanup safety](../README.md#update-and-cleanup-safety).
 
-## Important update behavior
+## Offline tests
 
-The example omits the optional `updateMask`, so both mutable fields—`displayName` and `pronunciations`—are updated. The `pronunciations` field is the complete desired dictionary contents: entries omitted from the request are deleted.
+```bash
+python -m unittest discover -s . -p 'test_*.py'
+```
 
-For a partial update, add an `updateMask` query parameter using lowerCamelCase field names. For example, `params={"updateMask": "displayName"}` updates the name without changing the entries. Supported fields are `displayName` and `pronunciations`.
-
-Updates and deletes require the current `etag`; retrieve the dictionary again before retrying after an `etag` conflict.
-
-The script deletes the dictionary at the end and attempts the same cleanup if a later lifecycle step fails.
+These tests exercise request construction, audio decoding, resource ownership, and error handling with fake HTTP responses. They do not call Inworld or prove deployment availability.
