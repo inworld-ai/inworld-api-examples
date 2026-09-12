@@ -32,6 +32,9 @@ inworld-api-examples/
 ├── tts/
 │   ├── python/
 │   └── js/
+├── pronunciations/
+│   ├── python/
+│   └── js/
 └── realtime/
     ├── python/
     ├── js/
@@ -54,6 +57,12 @@ Covers synthesis, HTTP & WebSocket streaming, word/phoneme timestamps, long-text
 - **[Python](./tts/python/)** — Text-to-speech examples in Python
 - **[JavaScript](./tts/js/)** — Text-to-speech examples in JavaScript
 
+### [Pronunciation dictionaries](./pronunciations/)
+
+Create a multi-entry pronunciation dictionary, then use it with TTS to compare baseline and customized audio.
+
+- **[Python](./pronunciations/python/)** — Separate create and synthesis examples, plus an optional CRUD lifecycle
+- **[JavaScript](./pronunciations/js/)** — Separate create and synthesis examples, plus an optional CRUD lifecycle
 
 ### [Realtime](./realtime/)
 
