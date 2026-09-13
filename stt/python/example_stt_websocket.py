@@ -23,9 +23,6 @@ import websockets
 
 API_BASE = "https://api.inworld.ai"
 CHUNK_DURATION_MS = 100
-END_OF_AUDIO_DELAY_MS = 350
-SILENCE_BEFORE_CLOSE_MS = 1500
-CLOSE_GRACE_MS = 2500
 DEFAULT_SAMPLE_RATE = 16000
 DEFAULT_CHANNELS = 1
 
@@ -60,28 +57,6 @@ async def stream_transcribe(
 
     final_texts = []
     last_partial = ""
-    audio_complete = False
-    silence_task = None
-
-    def check_close():
-        nonlocal silence_task
-        if not audio_complete:
-            return
-        if silence_task and not silence_task.done():
-            silence_task.cancel()
-        silence_task = asyncio.create_task(_close_after_silence())
-
-    async def _close_after_silence():
-        try:
-            await asyncio.sleep(SILENCE_BEFORE_CLOSE_MS / 1000.0)
-            try:
-                await ws.send(json.dumps({"closeStream": {}}))
-                await asyncio.sleep(CLOSE_GRACE_MS / 1000.0)
-                await ws.close()
-            except (websockets.exceptions.ConnectionClosed, OSError, RuntimeError):
-                pass  # already closed or closing
-        except asyncio.CancelledError:
-            pass
 
     async with websockets.connect(ws_url, additional_headers=headers) as ws:
         await ws.send(json.dumps({
@@ -98,7 +73,6 @@ async def stream_transcribe(
         chunk_size = int((CHUNK_DURATION_MS / 1000) * sample_rate * bytes_per_sample)
 
         async def send_audio():
-            nonlocal audio_complete
             for i in range(0, len(pcm), chunk_size):
                 chunk = pcm[i : i + chunk_size]
                 if not chunk:
@@ -107,24 +81,13 @@ async def stream_transcribe(
                     "audioChunk": {"content": base64.b64encode(chunk).decode()}
                 }))
                 await asyncio.sleep(CHUNK_DURATION_MS / 1000.0)
-            await asyncio.sleep(END_OF_AUDIO_DELAY_MS / 1000.0)
-            audio_complete = True
-            await ws.send(json.dumps({"endTurn": {}}))
-            check_close()
+            await ws.send(json.dumps({"closeStream": {}}))
 
         send_task = asyncio.create_task(send_audio())
 
         try:
-            while True:
-                try:
-                    raw = await ws.recv()
-                except websockets.exceptions.ConnectionClosed:
-                    break
-
-                try:
-                    msg = json.loads(raw)
-                except json.JSONDecodeError:
-                    continue
+            async for raw in ws:
+                msg = json.loads(raw)
                 t = msg.get("result", {}).get("transcription", {})
                 if not t:
                     continue
@@ -138,13 +101,10 @@ async def stream_transcribe(
                         last_partial = ""
                     else:
                         last_partial = text
-
-                if audio_complete:
-                    check_close()
-        except asyncio.CancelledError:
+        except websockets.exceptions.ConnectionClosed:
             pass
-        finally:
-            await send_task
+
+        await send_task
 
     if last_partial.strip():
         final_texts.append(last_partial.strip())
