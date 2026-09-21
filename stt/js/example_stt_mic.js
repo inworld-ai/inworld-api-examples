@@ -14,8 +14,8 @@ const API_BASE = 'https://api.inworld.ai';
 const SAMPLE_RATE = 16000;
 const CHANNELS = 1;
 const CHUNK_DURATION_MS = 100;
-const END_OF_AUDIO_DELAY_MS = 350;
-const CLOSE_GRACE_MS = 2500;
+// Client-side safety timeout, not an API latency guarantee.
+const CLOSE_GRACE_MS = 10000;
 
 function checkApiKey() {
     const apiKey = process.env.INWORLD_API_KEY;
@@ -75,21 +75,31 @@ function streamMicToStt(apiKey, options = {}) {
         let micProcess = null;
         let chunkBuffer = Buffer.alloc(0);
         let closed = false;
+        let stopping = false;
+        let closeTimeout = null;
 
         function finish(result) {
             if (closed) return;
             closed = true;
+            clearTimeout(closeTimeout);
+            process.off('SIGINT', stopStream);
+            process.off('SIGTERM', stopStream);
             if (micProcess) {
                 try { micProcess.kill('SIGTERM'); } catch (_) {}
                 micProcess = null;
             }
-            const fullParts = lastPartial.trim() ? [...finalTexts, lastPartial.trim()] : finalTexts;
+            if (lastPartial.trim()) {
+                reject(new Error('Stream ended with an unfinalized transcript'));
+                return;
+            }
+            const fullParts = finalTexts;
             resolve(Object.assign(result || {}, { finalTexts: fullParts }));
         }
 
         ws.on('error', (err) => {
             console.log(`WebSocket error: ${err.message}`);
-            if (!closed) reject(err);
+            reject(err);
+            finish();
         });
 
         ws.on('open', () => {
@@ -137,24 +147,43 @@ function streamMicToStt(apiKey, options = {}) {
             });
 
             micProcess.on('error', (err) => {
-                console.log(`Microphone error: ${err.message}`);
+                reject(err);
+                ws.terminate();
+                finish();
             });
 
-            micProcess.on('exit', (code) => {
-                if (code !== null && code !== 0 && code !== 143) {
-                    console.log(`SoX exited with code ${code}`);
+            // Register immediately: SoX can exit before the user requests a stop.
+            // 'close' follows stdout drainage, so the final PCM chunk is available.
+            micProcess.once('close', (code, signal) => {
+                micProcess = null;
+                if (closed) return;
+                const requestedStop = stopping && (code === 143 || signal === 'SIGTERM');
+                if (code !== 0 && !requestedStop) {
+                    reject(new Error(`SoX exited with ${signal ? `signal ${signal}` : `code ${code}`}`));
+                    ws.terminate();
+                    finish();
+                    return;
                 }
+                stopping = true;
+                closeInput();
             });
         });
 
         ws.on('message', (raw) => {
             try {
                 const msg = JSON.parse(raw.toString());
+                if (msg.result?.usage) console.log('Usage:', msg.result.usage);
+                if (msg.error) {
+                    reject(new Error(msg.error.message || 'STT request failed'));
+                    ws.close();
+                    return;
+                }
                 const transcription = msg.result && msg.result.transcription;
                 if (!transcription) return;
                 const text = transcription.transcript || '';
                 const isFinal = transcription.isFinal === true;
                 const label = isFinal ? '[FINAL]' : '[interim]';
+                if (isFinal) lastPartial = '';
                 if (text) {
                     console.log(`${label} ${text}`);
                     if (isFinal) {
@@ -167,36 +196,42 @@ function streamMicToStt(apiKey, options = {}) {
             } catch (_) {}
         });
 
-        ws.on('close', () => finish());
+        ws.on('close', (code) => {
+            if (code !== 1000) reject(new Error(`STT socket closed with code ${code}`));
+            finish();
+        });
+
+        function closeInput() {
+            if (ws.readyState !== WebSocket.OPEN) return;
+            if (chunkBuffer.length > 0) {
+                ws.send(JSON.stringify({
+                    audioChunk: { content: chunkBuffer.toString('base64') }
+                }));
+                chunkBuffer = Buffer.alloc(0);
+            }
+            // closeStream also finalizes the pending turn.
+            ws.send(JSON.stringify({ closeStream: {} }));
+            closeTimeout = setTimeout(() => {
+                reject(new Error('Timed out waiting for STT stream completion'));
+                ws.terminate();
+                finish();
+            }, CLOSE_GRACE_MS);
+        }
 
         function stopStream() {
-            if (closed) return;
+            if (closed || stopping) return;
+            stopping = true;
             if (micProcess) {
-                try { micProcess.kill('SIGTERM'); } catch (_) {}
-                micProcess = null;
-            }
-            if (ws.readyState === WebSocket.OPEN) {
-                const sendEnd = () => {
-                    ws.send(JSON.stringify({ endTurn: {} }));
-                    ws.send(JSON.stringify({ closeStream: {} }));
-                    setTimeout(() => {
-                        if (ws.readyState === WebSocket.OPEN) ws.close();
-                    }, CLOSE_GRACE_MS);
-                };
-                if (chunkBuffer.length > 0) {
-                    ws.send(JSON.stringify({
-                        audioChunk: { content: chunkBuffer.toString('base64') }
-                    }));
-                    chunkBuffer = Buffer.alloc(0);
-                }
-                setTimeout(sendEnd, END_OF_AUDIO_DELAY_MS);
+                // Wait for stdout to drain, including the last partial PCM chunk.
+                micProcess.kill('SIGTERM');
+            } else if (ws.readyState === WebSocket.OPEN) {
+                closeInput();
+            } else {
+                ws.close();
             }
         }
 
-        process.on('SIGINT', () => {
-            console.log('\nStopping...');
-            stopStream();
-        });
+        process.on('SIGINT', stopStream);
         process.on('SIGTERM', stopStream);
     });
 }
