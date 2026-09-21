@@ -152,10 +152,20 @@ function streamMicToStt(apiKey, options = {}) {
                 finish();
             });
 
-            micProcess.on('exit', (code) => {
-                if (code !== null && code !== 0 && code !== 143) {
-                    console.log(`SoX exited with code ${code}`);
+            // Register immediately: SoX can exit before the user requests a stop.
+            // 'close' follows stdout drainage, so the final PCM chunk is available.
+            micProcess.once('close', (code, signal) => {
+                micProcess = null;
+                if (closed) return;
+                const requestedStop = stopping && (code === 143 || signal === 'SIGTERM');
+                if (code !== 0 && !requestedStop) {
+                    reject(new Error(`SoX exited with ${signal ? `signal ${signal}` : `code ${code}`}`));
+                    ws.terminate();
+                    finish();
+                    return;
                 }
+                stopping = true;
+                closeInput();
             });
         });
 
@@ -213,7 +223,6 @@ function streamMicToStt(apiKey, options = {}) {
             stopping = true;
             if (micProcess) {
                 // Wait for stdout to drain, including the last partial PCM chunk.
-                micProcess.once('close', closeInput);
                 micProcess.kill('SIGTERM');
             } else if (ws.readyState === WebSocket.OPEN) {
                 closeInput();

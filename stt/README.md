@@ -11,8 +11,11 @@
 
 Connect to `wss://api.inworld.ai/stt/v1/transcribe:streamBidirectional` with
 `Authorization: Basic <INWORLD_API_KEY>`. Use the Portal's Base64 credentials
-verbatim, without encoding them again. Keep the key on your backend; browser
-clients should relay audio through an authenticated backend connection.
+verbatim, without encoding them again. Keep the key on your backend. Browser
+clients can relay audio through an authenticated backend connection or connect
+directly with a [one-time token](https://docs.inworld.ai/portal/ephemeral-tokens)
+minted by the backend. Pass that token as the `bearer_<accessToken>` WebSocket
+subprotocol and mint a fresh token for every connection attempt.
 
 Send `transcribeConfig` first, then JSON `audioChunk` messages containing
 Base64-encoded PCM16 (signed 16-bit little-endian) audio. These examples use
