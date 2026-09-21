@@ -27,8 +27,8 @@ API_BASE = "https://api.inworld.ai"
 SAMPLE_RATE = 16000
 CHANNELS = 1
 CHUNK_DURATION_MS = 100
-END_OF_AUDIO_DELAY_MS = 350
-CLOSE_GRACE_MS = 2500
+# Client-side safety timeout, not an API latency guarantee.
+CLOSE_GRACE_MS = 10000
 
 # ~100 ms of samples per block (16-bit = 2 bytes per sample)
 BLOCK_SIZE = int(SAMPLE_RATE * CHUNK_DURATION_MS / 1000)
@@ -59,6 +59,8 @@ async def stream_mic_to_stt(
     audio_queue = asyncio.Queue(maxsize=10)  # bounded to limit memory; drop if consumer is slow
     stop_requested = asyncio.Event()
     stream = None
+    timed_out = False
+    send_error = None
 
     def _enqueue_chunk(chunk: bytes) -> None:
         """Enqueue audio on the asyncio thread (called via call_soon_threadsafe)."""
@@ -107,7 +109,7 @@ async def stream_mic_to_stt(
         await ws.send(json.dumps({"transcribeConfig": transcribe_config}))
 
         async def send_audio():
-            nonlocal stream
+            nonlocal stream, timed_out
             try:
                 stream = sd.RawInputStream(
                     samplerate=SAMPLE_RATE,
@@ -119,8 +121,7 @@ async def stream_mic_to_stt(
                 stream.start()
             except Exception as e:
                 print(f"Microphone error: {e}", file=sys.stderr)
-                stop_requested.set()
-                return
+                raise
 
             try:
                 while not stop_requested.is_set():
@@ -131,9 +132,10 @@ async def stream_mic_to_stt(
                         }))
                     except asyncio.TimeoutError:
                         continue
-                    except asyncio.CancelledError:
-                        break
 
+                # Stop capture before draining its final queued samples.
+                stream.stop()
+                await asyncio.sleep(0)
                 # Flush remaining queued audio
                 while not audio_queue.empty():
                     try:
@@ -151,25 +153,37 @@ async def stream_mic_to_stt(
                     except Exception:
                         pass
 
-            await asyncio.sleep(END_OF_AUDIO_DELAY_MS / 1000)
-            await ws.send(json.dumps({"endTurn": {}}))
+            # closeStream also finalizes the pending turn.
             await ws.send(json.dumps({"closeStream": {}}))
             await asyncio.sleep(CLOSE_GRACE_MS / 1000)
-            try:
-                await ws.close()
-            except Exception:
-                pass
+            timed_out = True
+            await ws.close()
+            raise TimeoutError("Timed out waiting for STT stream completion")
 
-        send_task = asyncio.create_task(send_audio())
+        async def send_or_close():
+            nonlocal send_error
+            try:
+                await send_audio()
+            except Exception as err:
+                send_error = err
+                await ws.close()
+
+        send_task = asyncio.create_task(send_or_close())
 
         try:
             async for raw in ws:
                 msg = json.loads(raw)
+                if msg.get("error"):
+                    raise RuntimeError(msg["error"].get("message", "STT request failed"))
+                if msg.get("result", {}).get("usage"):
+                    print("Usage:", msg["result"]["usage"])
                 transcription = msg.get("result", {}).get("transcription")
                 if transcription is None:
                     continue
                 text = transcription.get("transcript", "")
                 is_final = transcription.get("isFinal", False)
+                if is_final:
+                    last_partial = ""
                 if text:
                     label = "[FINAL]" if is_final else "[interim]"
                     print(f"{label} {text}")
@@ -178,13 +192,17 @@ async def stream_mic_to_stt(
                         last_partial = ""
                     else:
                         last_partial = text
-        except websockets.ConnectionClosed:
-            pass
-
-        await send_task
+        finally:
+            if not send_task.done():
+                send_task.cancel()
+            await asyncio.gather(send_task, return_exceptions=True)
+            if timed_out:
+                raise TimeoutError("Timed out waiting for STT stream completion")
+            if send_error:
+                raise send_error
 
     if last_partial.strip():
-        final_texts.append(last_partial.strip())
+        raise RuntimeError("Stream ended with an unfinalized transcript")
     return final_texts
 
 

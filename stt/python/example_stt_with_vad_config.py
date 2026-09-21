@@ -23,20 +23,15 @@ import websockets
 
 API_BASE = "https://api.inworld.ai"
 CHUNK_DURATION_MS = 100
-END_OF_AUDIO_DELAY_MS = 350
-SILENCE_BEFORE_CLOSE_MS = 1500
-CLOSE_GRACE_MS = 2500
+# Client-side safety timeout, not an API latency guarantee.
+CLOSE_GRACE_MS = 10000
 DEFAULT_SAMPLE_RATE = 16000
 DEFAULT_CHANNELS = 1
 
-# VAD configuration for the inworld/inworld-stt-1 model, tuned for low latency.
-# These are not the server defaults (0.4 / 700 / 0.5): the shorter silence
-# window ends turns sooner, which is usually what you want for live speech.
-#
-# vad_threshold is the value to raise if you see spurious turn breaks. Below
-# ~0.3, background noise and breathing can register as speech, which starts new
-# turns mid-utterance. Raise it further for noisy environments; lower it only
-# if genuine quiet speech is being missed.
+# Example turn-detection settings, not server defaults.
+# Raise the silence duration or end-of-turn confidence threshold to reduce
+# premature turn boundaries. Raise vadThreshold to reject more background
+# noise; lower it if quiet speech is being missed.
 DEFAULT_VAD_THRESHOLD = 0.3
 DEFAULT_MIN_END_OF_TURN_SILENCE_WHEN_CONFIDENT = 300
 DEFAULT_END_OF_TURN_CONFIDENCE_THRESHOLD = 0.4
@@ -66,7 +61,7 @@ async def stream_transcribe(
     Stream transcribe raw PCM over WebSocket with VAD configuration.
 
     Returns:
-        list[str]: Final transcript segments (and any trailing partial).
+        list[str]: Final transcript segments.
     """
     pcm = Path(pcm_path).read_bytes()
     ws_url = API_BASE.replace("https://", "wss://").replace("http://", "ws://")
@@ -75,28 +70,15 @@ async def stream_transcribe(
 
     final_texts = []
     last_partial = ""
-    audio_complete = False
-    silence_task = None
+    close_task = None
+    timed_out = False
+    send_error = None
 
-    def check_close():
-        nonlocal silence_task
-        if not audio_complete:
-            return
-        if silence_task and not silence_task.done():
-            silence_task.cancel()
-        silence_task = asyncio.create_task(_close_after_silence())
-
-    async def _close_after_silence():
-        try:
-            await asyncio.sleep(SILENCE_BEFORE_CLOSE_MS / 1000.0)
-            try:
-                await ws.send(json.dumps({"closeStream": {}}))
-                await asyncio.sleep(CLOSE_GRACE_MS / 1000.0)
-                await ws.close()
-            except (websockets.exceptions.ConnectionClosed, OSError, RuntimeError):
-                pass  # already closed or closing
-        except asyncio.CancelledError:
-            pass
+    async def close_on_timeout():
+        nonlocal timed_out
+        await asyncio.sleep(CLOSE_GRACE_MS / 1000.0)
+        timed_out = True
+        await ws.close()
 
     async with websockets.connect(ws_url, additional_headers=headers) as ws:
         await ws.send(json.dumps({
@@ -118,7 +100,7 @@ async def stream_transcribe(
         chunk_size = int((CHUNK_DURATION_MS / 1000) * sample_rate * bytes_per_sample)
 
         async def send_audio():
-            nonlocal audio_complete
+            nonlocal close_task
             for i in range(0, len(pcm), chunk_size):
                 chunk = pcm[i : i + chunk_size]
                 if not chunk:
@@ -127,30 +109,43 @@ async def stream_transcribe(
                     "audioChunk": {"content": base64.b64encode(chunk).decode()}
                 }))
                 await asyncio.sleep(CHUNK_DURATION_MS / 1000.0)
-            await asyncio.sleep(END_OF_AUDIO_DELAY_MS / 1000.0)
-            audio_complete = True
-            await ws.send(json.dumps({"endTurn": {}}))
-            check_close()
+            # closeStream finalizes pending audio; do not also send endTurn.
+            await ws.send(json.dumps({"closeStream": {}}))
+            close_task = asyncio.create_task(close_on_timeout())
 
-        send_task = asyncio.create_task(send_audio())
+        async def send_or_close():
+            nonlocal send_error
+            try:
+                await send_audio()
+            except Exception as err:
+                send_error = err
+                await ws.close()
+
+        send_task = asyncio.create_task(send_or_close())
 
         try:
             while True:
                 try:
                     raw = await ws.recv()
-                except websockets.exceptions.ConnectionClosed:
+                except websockets.exceptions.ConnectionClosedOK:
                     break
 
                 try:
                     msg = json.loads(raw)
                 except json.JSONDecodeError:
                     continue
+                if msg.get("error"):
+                    raise RuntimeError(msg["error"].get("message", "STT request failed"))
+                if msg.get("result", {}).get("usage"):
+                    print("Usage:", msg["result"]["usage"])
                 t = msg.get("result", {}).get("transcription", {})
                 if not t:
                     continue
                 text = t.get("transcript", "")
                 is_final = t.get("isFinal", False)
                 label = "[FINAL]" if is_final else "[interim]"
+                if is_final:
+                    last_partial = ""
                 if text:
                     print(f"{label} {text}")
                     if is_final:
@@ -159,15 +154,22 @@ async def stream_transcribe(
                     else:
                         last_partial = text
 
-                if audio_complete:
-                    check_close()
         except asyncio.CancelledError:
             pass
         finally:
-            await send_task
+            if not send_task.done():
+                send_task.cancel()
+            await asyncio.gather(send_task, return_exceptions=True)
+            if close_task:
+                close_task.cancel()
+                await asyncio.gather(close_task, return_exceptions=True)
+            if send_error:
+                raise send_error
+            if timed_out:
+                raise TimeoutError("Timed out waiting for STT stream completion")
 
     if last_partial.strip():
-        final_texts.append(last_partial.strip())
+        raise RuntimeError("Stream ended with an unfinalized transcript")
     return final_texts
 
 

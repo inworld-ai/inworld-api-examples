@@ -13,22 +13,15 @@ try { require('dotenv').config(); } catch (_) {}
 
 const API_BASE = 'https://api.inworld.ai';
 const CHUNK_DURATION_MS = 100;
-/** Delay after last audio chunk before endTurn so the server can process trailing samples. */
-const END_OF_AUDIO_DELAY_MS = 350;
-/** After endTurn, wait this long with no new message before sending closeStream (so server can send all finals including last word). */
-const SILENCE_BEFORE_CLOSE_MS = 1500;
-const CLOSE_GRACE_MS = 2500;
+// Client-side safety timeout, not an API latency guarantee.
+const CLOSE_GRACE_MS = 10000;
 const DEFAULT_SAMPLE_RATE = 16000;
 const DEFAULT_CHANNELS = 1;
 
-// VAD configuration for the inworld/inworld-stt-1 model, tuned for low latency.
-// These are not the server defaults (0.4 / 700 / 0.5): the shorter silence
-// window ends turns sooner, which is usually what you want for live speech.
-//
-// vadThreshold is the value to raise if you see spurious turn breaks. Below
-// ~0.3, background noise and breathing can register as speech, which starts new
-// turns mid-utterance. Raise it further for noisy environments; lower it only
-// if genuine quiet speech is being missed.
+// Example turn-detection settings, not server defaults.
+// Raise the silence duration or end-of-turn confidence threshold to reduce
+// premature turn boundaries. Raise vadThreshold to reject more background
+// noise; lower it if quiet speech is being missed.
 const DEFAULT_VAD_THRESHOLD = 0.3;
 const DEFAULT_MIN_END_OF_TURN_SILENCE_WHEN_CONFIDENT = 300;
 const DEFAULT_END_OF_TURN_CONFIDENCE_THRESHOLD = 0.4;
@@ -65,27 +58,14 @@ function streamTranscribe(pcmPath, sampleRate, channels, apiKey, options = {}) {
 
     const finalTexts = [];
     let lastPartial = '';
-    let audioComplete = false;
-    let silenceTimeout = null;
+    let closeTimeout = null;
 
     return new Promise((resolve, reject) => {
         const ws = new WebSocket(url, { headers });
 
-        function checkClose() {
-            if (!audioComplete) return;
-            if (silenceTimeout) clearTimeout(silenceTimeout);
-            silenceTimeout = setTimeout(() => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ closeStream: {} }));
-                    setTimeout(() => {
-                        if (ws.readyState === WebSocket.OPEN) ws.close();
-                    }, CLOSE_GRACE_MS);
-                }
-            }, SILENCE_BEFORE_CLOSE_MS);
-        }
-
         ws.on('error', (err) => {
             console.log(`WebSocket error: ${err.message}`);
+            clearTimeout(closeTimeout);
             reject(err);
         });
 
@@ -117,24 +97,30 @@ function streamTranscribe(pcmPath, sampleRate, channels, apiKey, options = {}) {
                     }));
                     await new Promise(r => setTimeout(r, CHUNK_DURATION_MS));
                 }
-                await new Promise(r => setTimeout(r, END_OF_AUDIO_DELAY_MS));
-                audioComplete = true;
-                ws.send(JSON.stringify({ endTurn: {} }));
-                checkClose(); // start timer; send closeStream only after no message for SILENCE_BEFORE_CLOSE_MS
-            })().catch(reject);
+                // closeStream finalizes pending audio; do not also send endTurn.
+                ws.send(JSON.stringify({ closeStream: {} }));
+                closeTimeout = setTimeout(() => {
+                    reject(new Error('Timed out waiting for STT stream completion'));
+                    ws.terminate();
+                }, CLOSE_GRACE_MS);
+            })().catch((err) => { reject(err); ws.terminate(); });
         });
 
         ws.on('message', (raw) => {
-            if (silenceTimeout) clearTimeout(silenceTimeout);
-            silenceTimeout = null;
-
             try {
                 const msg = JSON.parse(raw.toString());
+                if (msg.error) {
+                    reject(new Error(msg.error.message || 'STT request failed'));
+                    ws.close();
+                    return;
+                }
+                if (msg.result?.usage) console.log('Usage:', msg.result.usage);
                 const transcription = msg.result && msg.result.transcription;
                 if (!transcription) return;
                 const text = transcription.transcript || '';
                 const isFinal = transcription.isFinal === true;
                 const label = isFinal ? '[FINAL]' : '[interim]';
+                if (isFinal) lastPartial = '';
                 if (text) {
                     console.log(`${label} ${text}`);
                     if (isFinal) {
@@ -146,11 +132,19 @@ function streamTranscribe(pcmPath, sampleRate, channels, apiKey, options = {}) {
                 }
             } catch (_) {}
 
-            if (audioComplete) checkClose();
         });
 
-        ws.on('close', () => {
-            const fullParts = lastPartial.trim() ? [...finalTexts, lastPartial.trim()] : finalTexts;
+        ws.on('close', (code) => {
+            clearTimeout(closeTimeout);
+            if (code !== 1000) {
+                reject(new Error(`STT socket closed with code ${code}`));
+                return;
+            }
+            if (lastPartial.trim()) {
+                reject(new Error('Stream ended with an unfinalized transcript'));
+                return;
+            }
+            const fullParts = finalTexts;
             resolve({ finalTexts: fullParts });
         });
     });
