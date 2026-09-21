@@ -7,6 +7,7 @@
     "start": "node example_pronunciation_dictionaries.js",
     "create": "node example_create_dictionary.js",
     "tts": "node example_tts_with_dictionary.js",
+    "tts:workspace": "node example_tts_with_workspace_dictionary.js",
     "test": "node --test"
   },
   "keywords": [

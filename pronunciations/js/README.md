@@ -37,6 +37,18 @@ The script synthesizes the same text with and without selection, saves `baseline
 
 When finished, follow [explicit cleanup](../README.md#delete-the-retained-sample-when-finished).
 
+## Use your Portal workspace dictionary instead
+
+Follow the [workspace-default setup](../README.md#use-the-workspace-dictionary-saved-in-portal), then run:
+
+```bash
+npm run tts:workspace
+```
+
+This compares ordinary synthesis with `enable_custom_pronunciation: true`.
+It does not use `PRONUNCIATION_DICTIONARY_NAME` or change saved entries.
+Both requests are billable; listen to both files to verify the replacement.
+
 ## Optional: complete CRUD lifecycle
 
 ```bash
