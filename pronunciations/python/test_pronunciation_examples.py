@@ -16,6 +16,7 @@ import requests
 import example_create_dictionary as create_example
 import example_pronunciation_dictionaries as crud
 import example_tts_with_dictionary as tts
+import example_tts_with_workspace_dictionary as workspace_tts
 
 NAME = (
     "workspaces/example/pronunciationDictionaries/7b5c9b84-1faa-4c54-a7c9-3778d5e76cc9"
@@ -67,6 +68,39 @@ class PronunciationExamplesTest(unittest.TestCase):
         self.client = crud.PronunciationDictionariesClient(
             "test-key", "example", "https://example.test"
         )
+
+    def test_workspace_tts_only_sends_synthesis_and_the_default_selector(self):
+        audio = b"ID3workspace-audio"
+        self.session.responses = [
+            Response({"audioContent": base64.b64encode(audio).decode()}),
+            Response({"audioContent": base64.b64encode(audio + b"selected").decode()}),
+        ]
+        directory = workspace_tts.synthesize_workspace_comparison(self.client)
+        self.addCleanup(shutil.rmtree, directory)
+        self.assertEqual((directory / "baseline.mp3").read_bytes(), audio)
+        self.assertEqual(
+            (directory / "with-workspace-dictionary.mp3").read_bytes(),
+            audio + b"selected",
+        )
+        self.assertEqual(
+            [(call[0], call[1]) for call in self.session.calls],
+            [("POST", "https://example.test/tts/v1/voice")] * 2,
+        )
+        baseline, selected = [call[2]["json"] for call in self.session.calls]
+        self.assertEqual(baseline["text"], "The Cat is on the mat.")
+        self.assertEqual(baseline["language"], "en-US")
+        self.assertNotIn("enable_custom_pronunciation", baseline)
+        self.assertNotIn("pronunciationDictionarySettings", baseline)
+        self.assertEqual(selected, {**baseline, "enable_custom_pronunciation": True})
+
+    def test_workspace_tts_failure_does_not_create_files_or_retry(self):
+        self.session.responses = [Response({"audioContent": "YQ=="}), Response(status=503)]
+        with patch.object(workspace_tts.tempfile, "mkdtemp") as mkdtemp:
+            with self.assertRaises(crud.ApiError) as error:
+                workspace_tts.synthesize_workspace_comparison(self.client)
+        self.assertEqual(error.exception.status_code, 503)
+        mkdtemp.assert_not_called()
+        self.assertEqual(len(self.session.calls), 2)
 
     def test_create_retains_all_five_fixture_entries(self):
         def create_response(method, url, kwargs):

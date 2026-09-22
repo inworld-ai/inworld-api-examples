@@ -8,11 +8,42 @@ const {
 } = require('./example_pronunciation_dictionaries');
 const { runCreate } = require('./example_create_dictionary');
 const { runTts, decodeAudio } = require('./example_tts_with_dictionary');
+const { runWorkspaceTts } = require('./example_tts_with_workspace_dictionary');
 
 const id = '6b1af7cc-b808-49dd-9d0c-181d988a21c2';
 const name = `workspaces/test-workspace/pronunciationDictionaries/${id}`;
 const quiet = () => {};
 const audioContent = Buffer.from('example MP3 bytes').toString('base64');
+
+test('workspace example varies only the boolean and never reads or mutates dictionaries', async () => {
+    const { client, calls } = harness(() => ({ audioContent }));
+    const { io, writes } = fakeIo();
+    const result = await runWorkspaceTts(client, { io, tempRoot: '/tmp', log: quiet });
+    assert.deepEqual(calls.map(({ method, url }) => [method, url.pathname]), [
+        ['POST', '/tts/v1/voice'], ['POST', '/tts/v1/voice'],
+    ]);
+    const baseline = calls[0].body;
+    assert.equal(baseline.text, 'The Cat is on the mat.');
+    assert.equal(baseline.modelId, 'inworld-tts-2');
+    assert.equal(baseline.language, 'en-US');
+    assert.equal('enable_custom_pronunciation' in baseline, false);
+    assert.equal('pronunciationDictionarySettings' in baseline, false);
+    assert.deepEqual(calls[1].body, { ...baseline, enable_custom_pronunciation: true });
+    assert.equal(path.basename(result.selectedPath), 'with-workspace-dictionary.mp3');
+    assert.notEqual(result.baselinePath, result.selectedPath);
+    assert.deepEqual(writes.map(({ bytes }) => bytes), [
+        Buffer.from(audioContent, 'base64'), Buffer.from(audioContent, 'base64'),
+    ]);
+});
+
+test('workspace example surfaces synthesis failure without retries or misleading files', async () => {
+    const { client, calls } = harness((_, index) => index === 1
+        ? { audioContent } : new Response('private failure', { status: 503 }));
+    const { io, writes } = fakeIo();
+    await assert.rejects(runWorkspaceTts(client, { io, log: quiet }), (error) => error.status === 503);
+    assert.equal(calls.length, 2);
+    assert.equal(writes.length, 0);
+});
 
 function harness(handler) {
     const calls = [];

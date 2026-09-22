@@ -6,6 +6,7 @@ Create a dictionary containing several pronunciations in one public API request,
 |---|---|---|---|
 | Create five entries | [example_create_dictionary.py](python/example_create_dictionary.py) | [example_create_dictionary.js](js/example_create_dictionary.js) | Creates and retains a new dictionary |
 | Compare TTS audio | [example_tts_with_dictionary.py](python/example_tts_with_dictionary.py) | [example_tts_with_dictionary.js](js/example_tts_with_dictionary.js) | Reads an existing dictionary; never changes or deletes it |
+| Use Portal's workspace dictionary | [example_tts_with_workspace_dictionary.py](python/example_tts_with_workspace_dictionary.py) | [example_tts_with_workspace_dictionary.js](js/example_tts_with_workspace_dictionary.js) | Synthesizes with existing Portal entries; no dictionary ID or management calls |
 | Optional CRUD lifecycle | [example_pronunciation_dictionaries.py](python/example_pronunciation_dictionaries.py) | [example_pronunciation_dictionaries.js](js/example_pronunciation_dictionaries.js) | Creates, lists, gets, updates, and deletes its own temporary dictionary |
 
 Start with the [Python setup](python/README.md) or [JavaScript setup](js/README.md).
@@ -36,7 +37,22 @@ Pass the **full server-returned resource name**, not just its UUID, as `PRONUNCI
 }
 ```
 
-Replace the illustrative name with the exact `name` returned by create. Named dictionaries are separate from workspace saved pronunciations in Inworld Portal. This public selection does not require the internal `enable_custom_pronunciation` flag or an internal workspace UUID.
+Replace the illustrative name with the exact `name` returned by create. Named dictionaries are separate from workspace saved pronunciations in Inworld Portal. Do not send `enable_custom_pronunciation` alongside named settings, even as `false`.
+
+## Use the workspace dictionary saved in Portal
+
+Choose this example when you already saved entries on the workspace's **Pronunciations** page, rather than creating a named dictionary through the API. It adds only:
+
+```json
+{ "enable_custom_pronunciation": true }
+```
+
+1. In a test workspace in Portal, save **Cat** with English (US) phones **ɹ**, **ɛ**, **d** (`/ɹɛd/`). This intentionally makes “cat” sound like “red.” The request uses the same spelling, **Cat**. Do not replace somebody else's entry; use a test workspace you control.
+2. Configure the same workspace's Standard `INWORLD_API_KEY`, `INWORLD_WORKSPACE_ID`, and matching regional `INWORLD_API_BASE_URL` using the language-specific setup. The API key determines the workspace; the workspace ID setting does not override its scope. `PRONUNCIATION_DICTIONARY_NAME` is not used.
+3. Run `npm run tts:workspace` from `pronunciations/js`, or `python example_tts_with_workspace_dictionary.py` from `pronunciations/python`.
+4. Listen to the printed files: `baseline.mp3` should say “The cat is on the mat”; `with-workspace-dictionary.mp3` should say “The red is on the mat.” Both requests use TTS-2, Ashley, and `en-US` and are billable. The example never reads, creates, updates, or deletes dictionary resources. Remove only your own test entry in Portal afterward if no longer needed.
+
+This public selector must be deployed and workspace-default synthesis enabled in the region you call. False or omission disables the default dictionary on a new request. An empty, unavailable, or nonmatching default can leave audio unchanged even with HTTP 200; listen to the result rather than treating request success as proof. Named selection instead surfaces dictionary-loading failures. Neither selector makes Portal's default dictionary editable through public dictionary CRUD, and no workspace UUID should be sent by the client.
 
 ## Update and cleanup safety
 
