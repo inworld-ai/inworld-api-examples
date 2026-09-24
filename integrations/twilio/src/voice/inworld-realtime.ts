@@ -91,6 +91,11 @@ export class InworldRealtimeClient extends EventEmitter {
             model: config.llmModel,
             instructions: this.instructions,
             output_modalities: ["audio", "text"],
+            // Reasoning adds a thinking pass before the first word, which a caller
+            // hears as dead air. When omitted, the model's default applies: e.g.
+            // gemini-2.5-flash then reasons on every reply (~0.8 s slower to first
+            // audio in testing). Keep NONE for voice unless the model needs it.
+            text_generation_config: { reasoning: { effort: "NONE" } },
             audio: {
               input: {
                 format: "g711_ulaw",
