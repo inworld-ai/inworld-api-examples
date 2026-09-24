@@ -11,7 +11,10 @@ interface InworldRealtimeEvents {
   audio: (base64Audio: string) => void;
   audioDone: () => void;
   speechStarted: () => void;
+  speechStopped: () => void;
   transcript: (text: string) => void;
+  responseCreated: (responseId: string) => void;
+  responseDone: (responseId: string, status: string, transcript: string) => void;
   error: (error: Error) => void;
   closed: () => void;
 }
@@ -63,10 +66,6 @@ export class InworldRealtimeClient extends EventEmitter {
     this.send({ type: "input_audio_buffer.append", audio: base64Audio });
   }
 
-  cancelResponse(): void {
-    this.send({ type: "response.cancel" });
-  }
-
   close(): void {
     this.ws?.close();
     this.ws = null;
@@ -86,16 +85,16 @@ export class InworldRealtimeClient extends EventEmitter {
           type: "session.update",
           session: {
             type: "realtime",
-            model: "openai/gpt-4.1-mini",
+            model: config.llmModel,
             instructions: this.instructions,
             output_modalities: ["audio", "text"],
             audio: {
               input: {
                 format: "g711_ulaw",
-                transcription: { model: "assemblyai/universal-streaming-multilingual" },
+                transcription: { model: "inworld/inworld-stt-1" },
                 turn_detection: {
                   type: "semantic_vad",
-                  eagerness: "auto",
+                  eagerness: "medium",
                   create_response: true,
                   interrupt_response: true,
                 },
@@ -135,6 +134,23 @@ export class InworldRealtimeClient extends EventEmitter {
       case "input_audio_buffer.speech_started":
         this.emit("speechStarted");
         break;
+
+      case "input_audio_buffer.speech_stopped":
+        this.emit("speechStopped");
+        break;
+
+      case "response.created":
+        this.emit("responseCreated", msg.response?.id);
+        break;
+
+      case "response.done": {
+        const transcript = (msg.response?.output ?? [])
+          .flatMap((item: any) => item.content ?? [])
+          .map((part: any) => part.transcript ?? "")
+          .find((text: string) => text.length > 0) ?? "";
+        this.emit("responseDone", msg.response?.id, msg.response?.status, transcript);
+        break;
+      }
 
       case "conversation.item.input_audio_transcription.completed":
         if (msg.transcript) this.emit("transcript", msg.transcript);

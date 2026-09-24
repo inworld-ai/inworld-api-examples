@@ -24,6 +24,7 @@ wss.on("connection", (ws, req) => {
 server.listen(config.port, () => {
   console.log(`[server] Listening on port ${config.port}`);
   console.log(`[server] Voice webhook: ${config.serverUrl}/voice`);
+  console.log(`[server] LLM: ${config.llmModel}`);
 });
 
 process.on("SIGINT", () => { server.close(); process.exit(0); });

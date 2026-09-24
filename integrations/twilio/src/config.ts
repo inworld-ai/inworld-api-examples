@@ -16,8 +16,11 @@ export const config = {
   port: parseInt(optional("PORT", "3000"), 10),
   serverUrl: required("SERVER_URL"),
 
+  // "provider/model" (e.g. openai/gpt-4.1-mini) or an Inworld Router as "inworld/<routerId>".
+  llmModel: optional("LLM_MODEL", "openai/gpt-4.1-mini"),
+
   systemPrompt: optional(
     "SYSTEM_PROMPT",
-    "You are a helpful voice assistant powered by Inworld. Keep responses brief and conversational."
+    "You are a friendly voice assistant powered by Inworld, talking with a caller on the phone. Keep every reply to one or two short sentences. Your replies are spoken aloud, so never use bullet points, numbered lists, markdown, emoji, or symbols. When naming several things, say them in one natural sentence, and say numbers and units the way you would read them aloud. If the caller asks for something long, like a story, a list, or an explanation, give a short version in a few sentences and offer to continue. If the caller repeats a question, answer it again politely. If you did not catch what the caller said, briefly ask them to repeat it."
   ),
 } as const;
