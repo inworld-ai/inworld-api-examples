@@ -27,6 +27,9 @@ export declare interface InworldRealtimeClient {
 export class InworldRealtimeClient extends EventEmitter {
   private ws: WebSocket | null = null;
   private instructions: string = "";
+  // Spoken transcript per response, built from deltas. A cancelled
+  // response.done carries no output, so this is the only record of what was said.
+  private responseTranscripts = new Map<string, string>();
 
   async connect(instructions: string): Promise<void> {
     this.instructions = instructions;
@@ -143,12 +146,18 @@ export class InworldRealtimeClient extends EventEmitter {
         this.emit("responseCreated", msg.response?.id);
         break;
 
+      case "response.output_audio_transcript.delta":
+        this.responseTranscripts.set(
+          msg.response_id,
+          (this.responseTranscripts.get(msg.response_id) ?? "") + msg.delta
+        );
+        break;
+
       case "response.done": {
-        const transcript = (msg.response?.output ?? [])
-          .flatMap((item: any) => item.content ?? [])
-          .map((part: any) => part.transcript ?? "")
-          .find((text: string) => text.length > 0) ?? "";
-        this.emit("responseDone", msg.response?.id, msg.response?.status, transcript);
+        const responseId = msg.response?.id;
+        const transcript = this.responseTranscripts.get(responseId) ?? "";
+        this.responseTranscripts.delete(responseId);
+        this.emit("responseDone", responseId, msg.response?.status, transcript);
         break;
       }
 

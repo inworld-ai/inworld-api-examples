@@ -45,14 +45,17 @@ export function handleCallStream(twilioWs: WebSocket): void {
   // Inworld's speech_stopped fires only once turn detection commits the turn,
   // so it cannot measure how long turn detection itself took.
   let lastVoiceAt: number | null = null;
+  // lastVoiceAt as of the committed turn. The caller may keep talking before the
+  // reply starts, so response timings are measured from this snapshot instead.
+  let turnVoiceEndAt: number | null = null;
   // Inworld sends audio faster than real time, so a response is often "done"
   // while Twilio is still playing it. Estimate when playback actually ends.
   let playbackEndsAt = 0;
   let firstAudioLogged = false;
   let responseAudioBytes = 0;
 
-  function sinceVoice(): string {
-    return lastVoiceAt === null ? "n/a" : `+${Date.now() - lastVoiceAt}ms`;
+  function elapsedSince(start: number | null): string {
+    return start === null ? "n/a" : `+${Date.now() - start}ms`;
   }
 
   function sendToTwilio(payload: Buffer) {
@@ -84,7 +87,7 @@ export function handleCallStream(twilioWs: WebSocket): void {
           const audio = Buffer.from(base64Audio, "base64");
           if (!firstAudioLogged) {
             firstAudioLogged = true;
-            console.log(`[latency] First bot audio: ${sinceVoice()} after caller stopped talking`);
+            console.log(`[latency] First bot audio: ${elapsedSince(turnVoiceEndAt)} after caller stopped talking`);
           }
           responseAudioBytes += audio.length;
           outBuffer = Buffer.concat([outBuffer, audio]);
@@ -113,7 +116,8 @@ export function handleCallStream(twilioWs: WebSocket): void {
         });
 
         inworld.on("speechStopped", () => {
-          console.log(`[latency] Turn end detected: ${sinceVoice()} after caller stopped talking`);
+          turnVoiceEndAt = lastVoiceAt;
+          console.log(`[latency] Turn end detected: ${elapsedSince(turnVoiceEndAt)} after caller stopped talking`);
         });
 
         inworld.on("transcript", (text) => console.log(`[call] User: ${text}`));
@@ -121,7 +125,7 @@ export function handleCallStream(twilioWs: WebSocket): void {
         inworld.on("responseCreated", (responseId) => {
           firstAudioLogged = false;
           responseAudioBytes = 0;
-          console.log(`[latency] Response ${responseId} created: ${sinceVoice()} after caller stopped talking`);
+          console.log(`[latency] Response ${responseId} created: ${elapsedSince(turnVoiceEndAt)} after caller stopped talking`);
         });
 
         inworld.on("responseDone", (responseId, status, transcript) => {
