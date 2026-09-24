@@ -16,8 +16,9 @@ export const config = {
   port: parseInt(optional("PORT", "3000"), 10),
   serverUrl: required("SERVER_URL"),
 
-  // "provider/model" (e.g. openai/gpt-4.1-mini) or an Inworld Router as "inworld/<routerId>".
-  llmModel: optional("LLM_MODEL", "openai/gpt-4.1-mini"),
+  // An Inworld-hosted model ("inworld/models/<model>"), a third-party "provider/model"
+  // (e.g. openai/gpt-4.1-mini), or an Inworld Router as "inworld/<routerId>".
+  llmModel: optional("LLM_MODEL", "inworld/models/deepseek-v4.1-flash"),
 
   systemPrompt: optional(
     "SYSTEM_PROMPT",

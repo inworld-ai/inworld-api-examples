@@ -32,7 +32,7 @@ Caller ↔ Twilio ↔ WebSocket ↔ Inworld Realtime
    # Fill in INWORLD_API_KEY and SERVER_URL=https://<your-ngrok-domain> (no trailing /voice)
    ```
 
-5. **(Optional) Use an Inworld Router for the LLM** — in the [Inworld Portal](https://portal.inworld.ai), create a [router](https://docs.inworld.ai/router/introduction) with a default route (for example `openai/gpt-4.1-mini`, with `google-ai-studio/gemini-2.5-flash` as a fallback). Leave the prompt template and model settings empty; the system prompt comes from `SYSTEM_PROMPT`. Then set `LLM_MODEL=inworld/<your-router-id>` in `.env`. If `LLM_MODEL` is unset, the example calls `openai/gpt-4.1-mini` directly.
+5. **(Optional) Choose a different LLM** — by default the example uses DeepSeek V4.1 Flash hosted by Inworld (`inworld/models/deepseek-v4.1-flash`). To change it, set `LLM_MODEL` in `.env` to another model from the [Inworld models list](https://inworld.ai/models) (Inworld-hosted models use `inworld/models/<model>`; third-party models use `provider/model`, for example `openai/gpt-4.1-mini`). For fallbacks or A/B tests, create a [router](https://docs.inworld.ai/router/introduction) in the [Inworld Portal](https://portal.inworld.ai) and set `LLM_MODEL=inworld/<your-router-id>`; leave the router's prompt template and model settings empty, since the system prompt comes from `SYSTEM_PROMPT`.
 
 6. **Install dependencies:**
    ```bash
@@ -60,7 +60,7 @@ Call your Twilio number — the bot will greet you and you can have a conversati
 1. Inbound call hits `/voice` → returns TwiML with `<Connect><Stream>`
 2. Twilio opens a Media Stream WebSocket to `/media-stream`
 3. Server passes mulaw audio between Twilio and Inworld (no format conversion needed)
-4. Inworld transcribes the caller with Inworld STT (`inworld/inworld-stt-1`), detects end of turn with semantic VAD (`eagerness: "medium"`), and responds using the LLM set by `LLM_MODEL` (a `provider/model` ID or an [Inworld Router](https://docs.inworld.ai/router/introduction) as `inworld/<routerId>`) and Inworld TTS (`inworld-tts-2`)
+4. Inworld transcribes the caller with Inworld STT (`inworld/inworld-stt-1`), detects end of turn with semantic VAD (`eagerness: "medium"`), and responds using the LLM set by `LLM_MODEL` (default: DeepSeek V4.1 Flash hosted by Inworld, `inworld/models/deepseek-v4.1-flash`) and Inworld TTS (`inworld-tts-2`)
 5. Barge-in: on speech detection, the server clears Twilio's playback buffer. Inworld cancels the in-flight response itself because the session sets `interrupt_response: true`
 
 ## Logs
