@@ -18,14 +18,50 @@ interface TwilioMediaMessage {
 // 50ms of mulaw 8kHz = 400 bytes (8000 samples/sec × 0.05s × 1 byte/sample)
 const MIN_CHUNK_BYTES = 400;
 
+// Peak level (16-bit PCM) above which an inbound chunk counts as caller voice.
+// Only used to time latency from the caller's real end of speech.
+const VOICE_PEAK_THRESHOLD = 1000;
+
+function mulawToLinear(byte: number): number {
+  const u = ~byte & 0xff;
+  const magnitude = (((u & 0x0f) << 3) + 0x84) << ((u & 0x70) >> 4);
+  return u & 0x80 ? 0x84 - magnitude : magnitude - 0x84;
+}
+
+function hasVoice(chunk: Buffer): boolean {
+  for (const byte of chunk) {
+    if (Math.abs(mulawToLinear(byte)) > VOICE_PEAK_THRESHOLD) return true;
+  }
+  return false;
+}
+
 export function handleCallStream(twilioWs: WebSocket): void {
   let streamSid: string | null = null;
   let inworld: InworldRealtimeClient | null = null;
   let outBuffer = Buffer.alloc(0);
   let inBuffer = Buffer.alloc(0);
 
+  // Latency tracking, relative to the last inbound chunk that contained voice.
+  // Inworld's speech_stopped fires only once turn detection commits the turn,
+  // so it cannot measure how long turn detection itself took.
+  let lastVoiceAt: number | null = null;
+  // lastVoiceAt as of the committed turn. The caller may keep talking before the
+  // reply starts, so response timings are measured from this snapshot instead.
+  let turnVoiceEndAt: number | null = null;
+  // Inworld sends audio faster than real time, so a response is often "done"
+  // while Twilio is still playing it. Estimate when playback actually ends.
+  let playbackEndsAt = 0;
+  let firstAudioLogged = false;
+  let responseAudioBytes = 0;
+
+  function elapsedSince(start: number | null): string {
+    return start === null ? "n/a" : `+${Date.now() - start}ms`;
+  }
+
   function sendToTwilio(payload: Buffer) {
     if (twilioWs.readyState === WebSocket.OPEN && streamSid) {
+      // mulaw 8kHz is 1 byte per sample, so bytes / 8 = milliseconds of audio.
+      playbackEndsAt = Math.max(playbackEndsAt, Date.now()) + payload.length / 8;
       twilioWs.send(JSON.stringify({ event: "media", streamSid, media: { payload: payload.toString("base64") } }));
     }
   }
@@ -48,7 +84,13 @@ export function handleCallStream(twilioWs: WebSocket): void {
         inworld = new InworldRealtimeClient();
 
         inworld.on("audio", (base64Audio) => {
-          outBuffer = Buffer.concat([outBuffer, Buffer.from(base64Audio, "base64")]);
+          const audio = Buffer.from(base64Audio, "base64");
+          if (!firstAudioLogged) {
+            firstAudioLogged = true;
+            console.log(`[latency] First bot audio: ${elapsedSince(turnVoiceEndAt)} after caller stopped talking`);
+          }
+          responseAudioBytes += audio.length;
+          outBuffer = Buffer.concat([outBuffer, audio]);
           flushOutBuffer();
         });
 
@@ -59,15 +101,38 @@ export function handleCallStream(twilioWs: WebSocket): void {
           }
         });
 
+        // Barge-in: stop local playback. Inworld cancels the in-flight response
+        // itself because the session sets turn_detection.interrupt_response.
         inworld.on("speechStarted", () => {
+          const unplayedMs = Math.round(playbackEndsAt - Date.now());
+          if (unplayedMs > 0) {
+            console.log(`[call] Caller interrupted the bot, clearing ~${unplayedMs}ms of unplayed audio`);
+          }
+          playbackEndsAt = 0;
           outBuffer = Buffer.alloc(0);
           if (twilioWs.readyState === WebSocket.OPEN && streamSid) {
             twilioWs.send(JSON.stringify({ event: "clear", streamSid }));
           }
-          inworld?.cancelResponse();
+        });
+
+        inworld.on("speechStopped", () => {
+          turnVoiceEndAt = lastVoiceAt;
+          console.log(`[latency] Turn end detected: ${elapsedSince(turnVoiceEndAt)} after caller stopped talking`);
         });
 
         inworld.on("transcript", (text) => console.log(`[call] User: ${text}`));
+
+        inworld.on("responseCreated", (responseId) => {
+          firstAudioLogged = false;
+          responseAudioBytes = 0;
+          console.log(`[latency] Response ${responseId} created: ${elapsedSince(turnVoiceEndAt)} after caller stopped talking`);
+        });
+
+        inworld.on("responseDone", (responseId, status, transcript) => {
+          const audioMs = Math.round(responseAudioBytes / 8);
+          console.log(`[call] Bot (${status}, ${audioMs}ms audio, response ${responseId}): ${transcript}`);
+        });
+
         inworld.on("error", (err) => console.error(`[call] Inworld error: ${err.message}`));
         inworld.on("closed", () => console.log("[call] Inworld closed"));
 
@@ -82,7 +147,9 @@ export function handleCallStream(twilioWs: WebSocket): void {
         if (inworld && msg.media) {
           inBuffer = Buffer.concat([inBuffer, Buffer.from(msg.media.payload, "base64")]);
           while (inBuffer.length >= MIN_CHUNK_BYTES) {
-            inworld.sendAudio(inBuffer.subarray(0, MIN_CHUNK_BYTES).toString("base64"));
+            const chunk = inBuffer.subarray(0, MIN_CHUNK_BYTES);
+            if (hasVoice(chunk)) lastVoiceAt = Date.now();
+            inworld.sendAudio(chunk.toString("base64"));
             inBuffer = inBuffer.subarray(MIN_CHUNK_BYTES);
           }
         }
