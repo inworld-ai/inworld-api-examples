@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Language Switching Demo · Inworld TTS</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --surface-2: #eef0f3;
+    --ink: #1b212b;
+    --muted: #5d6877;
+    --rule: #dde1e7;
+    --accent: #1b212b;
+    --l1: #2f6db0;
+    --l1-soft: #e3edf8;
+    --l2: #c4501a;
+    --l2-soft: #fbe9df;
+    --turn: #58636f;
+    --turn-soft: #e7eaee;
+    --err: #b3261e;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101318;
+      --surface: #181c23;
+      --surface-2: #20262e;
+      --ink: #e5e9ee;
+      --muted: #97a2b0;
+      --rule: #2b323c;
+      --accent: #e5e9ee;
+      --l1: #6ea8e8;
+      --l1-soft: #1b2a3c;
+      --l2: #f08b58;
+      --l2-soft: #3a2519;
+      --turn: #9aa5b2;
+      --turn-soft: #262c34;
+      --err: #f2877f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); }
+  main { max-width: 1180px; margin: 0 auto; padding: 32px 24px 64px; display: grid; gap: 20px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  h2 { font-size: 13px; margin: 0; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  h3 { margin: 0; font-size: 15px; }
+  p { margin: 0; }
+  code { font-family: var(--mono); font-size: 0.92em; }
+  .lede { color: var(--muted); max-width: 80ch; margin-top: 6px; }
+  .card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; align-content: start; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+  label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+  input, textarea, select {
+    font: inherit; color: var(--ink); background: var(--surface-2); border: 1px solid var(--rule);
+    border-radius: 7px; padding: 8px 10px;
+  }
+  textarea { width: 100%; min-height: 110px; resize: vertical; font-family: var(--mono); font-size: 13.5px; line-height: 1.55; }
+  input { width: 180px; }
+  button { font: inherit; cursor: pointer; border-radius: 7px; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--l1); outline-offset: 2px; }
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; }
+  .preset { background: var(--surface-2); border: 1px solid var(--rule); color: var(--ink); padding: 6px 12px; font-size: 13px; }
+  .preset:hover { border-color: var(--muted); }
+  .preset[aria-pressed="true"] { border-color: var(--ink); }
+  .go { background: var(--accent); color: var(--bg); border: 0; padding: 10px 18px; font-weight: 600; margin-left: auto; }
+  .go:disabled { opacity: 0.5; cursor: progress; }
+  .note { font-size: 14px; background: var(--surface-2); border-radius: 7px; padding: 10px 12px; }
+  .note b { font-weight: 600; }
+
+  details.card { gap: 0; }
+  details.card[open] { gap: 14px; }
+  summary { cursor: pointer; font-weight: 600; }
+  .explain { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .explain > div { display: grid; gap: 6px; align-content: start; font-size: 14px; }
+  .explain h4 { margin: 0; font-size: 13px; }
+  .explain ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+
+  .sends { display: grid; gap: 8px; }
+  .sends h3 { font-size: 13px; font-weight: 600; }
+  .sent { font: 13.5px/1.6 var(--mono); background: var(--surface-2); border-radius: 7px; padding: 8px 10px; overflow-wrap: anywhere; }
+  .plan { display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch; }
+  .seg { display: grid; gap: 2px; padding: 6px 10px; border-radius: 7px; max-width: 100%; }
+  .seg .meta { font: 11px var(--mono); letter-spacing: 0.04em; opacity: 0.9; }
+  .seg .txt { font-size: 14px; overflow-wrap: anywhere; }
+  .flushmark { align-self: center; font: 10px var(--mono); color: var(--muted); letter-spacing: 0.06em; }
+
+  .results { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; }
+  .result .sub { color: var(--muted); font-size: 13px; }
+  .result .body { display: grid; gap: 14px; min-width: 0; }
+  .result audio { width: 100%; }
+  .timeline { display: flex; gap: 3px; height: 74px; overflow: hidden; }
+  .block {
+    position: relative; min-width: 28px; border: 0; padding: 0; overflow: hidden; border-radius: 6px;
+    display: flex; align-items: flex-end; text-align: left;
+  }
+  .block canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .block .tag { position: relative; font: 11px var(--mono); padding: 4px 6px; white-space: nowrap; }
+  .block.active { outline: 2px solid var(--ink); outline-offset: 1px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; table-layout: fixed; }
+  col.n { width: 32px; } col.t { width: 88px; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--rule); }
+  td { padding: 8px; border-bottom: 1px solid var(--rule); vertical-align: top; overflow-wrap: anywhere; }
+  td.num { font: 12px var(--mono); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .status { color: var(--muted); font-size: 13px; }
+  .error { color: var(--err); font-size: 13px; white-space: pre-wrap; }
+  @media (max-width: 600px) {
+    main { padding: 20px 16px 48px; }
+    .results { grid-template-columns: 1fr; }
+    input { width: 100%; }
+    .row > label { flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Language switching on one TTS context</h1>
+    <p class="lede">
+      A tutor turn marks the language being taught with <code>&lt;l2&gt;…&lt;/l2&gt;</code> and spells it so that its
+      sounds are certain: kana for Japanese, pinyin for Chinese, IPA for Spanish words. One WebSocket client
+      (<code>language_switching.py</code>) sends it two ways, as one flush or as one flush per language, and each card
+      below is one of those on one voice.
+    </p>
+  </header>
+
+  <details class="card" open>
+    <summary>What decides what you hear</summary>
+    <div class="explain">
+      <div>
+        <h4>The spelling decides the sounds</h4>
+        <p>The voice speaks what the spelling says, whatever language it is in. Kanji and Chinese characters have
+          several readings each, and the same characters read differently in Chinese and Japanese; a Spanish word
+          can be read as English. Kana, pinyin with tone marks, and IPA have one reading. Ask your LLM to write the
+          taught language in them.</p>
+      </div>
+      <div>
+        <h4>Detection picks one language per flush</h4>
+        <p>The context sets no <code>language</code>, so the service detects one for every flush, by its script first:</p>
+        <ul>
+          <li><b>Kana</b> reads as Japanese; <b>Hangul</b> as Korean.</li>
+          <li><b>Chinese characters</b> read as Chinese or Japanese; a word or two can go either way, or neither.</li>
+          <li><b>Latin letters</b> go to a model, which needs a few words: a single Spanish word can read as English.</li>
+          <li><b>Pinyin</b> never reads as Chinese: <i>hǎochī</i> reads as German.</li>
+          <li><b>IPA</b> reads as no language, so the flush takes the language of the turn so far.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>The prompt decides the accent</h4>
+        <p>A voice with localized prompts speaks each flush on its prompt for the detected language, when
+          per-language prompt switching is enabled for your workspace; otherwise every flush uses its own prompt.
+          A voice cloned from a clip in both languages has one prompt with both accents, so no detection is needed
+          for its accent.</p>
+        <p>The detected language also sets how numbers are read, and timestamps.</p>
+      </div>
+    </div>
+  </details>
+
+  <section class="card" aria-labelledby="turn-h">
+    <h2 id="turn-h">Turn</h2>
+    <div class="row">
+      <label>Language pair <select id="pair"></select></label>
+    </div>
+    <div class="presets" id="presets"></div>
+    <p class="note" id="note"></p>
+    <textarea id="text" spellcheck="false" aria-label="Turn text"></textarea>
+    <div class="row">
+      <label>Voice with localized prompts <input id="voice"></label>
+      <label>Bilingual voice <input id="bivoice"></label>
+      <label>Model <input id="model" value="inworld-tts-2"></label>
+      <button class="go" id="go">Synthesize</button>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="plan-h">
+    <h2 id="plan-h">What gets sent</h2>
+    <div class="sends">
+      <h3>One flush</h3>
+      <div class="sent" id="one"></div>
+    </div>
+    <div class="sends">
+      <h3>Per-language flushes</h3>
+      <div class="plan" id="per"></div>
+    </div>
+  </section>
+
+  <section class="results">
+    <article class="card result" id="one-localized">
+      <div><h3>One flush</h3>
+        <p class="sub">The whole turn as one flush on the voice with localized prompts: one detected language, one prompt.</p></div>
+      <div class="body"><p class="status">Not run yet.</p></div>
+    </article>
+    <article class="card result" id="per-localized">
+      <div><h3>Per-language flushes</h3>
+        <p class="sub">A flush at every switch, on the same voice and context: each flush gets its own detected language and prompt.</p></div>
+      <div class="body"><p class="status">Not run yet.</p></div>
+    </article>
+    <article class="card result" id="one-bilingual">
+      <div><h3>One flush · bilingual voice</h3>
+        <p class="sub">The same one flush on a voice cloned from a clip in both languages: one prompt with both accents.</p></div>
+      <div class="body"><p class="status">Not run yet.</p></div>
+    </article>
+  </section>
+</main>
+
+<script>
+// Each card is one call to the same client: a strategy and a voice.
+const CARDS = {
+  "one-localized": { strategy: "one", voice: () => $("#voice").value },
+  "per-localized": { strategy: "per_language", voice: () => $("#voice").value },
+  "one-bilingual": { strategy: "one", voice: () => $("#bivoice").value },
+};
+
+// A language pair sets the labels, the voice with localized prompts for both
+// languages, and which bilingual voice ID the page remembers.
+const PAIRS = {
+  "en-es": { name: "English → Spanish", l1: "EN", l2: "ES", voice: "Jason", presets: [
+    { name: "Rolled r", text:
+      'Great job! In Spanish, "the dog runs" is <l2>El perro corre.</l2> ' +
+      'Listen for the rolled r in <l2>/ˈpe.ro/</l2>, "dog", and the single tap in <l2>/ˈpe.ɾo/</l2>, "but".',
+      note: `The Spanish sentence is long enough to read as Spanish, so per-language flushes speak it on the Spanish prompt;
+        as one flush the turn reads as English. The single words are in IPA: they have Spanish sounds in every card,
+        and in per-language flushes they take the English of the turn so far.` },
+    { name: "Single words, spelled", text:
+      'The word for dog is <l2>perro</l2>, and the word for but is <l2>pero</l2>. The number eleven is <l2>once</l2>.',
+      note: `<b>The pitfall.</b> A single word spelled in Spanish reads as English, even in its own flush, so every card
+        speaks these on the English prompt: <i>once</i> can come out as the English word. Compare the next preset.` },
+    { name: "Single words, in IPA", text:
+      'The word for dog is <l2>/ˈpe.ro/</l2>, and the word for but is <l2>/ˈpe.ɾo/</l2>. The number eleven is <l2>/ˈon.se/</l2>.',
+      note: `The same words in IPA have Spanish sounds in every card. IPA reads as no language, so on the localized voice
+        they are spoken on its English prompt; only the bilingual voice gives them a Spanish accent.` },
+    { name: "Replies", text:
+      'When someone thanks you, answer <l2>De nada.</l2> Or, more warmly, <l2>¡No hay de qué, fue un placer!</l2>',
+      note: `There is more Spanish than English here, so as one flush the turn reads as Spanish and the English is spoken
+        on the Spanish prompt. Per-language flushes give each language its own.` },
+  ] },
+  "en-ja": { name: "English → Japanese", l1: "EN", l2: "JA", voice: "Jason", presets: [
+    { name: "Thank you", text:
+      'In Japanese, "thank you very much" is <l2>ありがとうございます。</l2> To get someone\'s attention, say <l2>すみません。</l2>',
+      note: `Kana reads as Japanese, so per-language flushes speak it on the Japanese prompt. As one flush the kana is
+        enough of the turn to make all of it Japanese, English included.` },
+  ] },
+  "zh-ja": { name: "Chinese → Japanese", l1: "ZH", l2: "JA", voice: "Sarah", presets: [
+    { name: "Kana", text:
+      '日语的“老师”是<l2>せんせい</l2>，“学生”是<l2>がくせい</l2>。早上见到老师，可以说：<l2>せんせい、おはようございます。</l2>',
+      note: `The Japanese is in kana, so each Japanese flush reads as Japanese and each Chinese one as Chinese. As one
+        flush, the kana makes the whole turn Japanese, and the Chinese is spoken on the Japanese prompt.` },
+    { name: "Kanji", text:
+      '日语的“老师”写作<l2>先生</l2>，“学生”写作<l2>学生</l2>。早上见到老师，可以说：<l2>先生、おはようございます。</l2>',
+      note: `<b>The pitfall.</b> The same turn with the Japanese in kanji. Alone, 先生 reads as Chinese, so it is spoken
+        <i>xiānsheng</i>, not <i>sensei</i>; 学生 happens to read as Japanese. Kanji leave the reading to chance.` },
+  ] },
+  "ja-zh": { name: "Japanese → Chinese", l1: "JA", l2: "ZH", voice: "Sarah", presets: [
+    { name: "Pinyin", text:
+      '中国語で「ありがとう」は<l2>xièxie</l2>、「おいしい」は<l2>hǎochī</l2>です。レストランでは<l2>zhège cài hěn hǎochī!</l2>と言ってみましょう。',
+      note: `Pinyin never reads as Chinese. In per-language flushes, <i>xièxie</i> takes the Japanese of the turn so far and
+        <i>hǎochī</i> reads as German, which this voice has a prompt for. Send pinyin as one flush on a bilingual voice.` },
+    { name: "Chinese characters", text:
+      '中国語で「ありがとう」は<l2>谢谢</l2>、「おいしい」は<l2>好吃</l2>です。レストランでは<l2>这个菜很好吃！</l2>と言ってみましょう。',
+      note: `These characters read as Chinese, so per-language flushes put them on the Chinese prompt. But characters leave
+        the reading to the voice: 好, 还, 行, 长 and many more have more than one.` },
+  ] },
+  "ko-ja": { name: "Korean → Japanese", l1: "KO", l2: "JA", voice: "Sarah", presets: [
+    { name: "Greetings", text:
+      '일본어로 "안녕하세요"는 <l2>こんにちは</l2>예요. 아침에는 <l2>おはようございます</l2>라고 해요.',
+      note: `Kana reads as Japanese and Hangul as Korean, so per-language flushes give each language its prompt.
+        As one flush the turn reads as Korean.` },
+  ] },
+  "ko-zh": { name: "Korean → Chinese", l1: "KO", l2: "ZH", voice: "Sarah", presets: [
+    { name: "Pinyin", text:
+      '중국어로 "감사합니다"는 <l2>xièxie</l2>예요. "맛있어요"는 <l2>hǎochī</l2>라고 해요.',
+      note: `In per-language flushes, <i>xièxie</i> takes the Korean of the turn so far and <i>hǎochī</i> reads as German.
+        As one flush the turn reads as Korean. Only the bilingual voice gives the pinyin a Chinese accent.` },
+  ] },
+};
+
+const $ = (sel, el = document) => el.querySelector(sel);
+const textEl = $("#text");
+let pair = "en-es";
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function key(language) { return language || "turn"; }
+function label(language) { return language ? PAIRS[pair][language] : "TURN"; }
+function style(language) { return `background: var(--${key(language)}-soft); color: var(--${key(language)});`; }
+
+// --- pair, presets, voices ------------------------------------------------
+for (const [id, p] of Object.entries(PAIRS)) $("#pair").append(new Option(p.name, id));
+$("#pair").onchange = () => { selectPair($("#pair").value); refreshPlan(); };
+
+function selectPair(id) {
+  pair = id;
+  const p = PAIRS[id];
+  $("#voice").value = p.voice;
+  $("#bivoice").placeholder = `your ${p.name.replace(" → ", " + ")} clone`;
+  $("#bivoice").value = loadBilingualVoice(id);
+  $("#presets").replaceChildren(...p.presets.map((preset, i) => {
+    const b = document.createElement("button");
+    b.className = "preset"; b.textContent = preset.name;
+    b.onclick = () => { applyPreset(i); refreshPlan(); };
+    return b;
+  }));
+  applyPreset(0);
+}
+function applyPreset(i) {
+  const preset = PAIRS[pair].presets[i];
+  textEl.value = preset.text;
+  $("#note").innerHTML = `<b>What to listen for.</b> ${preset.note}`;
+  [...$("#presets").children].forEach((b, j) => b.setAttribute("aria-pressed", String(i === j)));
+}
+
+// Remember one bilingual voice ID per language pair, in this browser only.
+function loadBilingualVoice(id) {
+  try { return localStorage.getItem(`bilingualVoiceId:${id}`) || ""; } catch { return ""; }
+}
+$("#bivoice").addEventListener("change", () => {
+  try { localStorage.setItem(`bilingualVoiceId:${pair}`, $("#bivoice").value.trim()); } catch {}
+});
+
+// --- what gets sent -------------------------------------------------------
+let planTimer;
+textEl.addEventListener("input", () => {
+  $("#note").textContent = "";
+  clearTimeout(planTimer); planTimer = setTimeout(refreshPlan, 200);
+});
+
+async function refreshPlan() {
+  const res = await fetch("/api/plan", { method: "POST", body: JSON.stringify({ text: textEl.value }) });
+  const plan = await res.json();
+  $("#one").textContent = plan.one.map(f => f.text).join("") || " ";
+  const per = $("#per");
+  per.replaceChildren();
+  plan.per_language.forEach((f, i) => {
+    if (i > 0) { const m = document.createElement("span"); m.className = "flushmark"; m.textContent = "│ flush"; per.append(m); }
+    const el = document.createElement("div");
+    el.className = "seg"; el.style.cssText = style(f.language);
+    el.innerHTML = `<span class="meta">#${i} · ${label(f.language)} · ${script(f.text)}</span><span class="txt">${escapeHtml(f.text)}</span>`;
+    per.append(el);
+  });
+}
+
+// The script a flush is written in, which is what detection reads first.
+function script(text) {
+  const letters = [...text.replace(/\/[^\/]*\//g, "")].filter(c => /\p{L}/u.test(c));
+  if (!letters.length && /\/[^\/]+\//.test(text)) return "IPA";
+  if (letters.some(c => /[぀-ヿ]/.test(c))) return "kana";
+  if (letters.some(c => /\p{Script=Hangul}/u.test(c))) return "Hangul";
+  if (letters.every(c => /\p{Script=Han}/u.test(c))) return "Chinese characters";
+  if (PAIRS[pair].l2 === "ZH" && letters.every(c => /\p{Script=Latin}/u.test(c))) return "pinyin";
+  return "Latin letters";
+}
+
+// --- audio helpers ----------------------------------------------------------
+function b64ToBytes(b64) { const bin = atob(b64); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
+function wavSamples(b64) { const bytes = b64ToBytes(b64); return new Int16Array(bytes.buffer, 44, Math.max(0, (bytes.length - 44) >> 1)); }
+
+function drawWave(canvas, samples, color) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const ctx = canvas.getContext("2d"); ctx.scale(dpr, dpr);
+  ctx.fillStyle = color; ctx.globalAlpha = 0.55;
+  const per = Math.max(1, Math.floor(samples.length / w)), mid = h / 2 - 8;
+  for (let x = 0; x < w; x++) {
+    let lo = 0, hi = 0;
+    for (let i = x * per; i < Math.min(samples.length, (x + 1) * per); i++) { const v = samples[i]; if (v < lo) lo = v; if (v > hi) hi = v; }
+    const top = mid - (hi / 32768) * mid, bottom = mid - (lo / 32768) * mid;
+    ctx.fillRect(x, top, 1, Math.max(1, bottom - top));
+  }
+}
+
+let current = null;
+function playClip(b64, blockEl) {
+  if (current) { current.audio.pause(); current.block?.classList.remove("active"); }
+  const audio = new Audio(`data:audio/wav;base64,${b64}`);
+  current = { audio, block: blockEl };
+  blockEl?.classList.add("active");
+  audio.onended = () => blockEl?.classList.remove("active");
+  audio.play();
+}
+
+// --- results ----------------------------------------------------------------
+function renderResult(card, data) {
+  const body = $(".body", card);
+  const total = data.flushes.reduce((s, f) => s + f.duration_s, 0);
+  body.innerHTML = `
+    <audio controls src="data:audio/wav;base64,${data.audio_wav}"></audio>
+    <div class="timeline" role="list"></div>
+    <table><colgroup><col class="n"><col><col class="t"><col class="t"></colgroup>
+      <thead><tr><th>#</th><th>Flush text</th><th>First audio</th><th>Length</th></tr></thead><tbody></tbody></table>
+    <p class="status">${data.flushes.length} flush${data.flushes.length === 1 ? "" : "es"} · ${total.toFixed(1)}s of audio · ${data.elapsed_ms} ms end to end · click a block to hear its flush</p>`;
+  const timeline = $(".timeline", body), tbody = $("tbody", body), full = $("audio", body);
+  const blocks = [];
+  data.flushes.forEach((f, i) => {
+    const color = getComputedStyle(document.documentElement).getPropertyValue(`--${key(f.language)}`).trim();
+    const block = document.createElement("button");
+    block.className = "block"; block.setAttribute("role", "listitem");
+    block.style.cssText = style(f.language) + `flex: ${Math.max(f.duration_s, 0.05)} 1 0;`;
+    block.title = `Play flush #${i}: ${f.text}`;
+    block.innerHTML = `<canvas></canvas><span class="tag">#${i} ${label(f.language)} ${f.duration_s.toFixed(1)}s</span>`;
+    block.onclick = () => playClip(f.audio_wav, block);
+    timeline.append(block);
+    blocks.push({ block, f, color });
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="num">${i}</td><td>${escapeHtml(f.text)}</td>
+      <td class="num">${f.first_audio_ms ?? "—"} ms</td><td class="num">${f.duration_s.toFixed(2)} s</td>`;
+    tbody.append(tr);
+  });
+  requestAnimationFrame(() => blocks.forEach(({ block, f, color }) => drawWave($("canvas", block), wavSamples(f.audio_wav), color)));
+
+  // Follow the full-turn player across flushes.
+  full.addEventListener("timeupdate", () => {
+    let t = full.currentTime, acc = 0;
+    blocks.forEach(({ block, f }) => {
+      block.classList.toggle("active", !full.paused && t >= acc && t < acc + f.duration_s);
+      acc += f.duration_s;
+    });
+  });
+  full.addEventListener("pause", () => blocks.forEach(({ block }) => block.classList.remove("active")));
+}
+
+async function run(id) {
+  const card = document.getElementById(id), { strategy, voice } = CARDS[id];
+  if (!voice().trim()) {
+    $(".body", card).innerHTML = `<p class="status">Set <b>Bilingual voice</b> to the ID of a voice cloned from one clip in both languages: ` +
+      `for example 15 seconds of one language, then 15 seconds of the other.</p>`;
+    return;
+  }
+  $(".body", card).innerHTML = `<p class="status">Synthesizing…</p>`;
+  try {
+    const res = await fetch("/api/synthesize", {
+      method: "POST",
+      body: JSON.stringify({ strategy, text: textEl.value, voice_id: voice(), model_id: $("#model").value }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.statusText);
+    renderResult(card, data);
+  } catch (e) {
+    $(".body", card).innerHTML = `<p class="error">${escapeHtml(String(e.message || e))}</p>`;
+  }
+}
+
+$("#go").onclick = async () => {
+  const go = $("#go"); go.disabled = true;
+  await Promise.all(Object.keys(CARDS).map(run));
+  go.disabled = false;
+};
+
+selectPair(pair);
+refreshPlan();
+</script>
+</body>
+</html>

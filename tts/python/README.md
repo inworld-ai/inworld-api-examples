@@ -231,6 +231,12 @@ python example_voice_design_publish.py
 
 **Best for:** Creating custom voices without audio samples; use Publish Voice to save a preview to your library.
 
+---
+
+### 12. `websocket_guides/` - WebSocket Usage Guides
+**Purpose:** Focused guides for the bidirectional WebSocket API, starting with switching languages within a turn.
+
+**Best for:** Multilingual agents such as language tutors. See [language switching](./websocket_guides/language_switching/README.md).
 
 ## Configuration Options
 
