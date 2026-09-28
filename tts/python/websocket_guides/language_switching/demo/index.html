@@ -87,7 +87,7 @@
   .seg .txt { font-size: 14px; overflow-wrap: anywhere; }
   .flushmark { align-self: center; font: 10px var(--mono); color: var(--muted); letter-spacing: 0.06em; }
 
-  .results { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; }
+  .results { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 20px; }
   .result .sub { color: var(--muted); font-size: 13px; }
   .result .body { display: grid; gap: 14px; min-width: 0; }
   .result audio { width: 100%; }
@@ -121,8 +121,8 @@
     <p class="lede">
       A tutor turn marks the language being taught with <code>&lt;l2&gt;…&lt;/l2&gt;</code> and spells it so that its
       sounds are certain: kana for Japanese, pinyin for Chinese, IPA for Spanish words. One WebSocket client
-      (<code>language_switching.py</code>) sends it two ways, as one flush or as one flush per language, and each card
-      below is one of those on one voice.
+      (<code>language_switching.py</code>) sends it four ways, and each card below is one of them: one flush, a flush per
+      language, one flush with an instruction at every switch, and a stream the service cuts at sentence ends.
     </p>
   </header>
 
@@ -137,8 +137,8 @@
           taught language in them.</p>
       </div>
       <div>
-        <h4>Detection picks one language per flush</h4>
-        <p>The context sets no <code>language</code>, so the service detects one for every flush, by its script first:</p>
+        <h4>Detection picks one language per synthesis</h4>
+        <p>The context sets no <code>language</code>, so the service detects one for every synthesis, by its script first:</p>
         <ul>
           <li><b>Kana</b> reads as Japanese; <b>Hangul</b> as Korean.</li>
           <li><b>Chinese characters</b> read as Chinese or Japanese; a word or two can go either way, or neither.</li>
@@ -155,6 +155,14 @@
           for its accent.</p>
         <p>The detected language also sets how numbers are read, and timestamps.</p>
       </div>
+      <div>
+        <h4>Instructions steer; sentence mode cuts</h4>
+        <p>An inline instruction such as <code>[in pure Spanish]</code> steers the delivery of the text after it, up to
+          the next instruction, on whichever prompt the turn's detected language selects. Instructions need
+          <code>inworld-tts-2</code>.</p>
+        <p>In sentence-boundary auto mode the service starts a synthesis at every sentence end and detects its language.
+          Sentences that arrive while one runs are batched, and a batch is spoken in one language.</p>
+      </div>
     </div>
   </details>
 
@@ -169,6 +177,7 @@
     <div class="row">
       <label>Voice with localized prompts <input id="voice"></label>
       <label>Bilingual voice <input id="bivoice"></label>
+      <label>Instruction <input id="instruction" value="in pure {language}"></label>
       <label>Model <input id="model" value="inworld-tts-2"></label>
       <button class="go" id="go">Synthesize</button>
     </div>
@@ -178,45 +187,65 @@
     <h2 id="plan-h">What gets sent</h2>
     <div class="sends">
       <h3>One flush</h3>
-      <div class="sent" id="one"></div>
+      <div class="sent" id="plan-one"></div>
     </div>
     <div class="sends">
       <h3>Per-language flushes</h3>
-      <div class="plan" id="per"></div>
+      <div class="plan" id="plan-per"></div>
+    </div>
+    <div class="sends">
+      <h3>Instructions · one flush</h3>
+      <div class="sent" id="plan-instructions"></div>
+    </div>
+    <div class="sends">
+      <h3>Sentence boundary · streamed in small pieces, cut by the service</h3>
+      <div class="sent" id="plan-sentence"></div>
     </div>
   </section>
 
   <section class="results">
-    <article class="card result" id="one-localized">
+    <article class="card result" id="one">
       <div><h3>One flush</h3>
-        <p class="sub">The whole turn as one flush on the voice with localized prompts: one detected language, one prompt.</p></div>
+        <p class="sub">The whole turn as one flush: one detected language, one prompt. On a bilingual voice, that prompt
+          has both accents; without one, the voice with localized prompts speaks it.</p></div>
       <div class="body"><p class="status">Not run yet.</p></div>
     </article>
-    <article class="card result" id="per-localized">
+    <article class="card result" id="per-language">
       <div><h3>Per-language flushes</h3>
-        <p class="sub">A flush at every switch, on the same voice and context: each flush gets its own detected language and prompt.</p></div>
+        <p class="sub">A flush at every switch, on the voice with localized prompts: each flush gets its own detected
+          language and prompt.</p></div>
       <div class="body"><p class="status">Not run yet.</p></div>
     </article>
-    <article class="card result" id="one-bilingual">
-      <div><h3>One flush · bilingual voice</h3>
-        <p class="sub">The same one flush on a voice cloned from a clip in both languages: one prompt with both accents.</p></div>
+    <article class="card result" id="instructions">
+      <div><h3>Instructions</h3>
+        <p class="sub">One flush on the voice with localized prompts, with an instruction at every switch: one detected
+          language and prompt, steered segment by segment.</p></div>
+      <div class="body"><p class="status">Not run yet.</p></div>
+    </article>
+    <article class="card result" id="sentence">
+      <div><h3>Sentence boundary</h3>
+        <p class="sub">The turn streamed like an LLM's tokens with sentence-boundary auto mode, on the voice with
+          localized prompts: a synthesis per sentence, or per batch of sentences, each with its own detected language.</p></div>
       <div class="body"><p class="status">Not run yet.</p></div>
     </article>
   </section>
 </main>
 
 <script>
-// Each card is one call to the same client: a strategy and a voice.
+// Each card is one call to the same client: a mode and a voice. One flush uses
+// the bilingual voice when one is set; the other modes switch prompts by
+// language, so they use the voice with localized prompts.
 const CARDS = {
-  "one-localized": { strategy: "one", voice: () => $("#voice").value },
-  "per-localized": { strategy: "per_language", voice: () => $("#voice").value },
-  "one-bilingual": { strategy: "one", voice: () => $("#bivoice").value },
+  "one": { mode: "one", voice: () => $("#bivoice").value.trim() || $("#voice").value.trim() },
+  "per-language": { mode: "per-language", voice: () => $("#voice").value.trim() },
+  "instructions": { mode: "instructions", voice: () => $("#voice").value.trim() },
+  "sentence": { mode: "sentence", voice: () => $("#voice").value.trim() },
 };
 
 // A language pair sets the labels, the voice with localized prompts for both
 // languages, and which bilingual voice ID the page remembers.
 const PAIRS = {
-  "en-es": { name: "English → Spanish", l1: "EN", l2: "ES", voice: "Jason", presets: [
+  "en-es": { name: "English → Spanish", l1: "EN", l2: "ES", names: ["English", "Spanish"], voice: "Jason", presets: [
     { name: "Rolled r", text:
       'Great job! In Spanish, "the dog runs" is <l2>El perro corre.</l2> ' +
       'Listen for the rolled r in <l2>/ˈpe.ro/</l2>, "dog", and the single tap in <l2>/ˈpe.ɾo/</l2>, "but".',
@@ -236,13 +265,13 @@ const PAIRS = {
       note: `There is more Spanish than English here, so as one flush the turn reads as Spanish and the English is spoken
         on the Spanish prompt. Per-language flushes give each language its own.` },
   ] },
-  "en-ja": { name: "English → Japanese", l1: "EN", l2: "JA", voice: "Jason", presets: [
+  "en-ja": { name: "English → Japanese", l1: "EN", l2: "JA", names: ["English", "Japanese"], voice: "Jason", presets: [
     { name: "Thank you", text:
       'In Japanese, "thank you very much" is <l2>ありがとうございます。</l2> To get someone\'s attention, say <l2>すみません。</l2>',
       note: `Kana reads as Japanese, so per-language flushes speak it on the Japanese prompt. As one flush the kana is
         enough of the turn to make all of it Japanese, English included.` },
   ] },
-  "zh-ja": { name: "Chinese → Japanese", l1: "ZH", l2: "JA", voice: "Sarah", presets: [
+  "zh-ja": { name: "Chinese → Japanese", l1: "ZH", l2: "JA", names: ["Chinese", "Japanese"], voice: "Sarah", presets: [
     { name: "Kana", text:
       '日语的“老师”是<l2>せんせい</l2>，“学生”是<l2>がくせい</l2>。早上见到老师，可以说：<l2>せんせい、おはようございます。</l2>',
       note: `The Japanese is in kana, so each Japanese flush reads as Japanese and each Chinese one as Chinese. As one
@@ -252,7 +281,7 @@ const PAIRS = {
       note: `<b>The pitfall.</b> The same turn with the Japanese in kanji. Alone, 先生 reads as Chinese, so it is spoken
         <i>xiānsheng</i>, not <i>sensei</i>; 学生 happens to read as Japanese. Kanji leave the reading to chance.` },
   ] },
-  "ja-zh": { name: "Japanese → Chinese", l1: "JA", l2: "ZH", voice: "Sarah", presets: [
+  "ja-zh": { name: "Japanese → Chinese", l1: "JA", l2: "ZH", names: ["Japanese", "Chinese"], voice: "Sarah", presets: [
     { name: "Pinyin", text:
       '中国語で「ありがとう」は<l2>xièxie</l2>、「おいしい」は<l2>hǎochī</l2>です。レストランでは<l2>zhège cài hěn hǎochī!</l2>と言ってみましょう。',
       note: `Pinyin never reads as Chinese. In per-language flushes, <i>xièxie</i> takes the Japanese of the turn so far and
@@ -262,13 +291,13 @@ const PAIRS = {
       note: `These characters read as Chinese, so per-language flushes put them on the Chinese prompt. But characters leave
         the reading to the voice: 好, 还, 行, 长 and many more have more than one.` },
   ] },
-  "ko-ja": { name: "Korean → Japanese", l1: "KO", l2: "JA", voice: "Sarah", presets: [
+  "ko-ja": { name: "Korean → Japanese", l1: "KO", l2: "JA", names: ["Korean", "Japanese"], voice: "Sarah", presets: [
     { name: "Greetings", text:
       '일본어로 "안녕하세요"는 <l2>こんにちは</l2>예요. 아침에는 <l2>おはようございます</l2>라고 해요.',
       note: `Kana reads as Japanese and Hangul as Korean, so per-language flushes give each language its prompt.
         As one flush the turn reads as Korean.` },
   ] },
-  "ko-zh": { name: "Korean → Chinese", l1: "KO", l2: "ZH", voice: "Sarah", presets: [
+  "ko-zh": { name: "Korean → Chinese", l1: "KO", l2: "ZH", names: ["Korean", "Chinese"], voice: "Sarah", presets: [
     { name: "Pinyin", text:
       '중국어로 "감사합니다"는 <l2>xièxie</l2>예요. "맛있어요"는 <l2>hǎochī</l2>라고 해요.',
       note: `In per-language flushes, <i>xièxie</i> takes the Korean of the turn so far and <i>hǎochī</i> reads as German.
@@ -284,7 +313,7 @@ function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 function key(language) { return language || "turn"; }
-function label(language) { return language ? PAIRS[pair][language] : "TURN"; }
+function label(language) { return language ? PAIRS[pair][language] : ""; }
 function style(language) { return `background: var(--${key(language)}-soft); color: var(--${key(language)});`; }
 
 // --- pair, presets, voices ------------------------------------------------
@@ -326,14 +355,23 @@ textEl.addEventListener("input", () => {
   $("#note").textContent = "";
   clearTimeout(planTimer); planTimer = setTimeout(refreshPlan, 200);
 });
+$("#instruction").addEventListener("input", () => { clearTimeout(planTimer); planTimer = setTimeout(refreshPlan, 200); });
+
+// What every request carries: the turn, the pair's language names and the instruction.
+function turnBody() {
+  const [l1, l2] = PAIRS[pair].names;
+  return { text: textEl.value, languages: { l1, l2 }, instruction: $("#instruction").value };
+}
 
 async function refreshPlan() {
-  const res = await fetch("/api/plan", { method: "POST", body: JSON.stringify({ text: textEl.value }) });
+  const res = await fetch("/api/plan", { method: "POST", body: JSON.stringify(turnBody()) });
   const plan = await res.json();
-  $("#one").textContent = plan.one.map(f => f.text).join("") || " ";
-  const per = $("#per");
+  for (const mode of ["one", "instructions", "sentence"]) {
+    $(`#plan-${mode}`).textContent = plan[mode].map(f => f.text).join("") || " ";
+  }
+  const per = $("#plan-per");
   per.replaceChildren();
-  plan.per_language.forEach((f, i) => {
+  plan["per-language"].forEach((f, i) => {
     if (i > 0) { const m = document.createElement("span"); m.className = "flushmark"; m.textContent = "│ flush"; per.append(m); }
     const el = document.createElement("div");
     el.className = "seg"; el.style.cssText = style(f.language);
@@ -383,15 +421,15 @@ function playClip(b64, blockEl) {
 }
 
 // --- results ----------------------------------------------------------------
-function renderResult(card, data) {
+function renderResult(card, data, voice) {
   const body = $(".body", card);
   const total = data.flushes.reduce((s, f) => s + f.duration_s, 0);
   body.innerHTML = `
     <audio controls src="data:audio/wav;base64,${data.audio_wav}"></audio>
     <div class="timeline" role="list"></div>
     <table><colgroup><col class="n"><col><col class="t"><col class="t"></colgroup>
-      <thead><tr><th>#</th><th>Flush text</th><th>First audio</th><th>Length</th></tr></thead><tbody></tbody></table>
-    <p class="status">${data.flushes.length} flush${data.flushes.length === 1 ? "" : "es"} · ${total.toFixed(1)}s of audio · ${data.elapsed_ms} ms end to end · click a block to hear its flush</p>`;
+      <thead><tr><th>#</th><th>Text</th><th title="After the turn's first message">First audio</th><th>Length</th></tr></thead><tbody></tbody></table>
+    <p class="status">${escapeHtml(voice)} · ${data.flushes.length} synthes${data.flushes.length === 1 ? "is" : "es"} · ${total.toFixed(1)}s of audio · ${data.elapsed_ms} ms end to end · click a block to hear it</p>`;
   const timeline = $(".timeline", body), tbody = $("tbody", body), full = $("audio", body);
   const blocks = [];
   data.flushes.forEach((f, i) => {
@@ -399,14 +437,14 @@ function renderResult(card, data) {
     const block = document.createElement("button");
     block.className = "block"; block.setAttribute("role", "listitem");
     block.style.cssText = style(f.language) + `flex: ${Math.max(f.duration_s, 0.05)} 1 0;`;
-    block.title = `Play flush #${i}: ${f.text}`;
-    block.innerHTML = `<canvas></canvas><span class="tag">#${i} ${label(f.language)} ${f.duration_s.toFixed(1)}s</span>`;
+    block.title = `Play synthesis #${i}: ${f.text || "cut by the service"}`;
+    block.innerHTML = `<canvas></canvas><span class="tag">${[`#${i}`, label(f.language), `${f.duration_s.toFixed(1)}s`].filter(Boolean).join(" ")}</span>`;
     block.onclick = () => playClip(f.audio_wav, block);
     timeline.append(block);
     blocks.push({ block, f, color });
 
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td class="num">${i}</td><td>${escapeHtml(f.text)}</td>
+    tr.innerHTML = `<td class="num">${i}</td><td>${f.text ? escapeHtml(f.text) : "<i>cut by the service</i>"}</td>
       <td class="num">${f.first_audio_ms ?? "—"} ms</td><td class="num">${f.duration_s.toFixed(2)} s</td>`;
     tbody.append(tr);
   });
@@ -424,21 +462,20 @@ function renderResult(card, data) {
 }
 
 async function run(id) {
-  const card = document.getElementById(id), { strategy, voice } = CARDS[id];
-  if (!voice().trim()) {
-    $(".body", card).innerHTML = `<p class="status">Set <b>Bilingual voice</b> to the ID of a voice cloned from one clip in both languages: ` +
-      `for example 15 seconds of one language, then 15 seconds of the other.</p>`;
+  const card = document.getElementById(id), { mode } = CARDS[id], voice = CARDS[id].voice();
+  if (!voice) {
+    $(".body", card).innerHTML = `<p class="status">Set <b>Voice with localized prompts</b>.</p>`;
     return;
   }
-  $(".body", card).innerHTML = `<p class="status">Synthesizing…</p>`;
+  $(".body", card).innerHTML = `<p class="status">Synthesizing on ${escapeHtml(voice)}…</p>`;
   try {
     const res = await fetch("/api/synthesize", {
       method: "POST",
-      body: JSON.stringify({ strategy, text: textEl.value, voice_id: voice(), model_id: $("#model").value }),
+      body: JSON.stringify({ ...turnBody(), mode, voice_id: voice, model_id: $("#model").value }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || res.statusText);
-    renderResult(card, data);
+    renderResult(card, data, voice);
   } catch (e) {
     $(".body", card).innerHTML = `<p class="error">${escapeHtml(String(e.message || e))}</p>`;
   }

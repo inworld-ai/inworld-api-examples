@@ -15,23 +15,28 @@ readings, the same characters read differently in Chinese and Japanese, and a
 Spanish word can be read as English. The voice speaks the sounds such a
 spelling gives it, whichever language the service detects.
 
-There are two ways to send a turn, and this client does both the same way: it
-opens one context with no `language`, so the service detects the language of
-every flush, and with auto mode off, so each flush is synthesized as sent.
+Every mode opens one context with no `language`, so the service detects the
+language of each synthesis, and strips the <l1>/<l2> tags before sending:
 
-- One flush: the tags are stripped and the whole turn is one flush, so one
-  language is detected for all of it and one voice prompt speaks it. On a
-  voice cloned from a clip in both languages, that prompt has both accents.
-- Per-language flushes: the turn is flushed at every switch, and the language
-  of each flush is detected on its own. On a voice with localized prompts,
-  each flush is spoken on the prompt of its language when per-language prompt
-  switching is enabled for your workspace, and all of them share the
-  context's history, so the delivery carries across the switches. This works
-  only for a flush that detection can place: kana, Hangul, or a sentence
-  spelled in its own language. IPA reads as no language, so the flush takes
-  the language of the turn so far; pinyin never reads as Chinese.
+- one: the whole turn as one flush. One language is detected for all of it,
+  and one voice prompt speaks it. On a voice cloned from a clip in both
+  languages, that prompt has both accents.
+- per-language: a flush at every switch, so the language of each flush is
+  detected on its own. On a voice with localized prompts, each flush is spoken
+  on the prompt of its language when per-language prompt switching is enabled
+  for your workspace. This works only for a flush detection can place: kana,
+  Hangul, or a sentence in its own spelling. IPA reads as no language, and
+  pinyin never reads as Chinese.
+- instructions: the whole turn as one flush, with an inline instruction such
+  as [in pure Spanish] at every switch. The instruction steers the delivery of
+  the text after it, on whichever prompt the turn's detected language selects.
+- sentence: the turn streamed in small pieces, the way an LLM's tokens arrive,
+  with sentence-boundary auto mode. The service starts a synthesis at every
+  sentence end, and detects the language of each; while one runs, it batches
+  the sentences that arrive, and a batch is spoken in one language.
 
-Audio is requested as raw PCM and written to a WAV file.
+All syntheses on one context share its history, so the delivery carries from
+one to the next. Audio is requested as raw PCM and written to a WAV file.
 """
 
 import argparse
@@ -55,6 +60,9 @@ import websockets
 WEBSOCKET_URL = "wss://api.inworld.ai/tts/v1/voice:streamBidirectional"
 SAMPLE_RATE_HZ = 24000
 CONTEXT_ID = "turn"
+MODES = ("one", "per-language", "instructions", "sentence")
+DEFAULT_INSTRUCTION = "in pure {language}"
+TOKEN_DELAY_S = 0.02  # sentence mode sends a piece this often, like an LLM's tokens
 
 DEFAULT_TEXT = (
     'Great job! In Spanish, "the dog runs" is <l2>El perro corre.</l2> '
@@ -74,12 +82,12 @@ class Segment:
 
 
 @dataclass
-class Flush:
-    text: str
+class Synthesis:
+    """One synthesis the service ran; each ends with a flushCompleted."""
+    text: str = ""  # what was flushed; empty in sentence mode, where the service cuts
     language: str = ""  # "l1" or "l2" for a per-language flush
     pcm: bytearray = field(default_factory=bytearray)
-    sent_at: float = 0.0
-    first_audio_at: float | None = None
+    first_audio_s: float | None = None  # seconds after the turn's first message
 
 
 def speakable(text: str) -> bool:
@@ -116,15 +124,36 @@ def split_turn(turn: str) -> list[Segment]:
     return [seg for seg in segments if speakable(seg.text)]
 
 
-def one_flush(turn: str) -> list[Flush]:
-    """The whole turn, tags stripped, as a single flush."""
-    text = " ".join(TAG_RE.sub("", turn).split())
-    return [Flush(text)] if speakable(text) else []
+def plain_text(turn: str) -> str:
+    return " ".join(TAG_RE.sub("", turn).split())
 
 
-def per_language_flushes(turn: str) -> list[Flush]:
-    """One flush per segment, so every language switch is a flush boundary."""
-    return [Flush(" ".join(seg.text.split()), seg.language) for seg in split_turn(turn)]
+def messages_for(mode: str, turn: str, names: dict[str, str] | None = None,
+                 instruction: str = DEFAULT_INSTRUCTION) -> list[Synthesis]:
+    """What to send for a mode: one entry per message, in order.
+
+    In the flush modes each message is flushed, so each is one synthesis. In
+    sentence mode the messages are token-sized pieces sent without a flush.
+    names maps "l1" and "l2" to language names for instructions.
+    """
+    if mode == "per-language":
+        return [Synthesis(" ".join(seg.text.split()), seg.language) for seg in split_turn(turn)]
+    if mode == "instructions":
+        # The instruction goes right before each segment's first word, so the
+        # turn keeps its own spacing: none between Japanese and Chinese words.
+        names = names or {"l1": "English", "l2": "Spanish"}
+        pieces = []
+        for seg in split_turn(turn):
+            tag = f"[{instruction.format(language=names[seg.language])}] "
+            pieces.append(re.sub(r"^\s*", lambda m: m.group(0) + tag, seg.text))
+        text = " ".join("".join(pieces).split())
+        return [Synthesis(text)] if text else []
+    text = plain_text(turn)
+    if not speakable(text):
+        return []
+    if mode == "sentence":
+        return [Synthesis(piece) for piece in re.findall(r"\s*\S{1,4}", text)]
+    return [Synthesis(text)]
 
 
 def strip_wav_header(audio: bytes) -> bytes:
@@ -141,55 +170,66 @@ def strip_wav_header(audio: bytes) -> bytes:
     return b""
 
 
-async def synthesize(api_key: str, flushes: list[Flush], voice_id: str,
-                     model_id: str = "inworld-tts-2", url: str = WEBSOCKET_URL) -> bytes:
-    """Send the flushes on one context and return the turn's audio.
+async def synthesize(api_key: str, messages: list[Synthesis], voice_id: str, model_id: str = "inworld-tts-2",
+                     url: str = WEBSOCKET_URL, sentence_mode: bool = False) -> list[Synthesis]:
+    """Send the messages on one context and return the syntheses the service ran.
 
-    Each flush's own audio is collected on it as well.
+    Without sentence_mode, auto mode is off and every message carries a flush,
+    so the syntheses are the messages, in order. With it, the messages are
+    sent as a stream and the service decides where each synthesis starts.
     """
     headers = {"Authorization": f"Basic {api_key}"}
-    output = bytearray()
+    create = {
+        "voice_id": voice_id,
+        "model_id": model_id,
+        "audio_config": {"audio_encoding": "PCM", "sample_rate_hertz": SAMPLE_RATE_HZ},
+    }
+    if sentence_mode:
+        create.update({"auto_mode": True, "auto_mode_strategy": "SENTENCE_BOUNDARY"})
+    syntheses = [] if sentence_mode else messages
     async with websockets.connect(url, additional_headers=headers, max_size=None) as ws:
-        # No `language`: the service detects it for every flush.
-        # No `auto_mode`: every flush is synthesized exactly as sent.
-        await ws.send(json.dumps({
-            "context_id": CONTEXT_ID,
-            "create": {
-                "voice_id": voice_id,
-                "model_id": model_id,
-                "audio_config": {"audio_encoding": "PCM", "sample_rate_hertz": SAMPLE_RATE_HZ},
-            },
-        }))
-        for flush in flushes:
-            flush.sent_at = time.time()
-            await ws.send(json.dumps({
-                "context_id": CONTEXT_ID,
-                "send_text": {"text": flush.text, "flush_context": {}},
-            }))
-        # Closing waits for every flush to be spoken; contextClosed comes last.
-        await ws.send(json.dumps({"context_id": CONTEXT_ID, "close_context": {}}))
+        # No `language`: the service detects it for every synthesis.
+        await ws.send(json.dumps({"context_id": CONTEXT_ID, "create": create}))
 
-        # Flushes on one context are synthesized in order, each ending with a
-        # flushCompleted, so a chunk belongs to the first flush not yet completed.
+        async def send_all():
+            for message in messages:
+                send_text = {"text": message.text}
+                if not sentence_mode:
+                    send_text["flush_context"] = {}
+                await ws.send(json.dumps({"context_id": CONTEXT_ID, "send_text": send_text}))
+                if sentence_mode:
+                    await asyncio.sleep(TOKEN_DELAY_S)
+            # Closing releases any text still held, and contextClosed comes last.
+            await ws.send(json.dumps({"context_id": CONTEXT_ID, "close_context": {}}))
+
+        start = time.time()
+        sender = asyncio.create_task(send_all())
+        # Syntheses on one context run in order, each ending with a
+        # flushCompleted, so a chunk belongs to the first one not yet completed.
         completed = 0
-        async for message in ws:
-            response = json.loads(message)
-            result = response.get("result", response)
-            status = result.get("status") or {}
-            if "error" in response or status.get("code"):
-                raise RuntimeError((response.get("error") or status).get("message", "unknown error"))
-            if "audioChunk" in result:
-                pcm = strip_wav_header(base64.b64decode(result["audioChunk"].get("audioContent", "")))
-                flush = flushes[min(completed, len(flushes) - 1)]
-                if flush.first_audio_at is None:
-                    flush.first_audio_at = time.time()
-                flush.pcm.extend(pcm)
-                output.extend(pcm)  # hand to your audio device here
-            elif "flushCompleted" in result:
-                completed += 1
-            elif "contextClosed" in result:
-                break
-    return bytes(output)
+        try:
+            async for raw in ws:
+                response = json.loads(raw)
+                result = response.get("result", response)
+                status = result.get("status") or {}
+                if "error" in response or status.get("code"):
+                    raise RuntimeError((response.get("error") or status).get("message", "unknown error"))
+                if "audioChunk" in result:
+                    pcm = strip_wav_header(base64.b64decode(result["audioChunk"].get("audioContent", "")))
+                    if completed == len(syntheses):
+                        syntheses.append(Synthesis())
+                    current = syntheses[min(completed, len(syntheses) - 1)]
+                    if current.first_audio_s is None:
+                        current.first_audio_s = time.time() - start
+                    current.pcm.extend(pcm)  # hand to your audio device here
+                elif "flushCompleted" in result:
+                    completed += 1
+                elif "contextClosed" in result:
+                    break
+        finally:
+            sender.cancel()
+            await asyncio.gather(sender, return_exceptions=True)
+    return [s for s in syntheses if s.pcm]
 
 
 def write_wav(path: str, pcm: bytes):
@@ -206,21 +246,26 @@ async def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # One flush per language, on a voice with localized prompts
-  python language_switching.py --per-language --voice-id Jason
-
   # One flush, on a voice cloned from a clip in both languages
   python language_switching.py --voice-id <your bilingual voice ID>
 
-  # Your own turn
-  python language_switching.py --per-language --voice-id Jason \\
-      --text 'In Japanese, "thank you" is <l2>ありがとうございます。</l2> Say it back to me.'
+  # A flush at every switch, on a voice with localized prompts
+  python language_switching.py --mode per-language --voice-id Jason
+
+  # One flush with an instruction at every switch
+  python language_switching.py --mode instructions --voice-id Jason --languages English,Spanish
+
+  # Streamed like an LLM's tokens, with sentence-boundary auto mode
+  python language_switching.py --mode sentence --voice-id Jason
         """,
     )
     parser.add_argument("--text", default=DEFAULT_TEXT,
                         help="Tutor turn, with the taught language in <l2>...</l2>")
-    parser.add_argument("--per-language", action="store_true",
-                        help="Flush at every language switch instead of sending the turn as one flush")
+    parser.add_argument("--mode", choices=MODES, default="one", help="How to send the turn (default: one)")
+    parser.add_argument("--languages", default="English,Spanish",
+                        help="Names of the l1 and l2 languages, for instructions (default: English,Spanish)")
+    parser.add_argument("--instruction", default=DEFAULT_INSTRUCTION,
+                        help=f"Instruction at every switch, with {{language}} (default: {DEFAULT_INSTRUCTION!r})")
     parser.add_argument("--voice-id", default="Jason", help="Voice ID (default: Jason)")
     parser.add_argument("--model-id", default="inworld-tts-2", help="Model ID (default: inworld-tts-2)")
     parser.add_argument("--url", default=WEBSOCKET_URL, help="WebSocket endpoint")
@@ -234,23 +279,26 @@ Examples:
         print("Please set it with: export INWORLD_API_KEY=your_api_key_here")
         return 1
 
-    flushes = per_language_flushes(args.text) if args.per_language else one_flush(args.text)
-    if not flushes:
+    l1, l2 = (name.strip() for name in args.languages.split(",", 1))
+    messages = messages_for(args.mode, args.text, {"l1": l1, "l2": l2}, args.instruction)
+    if not messages:
         print("Error: nothing to synthesize.")
         return 1
-    print(f"Voice {args.voice_id}, {len(flushes)} flush(es):")
-    for flush in flushes:
-        print(f"  [{flush.language or 'turn'}] {flush.text}")
+    print(f"Voice {args.voice_id}, mode {args.mode}, {len(messages)} message(s)")
 
     try:
         start = time.time()
-        pcm = await synthesize(api_key, flushes, args.voice_id, args.model_id, args.url)
+        syntheses = await synthesize(api_key, messages, args.voice_id, args.model_id, args.url,
+                                     sentence_mode=args.mode == "sentence")
     except Exception as e:
         print(f"\nSynthesis failed: {e}")
         return 1
+    for i, s in enumerate(syntheses):
+        label = f"[{s.language}] {s.text}" if s.text else "(cut by the service)"
+        print(f"  #{i} {len(s.pcm) / 2 / SAMPLE_RATE_HZ:5.2f}s  first audio {s.first_audio_s * 1000:5.0f} ms  {label}")
+    pcm = b"".join(s.pcm for s in syntheses)
     write_wav(args.output_file, pcm)
-    print(f"\nWrote {len(pcm) / 2 / SAMPLE_RATE_HZ:.1f}s of audio to {args.output_file} "
-          f"in {time.time() - start:.2f}s")
+    print(f"\nWrote {len(pcm) / 2 / SAMPLE_RATE_HZ:.1f}s of audio to {args.output_file} in {time.time() - start:.2f}s")
     return 0
 
 

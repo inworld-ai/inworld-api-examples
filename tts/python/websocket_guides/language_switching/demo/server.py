@@ -2,15 +2,16 @@
 """
 Local web demo for language switching over the TTS WebSocket.
 
-Type a tutor turn with the taught language in <l2>...</l2>, see what each way
-of sending it flushes, and hear it. The WebSocket client is
-../language_switching.py; this server only runs it for the page:
+Type a tutor turn with the taught language in <l2>...</l2>, see what each mode
+sends, and hear it. The WebSocket client is ../language_switching.py; this
+server only runs it for the page, in its four modes:
 
   one           the whole turn as one flush
-  per_language  one flush per language segment
+  per-language  a flush at every language switch
+  instructions  one flush, with an instruction such as [in pure Spanish] at every switch
+  sentence      streamed like an LLM's tokens, with sentence-boundary auto mode
 
-The page plays one flush on two voices (one with localized prompts, one cloned
-from a clip in both languages) and per-language flushes on the first.
+The page picks the voice for each mode.
 
 The server holds the API key and talks to the TTS WebSocket; the browser only
 talks to this server.
@@ -48,39 +49,50 @@ def wav_base64(pcm: bytes) -> str:
     return base64.b64encode(buf.getvalue()).decode()
 
 
-def flushes_for(text: str, strategy: str) -> list[ls.Flush]:
-    return ls.per_language_flushes(text) if strategy == "per_language" else ls.one_flush(text)
+def messages_for(body: dict, mode: str) -> list[ls.Synthesis]:
+    names = body.get("languages") or {}
+    return ls.messages_for(mode, body.get("text", ""), {"l1": names.get("l1") or "English",
+                                                          "l2": names.get("l2") or "Spanish"},
+                           body.get("instruction") or ls.DEFAULT_INSTRUCTION)
 
 
-def plan(text: str) -> dict:
-    return {strategy: [{"language": f.language, "text": f.text} for f in flushes_for(text, strategy)]
-            for strategy in ("one", "per_language")}
+def plan(body: dict) -> dict:
+    """What each mode sends. Sentence mode sends the turn in pieces; the plan
+    shows it whole, since the service decides where its syntheses start."""
+    out = {mode: [{"language": m.language, "text": m.text} for m in messages_for(body, mode)]
+           for mode in ls.MODES if mode != "sentence"}
+    out["sentence"] = [{"language": "", "text": ls.plain_text(body.get("text", ""))}]
+    return out
 
 
 def synthesize(url: str, api_key: str, body: dict) -> dict:
     voice_id = (body.get("voice_id") or "").strip()
     if not voice_id:
         raise ValueError("Set a voice ID.")
-    flushes = flushes_for(body.get("text", ""), body.get("strategy", "one"))
-    if not flushes:
+    mode = body.get("mode", "one")
+    if mode not in ls.MODES:
+        raise ValueError(f"Unknown mode {mode!r}.")
+    messages = messages_for(body, mode)
+    if not messages:
         raise ValueError("Nothing to synthesize.")
     start = time.time()
-    pcm = asyncio.run(asyncio.wait_for(
-        ls.synthesize(api_key, flushes, voice_id, body.get("model_id") or "inworld-tts-2", url),
+    syntheses = asyncio.run(asyncio.wait_for(
+        ls.synthesize(api_key, messages, voice_id, body.get("model_id") or "inworld-tts-2", url,
+                      sentence_mode=mode == "sentence"),
         SYNTHESIS_TIMEOUT_S,
     ))
     return {
         "elapsed_ms": round((time.time() - start) * 1000),
-        "audio_wav": wav_base64(pcm),
+        "audio_wav": wav_base64(b"".join(s.pcm for s in syntheses)),
         "flushes": [
             {
-                "language": f.language,
-                "text": f.text,
-                "duration_s": round(len(f.pcm) / 2 / ls.SAMPLE_RATE_HZ, 3),
-                "first_audio_ms": round((f.first_audio_at - f.sent_at) * 1000) if f.first_audio_at else None,
-                "audio_wav": wav_base64(bytes(f.pcm)),
+                "language": s.language,
+                "text": s.text,
+                "duration_s": round(len(s.pcm) / 2 / ls.SAMPLE_RATE_HZ, 3),
+                "first_audio_ms": round(s.first_audio_s * 1000),
+                "audio_wav": wav_base64(bytes(s.pcm)),
             }
-            for f in flushes
+            for s in syntheses
         ],
     }
 
@@ -119,7 +131,7 @@ def make_handler(url: str, api_key: str):
                 return
             try:
                 if self.path == "/api/plan":
-                    self._json(200, plan(body.get("text", "")))
+                    self._json(200, plan(body))
                 elif self.path == "/api/synthesize":
                     self._json(200, synthesize(url, api_key, body))
                 else:
