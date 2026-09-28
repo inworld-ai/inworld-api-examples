@@ -9,23 +9,15 @@ Speak a turn that mixes two languages on one WebSocket context, the way a langua
 
 Run the commands below from this folder. Set your API key in `tts/python/.env` or with `export INWORLD_API_KEY=...`.
 
-## Mark the switches, and spell what you teach
+## Mark the switches
 
 Ask your LLM to wrap the language being taught in `<l2>…</l2>`. The rest of the turn is the learner's language; you may mark it with `<l1>…</l1>` too. The client strips the tags, so the service never sees them.
 
-Ask it, too, to spell the taught language so that its pronunciation is certain:
-
-| Language | Spell it in | Because |
-|---|---|---|
-| Japanese | kana, never kanji: `せんせい` | Most kanji have several readings, and the same characters read differently in Chinese |
-| Chinese | pinyin with tone marks: `hǎochī` | Many characters have several readings (好, 还, 行, 长) |
-| Spanish and other Latin-script languages | IPA between slashes, one word per pair: `/ˈpe.ro/` | A single word can be read as English: *once*, *pero* |
-
 ```text
-Great job! In Spanish, "the dog runs" is <l2>El perro corre.</l2> Listen for the rolled r in <l2>/ˈpe.ro/</l2>, "dog", and the single tap in <l2>/ˈpe.ɾo/</l2>, "but".
+Great job! In Spanish, "the dog runs" is <l2>El perro corre.</l2> Listen for the rolled r in <l2>perro</l2>, "dog", and the single tap in <l2>pero</l2>, "but".
 ```
 
-The voice speaks the sounds such a spelling gives it, whichever language the service detects. A sentence long enough to read as its language can keep its own spelling. Have your LLM write the taught language this way from the start rather than converting it afterwards: the LLM knows which word it means, and a converter has to guess a reading from the characters. Check your LLM with words that have more than one reading (人気のない is *hitoke*, not *ninki*; 还没 is *hái*, 还书 *huán*) and with IPA that tells *r* from *ɾ*: smaller models get some of them wrong.
+Ask it, too, to write Japanese in kana, never kanji: `せんせい`, not `先生`. Most kanji have several readings, and the same characters read as Chinese, while kana has one reading and always reads as Japanese. Have your LLM write kana from the start rather than converting afterwards: the LLM knows which word it means, and a converter has to guess a reading from the characters. Check your LLM with words that have more than one reading (人気のない is *hitoke*, not *ninki*): smaller models get some of them wrong.
 
 ## Four ways to send a turn
 
@@ -51,18 +43,16 @@ python language_switching.py --voice-id <your bilingual voice ID>
 |---|---|
 | Kana | Japanese |
 | Hangul | Korean |
-| Chinese characters | Chinese or Japanese; a word or two can go either way, or neither |
+| Chinese characters | Chinese or Japanese; a word or two alone takes the language of the turn so far |
 | Latin letters | what a model makes of it; a single word can read as English |
-| Pinyin | never Chinese: *hǎochī* reads as German |
-| IPA | no language: the flush takes the language of the turn so far |
 
-So per-language flushes give Japanese in kana and Korean their own prompt, but not IPA or pinyin: send those as one flush on a bilingual voice.
+So per-language flushes give Japanese in kana, Korean, and phrases in their own spelling their own prompt. A single Spanish word, or a Chinese word of a character or two, lands on the learner's prompt: phrase it longer, steer it with `instructions`, or send the turn as one flush on a bilingual voice.
 
 ```bash
 python language_switching.py --mode per-language --voice-id Jason
 ```
 
-**`instructions`: per-language flushes, each steered.** As in `per-language`, the client flushes at every switch and each flush gets its own detected language and prompt. Each flush also opens with an inline instruction that steers its delivery. Detection ignores the instruction, so it helps most where detection cannot place the flush, IPA and pinyin, and the flush lands on another language's prompt. Set the instruction with `--instruction`, using `{language}` for the segment's language name; `--languages` names the two languages. Instructions need `inworld-tts-2`.
+**`instructions`: per-language flushes, each steered.** As in `per-language`, the client flushes at every switch and each flush gets its own detected language and prompt. Each flush also opens with an inline instruction that steers its delivery. Detection ignores the instruction, so it helps most where detection places a flush on the other language's prompt, as it does a single word. Set the instruction with `--instruction`, using `{language}` for the segment's language name; `--languages` names the two languages. Instructions need `inworld-tts-2`.
 
 ```bash
 python language_switching.py --mode instructions --voice-id Jason --languages English,Spanish

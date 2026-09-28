@@ -6,14 +6,11 @@ Your LLM marks the language being taught with <l2>...</l2>. Everything else is
 the learner's language, which you may also mark with <l1>...</l1>:
 
     Great job! "The dog runs" is <l2>El perro corre.</l2> Listen for the
-    rolled r in <l2>/ˈpe.ro/</l2>, "dog".
+    rolled r in <l2>perro</l2>, "dog".
 
-Ask it to spell the taught language so that its pronunciation is certain:
-kana, never kanji, for Japanese; pinyin with tone marks for Chinese; IPA
-between slashes for Spanish words and short phrases. Kanji have several
-readings, the same characters read differently in Chinese and Japanese, and a
-Spanish word can be read as English. The voice speaks the sounds such a
-spelling gives it, whichever language the service detects.
+Ask it to write Japanese in kana, never kanji: kanji have several readings,
+and the same characters read as Chinese. Kana has one reading, and always
+reads as Japanese.
 
 Every mode opens one context with no `language`, so the service detects the
 language of each synthesis, and strips the <l1>/<l2> tags before sending:
@@ -24,14 +21,16 @@ language of each synthesis, and strips the <l1>/<l2> tags before sending:
 - per-language: a flush at every switch, so the language of each flush is
   detected on its own. On a voice with localized prompts, each flush is spoken
   on the prompt of its language when per-language prompt switching is enabled
-  for your workspace. This works only for a flush detection can place: kana,
-  Hangul, or a sentence in its own spelling. IPA reads as no language, and
-  pinyin never reads as Chinese.
+  for your workspace. This works for a flush detection can place: kana,
+  Hangul, or a sentence in its own spelling. A single Spanish word reads as
+  English, and a word or two of Chinese characters takes the language of the
+  turn so far.
 - instructions: a flush at every switch, as in per-language, with each flush
   opening with an inline instruction such as [in pure Spanish]. Each flush gets
   its own detected language and prompt, and the instruction steers its
-  delivery, which helps most where detection cannot place the flush (IPA,
-  pinyin). Detection ignores the instruction.
+  delivery, which helps most where detection places the flush on the other
+  language's prompt, as it does a single word. Detection ignores the
+  instruction.
 - sentence: the turn streamed in small pieces, the way an LLM's tokens arrive,
   with sentence-boundary auto mode. The service starts a synthesis at every
   sentence end, and detects the language of each; while one runs, it batches
@@ -68,8 +67,8 @@ TOKEN_DELAY_S = 0.02  # sentence mode sends a piece this often, like an LLM's to
 
 DEFAULT_TEXT = (
     'Great job! In Spanish, "the dog runs" is <l2>El perro corre.</l2> '
-    'Listen for the rolled r in <l2>/ˈpe.ro/</l2>, "dog", '
-    'and the single tap in <l2>/ˈpe.ɾo/</l2>, "but".'
+    'Listen for the rolled r in <l2>perro</l2>, "dog", '
+    'and the single tap in <l2>pero</l2>, "but".'
 )
 
 TAG_RE = re.compile(r"</?(l1|l2)>", re.IGNORECASE)

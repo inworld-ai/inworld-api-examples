@@ -119,8 +119,8 @@
   <header>
     <h1>Language switching on one TTS context</h1>
     <p class="lede">
-      A tutor turn marks the language being taught with <code>&lt;l2&gt;…&lt;/l2&gt;</code> and spells it so that its
-      sounds are certain: kana for Japanese, pinyin for Chinese, IPA for Spanish words. One WebSocket client
+      A tutor turn marks the language being taught with <code>&lt;l2&gt;…&lt;/l2&gt;</code>, with Japanese written in
+      kana. One WebSocket client
       (<code>language_switching.py</code>) sends it four ways, and each card below is one of them: one flush, a flush per
       language, a flush per language opening with an instruction, and a stream the service cuts at sentence ends.
     </p>
@@ -130,21 +130,18 @@
     <summary>What decides what you hear</summary>
     <div class="explain">
       <div>
-        <h4>The spelling decides the sounds</h4>
-        <p>The voice speaks what the spelling says, whatever language it is in. Kanji and Chinese characters have
-          several readings each, and the same characters read differently in Chinese and Japanese; a Spanish word
-          can be read as English. Kana, pinyin with tone marks, and IPA have one reading. Ask your LLM to write the
-          taught language in them.</p>
+        <h4>Kana decides Japanese</h4>
+        <p>Most kanji have several readings, and the same characters read as Chinese. Kana has one reading and always
+          reads as Japanese, so ask your LLM to write Japanese in kana. Chinese characters have several readings too
+          (好, 还, 行, 长), and a Spanish word can be read as English: both are left to the voice and the prompt.</p>
       </div>
       <div>
         <h4>Detection picks one language per synthesis</h4>
         <p>The context sets no <code>language</code>, so the service detects one for every synthesis, by its script first:</p>
         <ul>
           <li><b>Kana</b> reads as Japanese; <b>Hangul</b> as Korean.</li>
-          <li><b>Chinese characters</b> read as Chinese or Japanese; a word or two can go either way, or neither.</li>
+          <li><b>Chinese characters</b> read as Chinese or Japanese; a word or two alone takes the language of the turn so far.</li>
           <li><b>Latin letters</b> go to a model, which needs a few words: a single Spanish word can read as English.</li>
-          <li><b>Pinyin</b> never reads as Chinese: <i>hǎochī</i> reads as German.</li>
-          <li><b>IPA</b> reads as no language, so the flush takes the language of the turn so far.</li>
         </ul>
       </div>
       <div>
@@ -159,7 +156,8 @@
         <h4>Instructions steer; sentence mode cuts</h4>
         <p>An inline instruction such as <code>[in pure Spanish]</code> at the start of a flush steers its delivery on
           whichever prompt the flush's detected language selects. Detection ignores the instruction, so it matters most
-          where detection cannot place the flush: IPA and pinyin. Instructions need <code>inworld-tts-2</code>.</p>
+          where detection places a flush on the other language's prompt, as it does a single word. Instructions need
+          <code>inworld-tts-2</code>.</p>
         <p>In sentence-boundary auto mode the service starts a synthesis at every sentence end and detects its language.
           Sentences that arrive while one runs are batched, and a batch is spoken in one language.</p>
       </div>
@@ -248,18 +246,16 @@ const PAIRS = {
   "en-es": { name: "English → Spanish", l1: "EN", l2: "ES", names: ["English", "Spanish"], voice: "Jason", presets: [
     { name: "Rolled r", text:
       'Great job! In Spanish, "the dog runs" is <l2>El perro corre.</l2> ' +
-      'Listen for the rolled r in <l2>/ˈpe.ro/</l2>, "dog", and the single tap in <l2>/ˈpe.ɾo/</l2>, "but".',
+      'Listen for the rolled r in <l2>perro</l2>, "dog", and the single tap in <l2>pero</l2>, "but".',
       note: `The Spanish sentence is long enough to read as Spanish, so per-language flushes speak it on the Spanish prompt;
-        as one flush the turn reads as English. The single words are in IPA: they have Spanish sounds in every card,
-        and in per-language flushes they take the English of the turn so far.` },
-    { name: "Single words, spelled", text:
+        as one flush on the localized voice the turn reads as English. The single words read as English even in their
+        own flushes, so the localized voice speaks them on its English prompt: listen for whether the r's survive, and
+        for what the instruction changes.` },
+    { name: "Single words", text:
       'The word for dog is <l2>perro</l2>, and the word for but is <l2>pero</l2>. The number eleven is <l2>once</l2>.',
-      note: `<b>The pitfall.</b> A single word spelled in Spanish reads as English, even in its own flush, so every card
-        speaks these on the English prompt: <i>once</i> can come out as the English word. Compare the next preset.` },
-    { name: "Single words, in IPA", text:
-      'The word for dog is <l2>/ˈpe.ro/</l2>, and the word for but is <l2>/ˈpe.ɾo/</l2>. The number eleven is <l2>/ˈon.se/</l2>.',
-      note: `The same words in IPA have Spanish sounds in every card. IPA reads as no language, so on the localized voice
-        they are spoken on its English prompt; only the bilingual voice gives them a Spanish accent.` },
+      note: `<b>The pitfall.</b> A single Spanish word reads as English, even in its own flush, so the localized voice
+        speaks all three on its English prompt, and <i>once</i> can come out as the English word. Instructions steer them
+        toward Spanish; a bilingual voice gives them a Spanish accent.` },
     { name: "Replies", text:
       'When someone thanks you, answer <l2>De nada.</l2> Or, more warmly, <l2>¡No hay de qué, fue un placer!</l2>',
       note: `There is more Spanish than English here, so as one flush the turn reads as Spanish and the English is spoken
@@ -278,18 +274,16 @@ const PAIRS = {
         flush, the kana makes the whole turn Japanese, and the Chinese is spoken on the Japanese prompt.` },
     { name: "Kanji", text:
       '日语的“老师”写作<l2>先生</l2>，“学生”写作<l2>学生</l2>。早上见到老师，可以说：<l2>先生、おはようございます。</l2>',
-      note: `<b>The pitfall.</b> The same turn with the Japanese in kanji. Alone, 先生 reads as Chinese, so it is spoken
-        <i>xiānsheng</i>, not <i>sensei</i>; 学生 happens to read as Japanese. Kanji leave the reading to chance.` },
+      note: `<b>The pitfall.</b> The same turn with the Japanese in kanji. Alone, 先生 and 学生 read as Chinese, so they
+        are spoken on the Chinese prompt, as <i>xiānsheng</i> and <i>xuésheng</i> rather than <i>sensei</i> and <i>gakusei</i>.
+        Only the last flush, with kana in it, reads as Japanese.` },
   ] },
   "ja-zh": { name: "Japanese → Chinese", l1: "JA", l2: "ZH", names: ["Japanese", "Chinese"], voice: "Sarah", presets: [
-    { name: "Pinyin", text:
-      '中国語で「ありがとう」は<l2>xièxie</l2>、「おいしい」は<l2>hǎochī</l2>です。レストランでは<l2>zhège cài hěn hǎochī!</l2>と言ってみましょう。',
-      note: `Pinyin never reads as Chinese. In per-language flushes, <i>xièxie</i> takes the Japanese of the turn so far and
-        <i>hǎochī</i> reads as German, which this voice has a prompt for. Send pinyin as one flush on a bilingual voice.` },
     { name: "Chinese characters", text:
       '中国語で「ありがとう」は<l2>谢谢</l2>、「おいしい」は<l2>好吃</l2>です。レストランでは<l2>这个菜很好吃！</l2>と言ってみましょう。',
-      note: `These characters read as Chinese, so per-language flushes put them on the Chinese prompt. But characters leave
-        the reading to the voice: 好, 还, 行, 长 and many more have more than one.` },
+      note: `A word or two of Chinese characters alone takes the language of the turn so far, so in per-language flushes
+        谢谢 and 好吃 are spoken on the Japanese prompt. The full sentence 这个菜很好吃！ reads as Chinese. As one flush,
+        the kana makes the whole turn Japanese.` },
   ] },
   "ko-ja": { name: "Korean → Japanese", l1: "KO", l2: "JA", names: ["Korean", "Japanese"], voice: "Sarah", presets: [
     { name: "Greetings", text:
@@ -298,10 +292,10 @@ const PAIRS = {
         As one flush the turn reads as Korean.` },
   ] },
   "ko-zh": { name: "Korean → Chinese", l1: "KO", l2: "ZH", names: ["Korean", "Chinese"], voice: "Sarah", presets: [
-    { name: "Pinyin", text:
-      '중국어로 "감사합니다"는 <l2>xièxie</l2>예요. "맛있어요"는 <l2>hǎochī</l2>라고 해요.',
-      note: `In per-language flushes, <i>xièxie</i> takes the Korean of the turn so far and <i>hǎochī</i> reads as German.
-        As one flush the turn reads as Korean. Only the bilingual voice gives the pinyin a Chinese accent.` },
+    { name: "Chinese characters", text:
+      '중국어로 "감사합니다"는 <l2>谢谢</l2>예요. "맛있어요"는 <l2>好吃</l2>라고 해요. 식당에서는 <l2>这个菜很好吃！</l2>라고 말해 보세요.',
+      note: `As with Japanese, 谢谢 and 好吃 alone take the Korean of the turn so far, so per-language flushes speak them on
+        the Korean prompt; the full sentence reads as Chinese. As one flush the turn reads as Korean.` },
   ] },
 };
 
@@ -386,12 +380,10 @@ function renderFlushes(container, flushes) {
 
 // The script a flush is written in, which is what detection reads first.
 function script(text) {
-  const letters = [...text.replace(/\[[^\]]*\]/g, "").replace(/\/[^\/]*\//g, "")].filter(c => /\p{L}/u.test(c));
-  if (!letters.length && /\/[^\/]+\//.test(text)) return "IPA";
-  if (letters.some(c => /[぀-ヿ]/.test(c))) return "kana";
+  const letters = [...text.replace(/\[[^\]]*\]/g, "")].filter(c => /\p{L}/u.test(c));
+  if (letters.some(c => /[\u3040-\u30ff]/.test(c))) return "kana";
   if (letters.some(c => /\p{Script=Hangul}/u.test(c))) return "Hangul";
-  if (letters.every(c => /\p{Script=Han}/u.test(c))) return "Chinese characters";
-  if (PAIRS[pair].l2 === "ZH" && letters.every(c => /\p{Script=Latin}/u.test(c))) return "pinyin";
+  if (letters.length && letters.every(c => /\p{Script=Han}/u.test(c))) return "Chinese characters";
   return "Latin letters";
 }
 
