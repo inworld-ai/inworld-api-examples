@@ -35,7 +35,7 @@ Every mode opens one context with no `language`, so the service detects the lang
 |---|---|---|
 | `one` | the whole turn as one flush | one, for the whole turn |
 | `per-language` | a flush at every switch | one per flush |
-| `instructions` | the whole turn as one flush, with an instruction such as `[in pure Spanish]` at every switch | one, for the whole turn; the instructions steer each segment |
+| `instructions` | a flush at every switch, each opening with an instruction such as `[in pure Spanish]` | one per flush; the instruction steers each |
 | `sentence` | the turn in small pieces, the way an LLM's tokens arrive, with sentence-boundary auto mode | one per synthesis the service starts |
 
 **`one`: on a bilingual voice, the most robust choice today.** On a voice cloned from a clip in both languages, its one prompt has both accents, so what detection decides leaves the accent as it is, and the delivery runs straight through every switch. On a voice with localized prompts, the whole turn is spoken on the prompt of whichever language it reads as.
@@ -62,7 +62,7 @@ So per-language flushes give Japanese in kana and Korean their own prompt, but n
 python language_switching.py --mode per-language --voice-id Jason
 ```
 
-**`instructions`: one prompt, steered at every switch.** The turn is one flush on the prompt its detected language selects, and each segment starts with an inline instruction that steers the delivery up to the next one. Set the instruction with `--instruction`, using `{language}` for the segment's language name; `--languages` names the two languages. Instructions need `inworld-tts-2`.
+**`instructions`: per-language flushes, each steered.** As in `per-language`, the client flushes at every switch and each flush gets its own detected language and prompt. Each flush also opens with an inline instruction that steers its delivery. Detection ignores the instruction, so it helps most where detection cannot place the flush, IPA and pinyin, and the flush lands on another language's prompt. Set the instruction with `--instruction`, using `{language}` for the segment's language name; `--languages` names the two languages. Instructions need `inworld-tts-2`.
 
 ```bash
 python language_switching.py --mode instructions --voice-id Jason --languages English,Spanish
@@ -94,4 +94,4 @@ Each synthesis ends with a `flushCompleted`, and syntheses on a context run in o
 
 ## Streaming an LLM's output
 
-For per-language flushes, keep auto mode off and send each segment once the next tag arrives, and each sentence of the learner's language as it ends. For `one` and `instructions`, send each sentence once it ends. Sentence mode takes the tokens as they arrive; strip the `<l1>`/`<l2>` tags from the stream before sending it, since in that mode a `<` that never closes holds back everything after it.
+For `per-language` and `instructions`, keep auto mode off and send each segment once the next tag arrives, and each sentence of the learner's language as it ends. `CLIENT_SEGMENTED` auto mode would batch the segments that arrive while a synthesis runs into one flush, with one language. For `one`, send each sentence once it ends. Sentence mode takes the tokens as they arrive; strip the `<l1>`/`<l2>` tags from the stream before sending it, since in that mode a `<` that never closes holds back everything after it.

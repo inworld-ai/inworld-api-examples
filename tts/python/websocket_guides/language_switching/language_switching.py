@@ -27,9 +27,11 @@ language of each synthesis, and strips the <l1>/<l2> tags before sending:
   for your workspace. This works only for a flush detection can place: kana,
   Hangul, or a sentence in its own spelling. IPA reads as no language, and
   pinyin never reads as Chinese.
-- instructions: the whole turn as one flush, with an inline instruction such
-  as [in pure Spanish] at every switch. The instruction steers the delivery of
-  the text after it, on whichever prompt the turn's detected language selects.
+- instructions: a flush at every switch, as in per-language, with each flush
+  opening with an inline instruction such as [in pure Spanish]. Each flush gets
+  its own detected language and prompt, and the instruction steers its
+  delivery, which helps most where detection cannot place the flush (IPA,
+  pinyin). Detection ignores the instruction.
 - sentence: the turn streamed in small pieces, the way an LLM's tokens arrive,
   with sentence-boundary auto mode. The service starts a synthesis at every
   sentence end, and detects the language of each; while one runs, it batches
@@ -139,15 +141,9 @@ def messages_for(mode: str, turn: str, names: dict[str, str] | None = None,
     if mode == "per-language":
         return [Synthesis(" ".join(seg.text.split()), seg.language) for seg in split_turn(turn)]
     if mode == "instructions":
-        # The instruction goes right before each segment's first word, so the
-        # turn keeps its own spacing: none between Japanese and Chinese words.
         names = names or {"l1": "English", "l2": "Spanish"}
-        pieces = []
-        for seg in split_turn(turn):
-            tag = f"[{instruction.format(language=names[seg.language])}] "
-            pieces.append(re.sub(r"^\s*", lambda m: m.group(0) + tag, seg.text))
-        text = " ".join("".join(pieces).split())
-        return [Synthesis(text)] if text else []
+        return [Synthesis(f"[{instruction.format(language=names[seg.language])}] {' '.join(seg.text.split())}",
+                          seg.language) for seg in split_turn(turn)]
     text = plain_text(turn)
     if not speakable(text):
         return []
@@ -252,7 +248,7 @@ Examples:
   # A flush at every switch, on a voice with localized prompts
   python language_switching.py --mode per-language --voice-id Jason
 
-  # One flush with an instruction at every switch
+  # A flush at every switch, each opening with an instruction
   python language_switching.py --mode instructions --voice-id Jason --languages English,Spanish
 
   # Streamed like an LLM's tokens, with sentence-boundary auto mode
@@ -265,7 +261,7 @@ Examples:
     parser.add_argument("--languages", default="English,Spanish",
                         help="Names of the l1 and l2 languages, for instructions (default: English,Spanish)")
     parser.add_argument("--instruction", default=DEFAULT_INSTRUCTION,
-                        help=f"Instruction at every switch, with {{language}} (default: {DEFAULT_INSTRUCTION!r})")
+                        help=f"Instruction opening every flush, with {{language}} (default: {DEFAULT_INSTRUCTION!r})")
     parser.add_argument("--voice-id", default="Jason", help="Voice ID (default: Jason)")
     parser.add_argument("--model-id", default="inworld-tts-2", help="Model ID (default: inworld-tts-2)")
     parser.add_argument("--url", default=WEBSOCKET_URL, help="WebSocket endpoint")

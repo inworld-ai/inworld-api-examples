@@ -122,7 +122,7 @@
       A tutor turn marks the language being taught with <code>&lt;l2&gt;…&lt;/l2&gt;</code> and spells it so that its
       sounds are certain: kana for Japanese, pinyin for Chinese, IPA for Spanish words. One WebSocket client
       (<code>language_switching.py</code>) sends it four ways, and each card below is one of them: one flush, a flush per
-      language, one flush with an instruction at every switch, and a stream the service cuts at sentence ends.
+      language, a flush per language opening with an instruction, and a stream the service cuts at sentence ends.
     </p>
   </header>
 
@@ -157,9 +157,9 @@
       </div>
       <div>
         <h4>Instructions steer; sentence mode cuts</h4>
-        <p>An inline instruction such as <code>[in pure Spanish]</code> steers the delivery of the text after it, up to
-          the next instruction, on whichever prompt the turn's detected language selects. Instructions need
-          <code>inworld-tts-2</code>.</p>
+        <p>An inline instruction such as <code>[in pure Spanish]</code> at the start of a flush steers its delivery on
+          whichever prompt the flush's detected language selects. Detection ignores the instruction, so it matters most
+          where detection cannot place the flush: IPA and pinyin. Instructions need <code>inworld-tts-2</code>.</p>
         <p>In sentence-boundary auto mode the service starts a synthesis at every sentence end and detects its language.
           Sentences that arrive while one runs are batched, and a batch is spoken in one language.</p>
       </div>
@@ -194,8 +194,8 @@
       <div class="plan" id="plan-per"></div>
     </div>
     <div class="sends">
-      <h3>Instructions · one flush</h3>
-      <div class="sent" id="plan-instructions"></div>
+      <h3>Instructions · a flush per language, each opening with an instruction</h3>
+      <div class="plan" id="plan-instructions"></div>
     </div>
     <div class="sends">
       <h3>Sentence boundary · streamed in small pieces, cut by the service</h3>
@@ -218,8 +218,8 @@
     </article>
     <article class="card result" id="instructions">
       <div><h3>Instructions</h3>
-        <p class="sub">One flush on the voice with localized prompts, with an instruction at every switch: one detected
-          language and prompt, steered segment by segment.</p></div>
+        <p class="sub">A flush at every switch on the voice with localized prompts, each opening with an instruction:
+          each flush gets its own detected language and prompt, and the instruction steers it.</p></div>
       <div class="body"><p class="status">Not run yet.</p></div>
     </article>
     <article class="card result" id="sentence">
@@ -366,23 +366,27 @@ function turnBody() {
 async function refreshPlan() {
   const res = await fetch("/api/plan", { method: "POST", body: JSON.stringify(turnBody()) });
   const plan = await res.json();
-  for (const mode of ["one", "instructions", "sentence"]) {
+  for (const mode of ["one", "sentence"]) {
     $(`#plan-${mode}`).textContent = plan[mode].map(f => f.text).join("") || " ";
   }
-  const per = $("#plan-per");
-  per.replaceChildren();
-  plan["per-language"].forEach((f, i) => {
-    if (i > 0) { const m = document.createElement("span"); m.className = "flushmark"; m.textContent = "│ flush"; per.append(m); }
+  renderFlushes($("#plan-per"), plan["per-language"]);
+  renderFlushes($("#plan-instructions"), plan.instructions);
+}
+
+function renderFlushes(container, flushes) {
+  container.replaceChildren();
+  flushes.forEach((f, i) => {
+    if (i > 0) { const m = document.createElement("span"); m.className = "flushmark"; m.textContent = "│ flush"; container.append(m); }
     const el = document.createElement("div");
     el.className = "seg"; el.style.cssText = style(f.language);
     el.innerHTML = `<span class="meta">#${i} · ${label(f.language)} · ${script(f.text)}</span><span class="txt">${escapeHtml(f.text)}</span>`;
-    per.append(el);
+    container.append(el);
   });
 }
 
 // The script a flush is written in, which is what detection reads first.
 function script(text) {
-  const letters = [...text.replace(/\/[^\/]*\//g, "")].filter(c => /\p{L}/u.test(c));
+  const letters = [...text.replace(/\[[^\]]*\]/g, "").replace(/\/[^\/]*\//g, "")].filter(c => /\p{L}/u.test(c));
   if (!letters.length && /\/[^\/]+\//.test(text)) return "IPA";
   if (letters.some(c => /[぀-ヿ]/.test(c))) return "kana";
   if (letters.some(c => /\p{Script=Hangul}/u.test(c))) return "Hangul";
