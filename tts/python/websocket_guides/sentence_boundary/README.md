@@ -5,20 +5,15 @@ Let the service split the sentences: send the LLM's tokens as they arrive to a c
 | File | What it shows |
 |---|---|
 | [`sentence_boundary.py`](./sentence_boundary.py) | The base guide's client with sentence-boundary auto mode: every token sent as it arrives |
-| [`../playground/`](../playground/) | A local web page to talk to the agent, hear it, and interrupt it |
+| [Playground](../README.md#playground) | A local web page to talk to the agent, hear it, and interrupt it |
 
 `SENTENCE_BOUNDARY` is a **Preview** feature. It supports `inworld-tts-2` and `inworld-tts-2-flash`; on other models, creating the context returns `INVALID_ARGUMENT`. For the full reference, see [Synthesize Speech (WebSocket)](https://docs.inworld.ai/tts/synthesize-speech-websocket).
 
 ## Try it
 
-Set up the virtual environment and API key once, as in [the guides' setup](../README.md#setup). Then:
+Run the [playground](../README.md#playground) and choose the guide *3. Auto mode, sentence boundary*.
 
-```bash
-cd ../playground
-python server.py   # then open http://localhost:8766
-```
-
-Choose the guide *3. Auto mode, sentence boundary*. To speak one reply into a WAV file without the page: `python sentence_boundary.py`.
+To speak one reply into a WAV file without the page, after the [setup](../README.md#setup): `python sentence_boundary.py`.
 
 ## What changes
 

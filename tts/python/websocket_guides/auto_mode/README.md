@@ -5,20 +5,13 @@ Start speaking before the LLM has finished: cut its tokens into sentences on the
 | File | What it shows |
 |---|---|
 | [`client_segmented.py`](./client_segmented.py) | The base guide's client with auto mode and a small English sentence splitter |
-| [`../playground/`](../playground/) | A local web page to talk to the agent, hear it, and interrupt it |
+| [Playground](../README.md#playground) | A local web page to talk to the agent, hear it, and interrupt it |
 
 ## Try it
 
-Set up the virtual environment and API key once, as in [the guides' setup](../README.md#setup). Then:
+Run the [playground](../README.md#playground), choose the guide *2. Auto mode, client-side English sentences*, and compare the first-audio time in the log with *1. Whole turn*.
 
-```bash
-cd ../playground
-python server.py   # then open http://localhost:8766
-```
-
-Choose the guide *2. Auto mode, client-side English sentences* and compare the first-audio time in the log with *1. Whole turn*.
-
-To speak one reply into a WAV file without the page: `python client_segmented.py`.
+To speak one reply into a WAV file without the page, after the [setup](../README.md#setup): `python client_segmented.py`.
 
 ## What changes
 

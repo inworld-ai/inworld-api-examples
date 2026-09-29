@@ -5,20 +5,13 @@ The base guide: speak an agent's replies over the TTS WebSocket, and let the use
 | File | What it shows |
 |---|---|
 | [`whole_turn.py`](./whole_turn.py) | The client: one context per turn, the whole reply in one message, barge-in, and word timestamps for the LLM history |
-| [`../playground/`](../playground/) | A local web page to talk to the agent, hear it, and interrupt it |
+| [Playground](../README.md#playground) | A local web page to talk to the agent, hear it, and interrupt it |
 
 ## Try it
 
-Set up the virtual environment and API key once, as in [the guides' setup](../README.md#setup). Then:
+Run the [playground](../README.md#playground) and choose the guide *1. Whole turn*. Pick a scripted reply or a live LLM, and send. Press Esc, or send another message, to interrupt. The right-hand panel shows the LLM history as the next request would send it.
 
-```bash
-cd ../playground
-python server.py   # then open http://localhost:8766
-```
-
-Choose the guide *1. Whole turn*, pick a scripted reply or a live LLM, and send. Press Esc, or send another message, to interrupt. The right-hand panel shows the LLM history as the next request would send it.
-
-To speak one reply into a WAV file without the page: `python whole_turn.py`.
+To speak one reply into a WAV file without the page, after the [setup](../README.md#setup): `python whole_turn.py`.
 
 ## The pattern
 

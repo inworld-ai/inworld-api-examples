@@ -16,7 +16,7 @@ Speak an agent's replies over the TTS WebSocket, with barge-in.
 The other guides reuse this class and change only how the reply is sent:
 ../auto_mode/client_segmented.py and ../sentence_boundary/sentence_boundary.py.
 
-Run it through the playground (../playground/server.py), or on its own to speak
+Run it through the playground (see ../README.md), or on its own to speak
 one reply into a WAV file:
 
     python whole_turn.py
