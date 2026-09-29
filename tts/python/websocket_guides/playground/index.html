@@ -393,7 +393,7 @@ function renderTrack(t) {
   const playEnd = t.at.playEnd ?? (t.at.playStart !== undefined ? Math.max(t.at.playStart, now(t)) : undefined);
   t.el.querySelector(".track").innerHTML = `
     <span>LLM</span><div class="lane">${span(t.at.firstToken, t.at.llmDone ?? t.at.interrupt, "var(--llm)")}${cutline}</div>
-    <span>TTS audio</span><div class="lane">${span(t.at.firstAudio, t.at.closed, "var(--tts)")}${t.syntheses.map((s) => `<div class="tick" style="left:${pct(s.t)}"></div>`).join("")}${cutline}</div>
+    <span>TTS audio</span><div class="lane">${span(t.at.firstAudio, t.at.closed ?? t.at.interrupt, "var(--tts)")}${t.syntheses.map((s) => `<div class="tick" style="left:${pct(s.t)}"></div>`).join("")}${cutline}</div>
     <span>Playback</span><div class="lane">${span(t.at.playStart, playEnd, "var(--play)")}${cutline}</div>
     <span></span><div class="axis"><span>0 s</span><span>${end.toFixed(1)} s</span></div>`;
 }
