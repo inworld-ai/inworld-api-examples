@@ -40,9 +40,7 @@ To speak one reply into a WAV file without the page: `python sentence_boundary.p
 
 ## How the service turns tokens into speech
 
-- The first complete sentence starts a synthesis right away, so a short opening such as *Sure, I can help with that.* is spoken quickly.
-- Sentences that become ready while earlier audio is streaming are combined into the next synthesis.
-- A sentence end is confirmed by the text that follows it. The last sentence of a turn waits for `closeContext`, or for a `flushContext` if you keep the context open.
+- A sentence end is confirmed by the text that follows it, so the last sentence of a turn waits for `closeContext`.
 - `flushCompleted` marks each synthesis the service completed, not each message you sent, so it doesn't mark the end of a turn. `contextClosed` does.
 
 What ends a sentence:
@@ -54,9 +52,9 @@ What ends a sentence:
 
 Markup can be split across messages, the way an LLM streams it: `[whis` followed by `per] Hello.` reads as `[whisper] Hello.`. An incomplete tag stays buffered and is never synthesized as a partial tag, and an instruction such as `[whisper]` stays with the words that follow it. See [Voice steering](https://docs.inworld.ai/tts/capabilities/steering) for the instructions each model supports.
 
-**No timer.** Auto mode doesn't use `maxBufferDelayMs`: an unfinished sentence waits for more text, however long that takes. The playground's *LLM pauses mid-sentence* reply shows the gap. If you know the LLM is about to pause, for example for a tool call, `flushContext` (`Speaker.flush`) speaks what it has written so far.
+**No timer.** Auto mode doesn't use `maxBufferDelayMs`, so an unfinished sentence waits for more text, however long that takes. The playground's *LLM pauses mid-sentence* reply shows the gap. If you know the LLM is about to pause, for example for a tool call, `flushContext` (`Speaker.flush`) speaks what it has written so far.
 
-**Finish every tag before closing.** An unclosed `[` or `<` holds back everything after it. Closing or flushing the context while it is open returns `INVALID_ARGUMENT` and closes the context, and the held text is not spoken. The playground's system prompt asks the LLM not to write these characters; if yours might, as in *3 < 5*, replace them before sending.
+**Finish every tag before closing.** Incomplete markup at the end of a turn returns `INVALID_ARGUMENT`.
 
 ## Barge-in
 
