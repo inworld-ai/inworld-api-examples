@@ -13,14 +13,16 @@ Read them in order; each builds on the one before and changes only how an agent'
 
 ## Setup
 
-From `tts/python/`:
+Requires Python 3.10+. From `tts/python/`:
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # then set INWORLD_API_KEY
 ```
 
-Run each guide's scripts from its own folder; they read the key from `tts/python/.env` or from `export INWORLD_API_KEY=...`.
+With the virtual environment active, run each guide's scripts from its own folder. They read the key from `tts/python/.env`, or from `export INWORLD_API_KEY=...`, which takes precedence.
 
 ## The protocol in brief
 

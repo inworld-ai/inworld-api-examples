@@ -2,12 +2,13 @@
 
 A local web page shared by the WebSocket guides: type to the agent, hear its reply, and interrupt it.
 
+Set up the virtual environment and API key once, as in [the guides' setup](../README.md#setup), then from this folder:
+
 ```bash
-pip install -r ../../requirements.txt   # from this folder
-python server.py                        # then open http://localhost:8766
+python server.py   # then open http://localhost:8766
 ```
 
-Set your API key in `tts/python/.env` or with `export INWORLD_API_KEY=...`. The server holds the key and talks to the TTS WebSocket; the page only talks to the server and plays the audio.
+The server holds the key and talks to the TTS WebSocket; the page only talks to the server and plays the audio.
 
 ## On the page
 
