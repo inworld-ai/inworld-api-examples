@@ -65,6 +65,7 @@ class Turn:
         self.syntheses = 0
         self.interrupted = False
         self.closing = False  # closeContext sent, or the context ended
+        self.finished = False  # no more responses will arrive
         self.pending = ""  # reply text not sent yet
         # Word timestamps count from the start of each synthesis; this is
         # where the current one starts in the turn's audio.
@@ -73,6 +74,16 @@ class Turn:
     def heard(self, seconds: float) -> str:
         """The words that finished playing in the first `seconds` of the turn's audio."""
         return " ".join(w.text for w in self.words if w.end <= seconds)
+
+    async def heard_after_timestamps(self, seconds: float, timeout: float = 2.0) -> str:
+        """heard(seconds), once timestamps cover that much audio. With the ASYNC
+        transport they trail the audio, so wait for them briefly."""
+        deadline = asyncio.get_running_loop().time() + timeout
+        while not self.finished and asyncio.get_running_loop().time() < deadline:
+            if self.words and self.words[-1].end >= seconds:
+                break
+            await asyncio.sleep(0.05)
+        return self.heard(seconds)
 
 
 class Speaker:
@@ -149,6 +160,7 @@ class Speaker:
 
     def _finish(self, turn: Turn, event: tuple):
         turn.closing = True  # nothing more to send on this context
+        turn.finished = True
         self._turns.pop(turn.context_id, None)
         turn.events.put_nowait(event)
 

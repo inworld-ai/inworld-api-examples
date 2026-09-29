@@ -34,14 +34,15 @@ python server.py   # then open http://localhost:8766
 python server.py --port 8766 --model-id inworld-tts-2 --llm-model openai/gpt-4.1-mini   # the options, with their defaults
 ```
 
-- **Guide**: which client speaks the replies: [1. Whole turn](./barge_in/), [2. Auto mode](./auto_mode/), or [3. Sentence boundary](./sentence_boundary/).
+- **Guide**: which client speaks the replies: [Whole turn](./barge_in/), [Client sentences](./auto_mode/), or [Sentence boundary](./sentence_boundary/).
+- **Reply**: a live LLM or a scripted reply.
+  - *Live LLM* streams from the Inworld Router's chat completions API with the same API key; `--llm-model` picks the model. Edit the system prompt in the sidebar. The default asks the LLM to use [steering instructions](https://docs.inworld.ai/tts/capabilities/steering) such as `[say warmly]`, sounds such as `[laugh]`, pauses (`<break time="500ms"/>`), and `<verbatim>` for codes.
+  - *Scripted* replies stream the same tokens every run, with an LLM's timing: a first token after about a third of a second, then 60 tokens a second. One uses steering, a pause and verbatim; one pauses mid-sentence, the way an LLM does for a tool call.
 - **Voice**: any voice ID.
-- **Reply**: a scripted reply, or a live LLM.
-  - Scripted replies stream the same tokens every run, with an LLM's timing: a first token after about a third of a second, then 60 tokens a second. One pauses mid-sentence, the way an LLM does for a tool call.
-  - *Live LLM* streams from the Inworld Router's chat completions API with the same API key; `--llm-model` picks the model.
-- **Interrupt**: press Esc, click Interrupt, or send another message. The page stops playback at once and reports how many seconds of the turn it played. The server closes the turn's context and keeps only the words you heard in the LLM history, shown on the right.
+- **Interrupt**: press Esc, click Interrupt, or send another message. The page stops playback at once and reports how many seconds of the turn it played. The server closes the turn's context and keeps only the words you heard in the LLM history. The reply shows what was heard, with the rest struck through.
+- **New chat** clears the LLM history.
 
-Under each reply, a log shows when the first LLM token and the first audio arrived, each synthesis the service completed, and `contextClosed`.
+Each reply shows when the first LLM token and the first audio arrived, how many syntheses the service ran, and a timeline of the LLM writing, TTS audio arriving and playback, with any interrupt marked. *Events* lists the same moments.
 
 To add a guide, subclass `Speaker` from [`barge_in/whole_turn.py`](./barge_in/whole_turn.py) as the other guides do: set `CREATE` for the context settings, override `send_text(turn, token)` and, if needed, `end_turn(turn)`, and add the module to `GUIDES` in `playground/server.py`.
 

@@ -6,102 +6,255 @@
 <title>WebSocket Playground</title>
 <style>
   :root {
-    --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e2e2dd;
-    --user: #e8eefc; --agent: #ffffff; --accent: #2f5bd3; --stop: #c2410c;
+    --bg: #f6f6f4; --surface: #ffffff; --surface-2: #f0f0ed; --text: #18181b; --muted: #71717a;
+    --line: #e4e4e0; --accent: #4f46e5; --accent-soft: #eef0ff; --on-accent: #ffffff;
+    --llm: #8b5cf6; --tts: #0d9488; --play: #d97706; --stop: #dc2626; --stop-soft: #fef2f2;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px rgb(0 0 0 / 0.04);
+    --radius: 14px;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #151514; --panel: #1e1e1c; --text: #ececea; --muted: #9a9a94; --line: #33332f;
-      --user: #22304f; --agent: #1e1e1c; --accent: #7aa2ff; --stop: #fb923c;
+      --bg: #0f0f11; --surface: #18181b; --surface-2: #222226; --text: #f4f4f5; --muted: #a1a1aa;
+      --line: #2e2e33; --accent: #818cf8; --accent-soft: #23243a; --on-accent: #0f0f11;
+      --llm: #a78bfa; --tts: #2dd4bf; --play: #fbbf24; --stop: #f87171; --stop-soft: #2a1516;
+      --shadow: none;
     }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
-  header { padding: 16px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
-  h1 { font-size: 17px; margin: 0 16px 0 0; align-self: center; }
-  label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 2px; max-width: 100%; }
-  select { max-width: 100%; }
-  select, input, button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button, input, textarea, select { font: inherit; color: inherit; }
   button { cursor: pointer; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button.stop { color: var(--stop); border-color: var(--stop); }
-  button:disabled { opacity: 0.4; cursor: default; }
-  main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; padding: 16px; max-width: 1200px; margin: 0 auto; }
-  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
-  #chat { display: flex; flex-direction: column; gap: 10px; min-height: 50vh; }
-  .msg { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); max-width: 90%; white-space: pre-wrap; }
-  .user { background: var(--user); align-self: flex-end; border-color: transparent; }
-  .agent { background: var(--agent); align-self: flex-start; }
-  .agent.cut .text { color: var(--muted); text-decoration: line-through; }
-  .heard { margin-top: 6px; }
-  .heard b { color: var(--stop); font-weight: 600; }
-  .log { margin-top: 8px; font: 12px/1.45 ui-monospace, monospace; color: var(--muted); }
-  form { display: flex; gap: 8px; margin-top: 12px; }
-  form input { flex: 1; min-width: 0; }
-  aside { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; align-self: start; }
-  aside h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 600; }
-  #history div { padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px; white-space: pre-wrap; }
-  #history .role { color: var(--muted); font-size: 12px; display: block; }
-  #history .system { color: var(--muted); }
-  .error { color: var(--stop); }
+  .app { display: grid; grid-template-columns: 320px minmax(0, 1fr); height: 100%; }
+
+  /* Settings */
+  aside { scrollbar-width: thin; border-right: 1px solid var(--line); background: var(--surface); padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 22px; }
+  .brand { font-weight: 650; font-size: 16px; letter-spacing: -0.01em; }
+  .brand small { display: block; color: var(--muted); font-weight: 450; font-size: 13px; }
+  h3 { margin: 0 0 8px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .cards { display: grid; gap: 8px; }
+  .card { display: block; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; cursor: pointer; transition: border-color .15s, background .15s; }
+  .card:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+  .card:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+  .card input { position: absolute; opacity: 0; pointer-events: none; }
+  .card b { display: block; font-weight: 600; font-size: 14px; }
+  .card span { color: var(--muted); font-size: 13px; }
+  .segmented { display: grid; grid-template-columns: 1fr 1fr; background: var(--surface-2); border-radius: 10px; padding: 3px; gap: 3px; }
+  .segmented button { border: 0; background: transparent; border-radius: 8px; padding: 6px; font-size: 14px; color: var(--muted); }
+  .segmented button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); font-weight: 550; }
+  .field { display: grid; gap: 6px; margin-top: 10px; }
+  .field label { font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; align-items: baseline; }
+  .field input, .field select, .field textarea { width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 8px 10px; }
+  .field textarea { min-height: 220px; resize: vertical; font-size: 13px; line-height: 1.5; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .link { border: 0; background: none; padding: 0; color: var(--accent); font-size: 13px; }
+  .ghost { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 8px 12px; }
+  .hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+  [hidden] { display: none !important; }
+
+  /* Conversation */
+  main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .topbar { display: none; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface); justify-content: space-between; align-items: center; }
+  #messages { scrollbar-width: thin; flex: 1; min-height: 0; overflow-y: auto; padding: 28px 16px 12px; }
+  .thread { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+  .empty { text-align: center; color: var(--muted); margin-top: 18vh; }
+  .empty b { display: block; color: var(--text); font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+  .user { align-self: flex-end; max-width: 80%; background: var(--accent); color: var(--on-accent); padding: 10px 14px; border-radius: 18px 18px 4px 18px; white-space: pre-wrap; }
+  .agent { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+  .agent .head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 12px; }
+  .badge { color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+  .status { display: inline-flex; gap: 6px; align-items: center; border-radius: 999px; padding: 1px 8px; background: var(--surface-2); color: var(--muted); }
+  .status.speaking { color: var(--play); }
+  .status.interrupted { color: var(--stop); background: var(--stop-soft); }
+  .status.error { color: var(--stop); background: var(--stop-soft); }
+  .bars { display: inline-flex; gap: 2px; align-items: end; height: 10px; }
+  .bars i { width: 2px; background: currentColor; border-radius: 1px; animation: bar 0.9s ease-in-out infinite; }
+  .bars i:nth-child(2) { animation-delay: -0.3s; } .bars i:nth-child(3) { animation-delay: -0.6s; }
+  @keyframes bar { 0%, 100% { height: 3px; } 50% { height: 10px; } }
+  .text { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .text .unheard { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--stop) 60%, transparent); }
+  .mk { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--llm); background: color-mix(in srgb, var(--llm) 10%, transparent); border-radius: 5px; padding: 0 4px; }
+  .cut { margin-top: 10px; padding: 8px 10px; border-radius: 10px; background: var(--stop-soft); font-size: 14px; }
+  .cut b { color: var(--stop); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .chip { font-size: 12px; background: var(--surface-2); border-radius: 8px; padding: 3px 8px; color: var(--muted); }
+  .chip b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .track { margin-top: 12px; display: grid; grid-template-columns: 64px 1fr; gap: 5px 10px; font-size: 11px; color: var(--muted); align-items: center; }
+  .lane { position: relative; height: 8px; background: var(--surface-2); border-radius: 4px; }
+  .span { position: absolute; top: 0; bottom: 0; border-radius: 4px; min-width: 2px; }
+  .tick { position: absolute; top: -3px; bottom: -3px; width: 2px; border-radius: 1px; background: var(--text); opacity: 0.55; }
+  .cutline { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--stop); }
+  .axis { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+  details { margin-top: 10px; font-size: 13px; color: var(--muted); }
+  summary { cursor: pointer; width: fit-content; }
+  details ol { list-style: none; margin: 6px 0 0; padding: 0; font: 12px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  details li span { display: inline-block; width: 64px; color: var(--text); }
+
+  /* Composer */
+  .composer { padding: 12px 16px 18px; }
+  .composer form { max-width: 780px; margin: 0 auto; display: flex; gap: 8px; align-items: end; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 8px 8px 8px 14px; box-shadow: var(--shadow); }
+  .composer form:focus-within { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+  .composer textarea { flex: 1; border: 0; background: transparent; resize: none; outline: none; max-height: 160px; padding: 6px 0; }
+  .round { width: 36px; height: 36px; border-radius: 50%; border: 0; display: grid; place-items: center; flex: none; }
+  .send { background: var(--accent); color: var(--on-accent); }
+  .send:disabled { opacity: 0.35; cursor: default; }
+  .stopbtn { background: var(--stop-soft); color: var(--stop); width: auto; padding: 0 12px; border-radius: 18px; gap: 6px; display: inline-flex; align-items: center; font-size: 13px; }
+  kbd { font: 11px ui-monospace, monospace; border: 1px solid currentColor; border-radius: 4px; padding: 0 3px; opacity: 0.7; }
+  .legend { max-width: 780px; margin: 6px auto 0; color: var(--muted); font-size: 12px; text-align: center; }
+
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    aside { display: none; border-right: 0; border-bottom: 1px solid var(--line); max-height: 60vh; }
+    .app.settings-open aside { display: flex; }
+    .app { grid-template-rows: auto minmax(0, 1fr); }
+    main { grid-row: 2; }
+    .topbar { display: flex; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <h1>WebSocket Playground</h1>
-  <label>Guide <select id="guide"></select></label>
-  <label>Voice <input id="voice" value="Dennis" size="10"></label>
-  <label>Reply <select id="reply"></select></label>
-</header>
-<main>
-  <section>
-    <div id="chat"></div>
-    <form id="form">
-      <input id="text" autocomplete="off" placeholder="Say something">
-      <button class="primary" type="submit">Send</button>
-      <button class="stop" type="button" id="stop" disabled aria-keyshortcuts="Escape">Interrupt (Esc)</button>
-    </form>
-  </section>
+<div class="app" id="app">
   <aside>
-    <h2>LLM history: what the agent said, as far as you heard it</h2>
-    <div id="history"></div>
+    <div class="brand">WebSocket Playground<small>Inworld TTS · barge-in and auto mode</small></div>
+    <section>
+      <h3>Guide</h3>
+      <div class="cards" id="guides"></div>
+    </section>
+    <section>
+      <h3>Reply</h3>
+      <div class="segmented" role="group" aria-label="Reply source">
+        <button type="button" data-source="live" aria-pressed="true">Live LLM</button>
+        <button type="button" data-source="scripted" aria-pressed="false">Scripted</button>
+      </div>
+      <div id="live-settings">
+        <div class="field">
+          <label for="prompt">System prompt <button type="button" class="link" id="reset-prompt">Reset</button></label>
+          <textarea id="prompt" spellcheck="false"></textarea>
+        </div>
+        <p class="hint" id="llm-model"></p>
+      </div>
+      <div id="scripted-settings" hidden>
+        <div class="field">
+          <label for="script">Reply</label>
+          <select id="script"></select>
+        </div>
+        <p class="hint">The same tokens every run, with an LLM's timing.</p>
+      </div>
+    </section>
+    <section>
+      <h3>Voice</h3>
+      <div class="field"><input id="voice" value="Dennis" aria-label="Voice ID"></div>
+    </section>
+    <button type="button" class="ghost" id="new-chat">New chat</button>
   </aside>
-</main>
+  <main>
+    <div class="topbar">
+      <b>WebSocket Playground</b>
+      <button type="button" class="ghost" id="toggle-settings">Settings</button>
+    </div>
+    <div id="messages">
+      <div class="thread" id="thread">
+        <div class="empty" id="empty"><b>Talk to the agent</b>Send a message, then interrupt it mid-reply with Esc.</div>
+      </div>
+    </div>
+    <div class="composer">
+      <form id="form">
+        <textarea id="text" rows="1" placeholder="Message the agent"></textarea>
+        <button type="button" class="round stopbtn" id="stop" hidden>Interrupt <kbd>Esc</kbd></button>
+        <button type="submit" class="round send" id="send" aria-label="Send">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></svg>
+        </button>
+      </form>
+      <div class="legend">Timeline: <span style="color:var(--llm)">■</span> LLM writing · <span style="color:var(--tts)">■</span> TTS audio arriving · <span style="color:var(--play)">■</span> playback · <span style="color:var(--stop)">|</span> interrupt</div>
+    </div>
+  </main>
+</div>
 <script>
 const OPTIONS = __OPTIONS__;
 const RATE = 24000;
 const $ = (id) => document.getElementById(id);
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+                set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
 const ws = new WebSocket(`ws://${location.host}/ws`);
 const send = (message) => ws.send(JSON.stringify(message));
-let audio;         // AudioContext, created on the first send (browsers need a click first)
-let playing = null; // the agent turn being spoken: {turn, bubble, chunks, nextTime, done}
-const bubbles = {};
+let audio;          // AudioContext, created on the first send (browsers need a gesture first)
+let active = null;  // the turn being written or spoken
+const turns = {};
+const pending = []; // send times of messages whose turn hasn't started yet
 
-for (const [name, label] of Object.entries(OPTIONS.guides)) $("guide").add(new Option(label, name));
-for (const [name, script] of Object.entries(OPTIONS.scripts)) $("reply").add(new Option(`Scripted: ${script.label}`, name));
-$("reply").add(new Option(`Live LLM (${OPTIONS.llm_model})`, "live"));
-const prefill = () => { const s = OPTIONS.scripts[$("reply").value]; $("text").value = s ? s.prompt : ""; };
-$("reply").onchange = prefill;
-prefill();
-
-function bubble(kind, text) {
-  const div = document.createElement("div");
-  div.className = `msg ${kind}`;
-  div.innerHTML = '<div class="text"></div><div class="heard"></div><div class="log"></div>';
-  div.querySelector(".text").textContent = text;
-  $("chat").append(div);
-  div.scrollIntoView({ block: "end" });
-  return div;
+// ---- Settings ----
+for (const [name, g] of Object.entries(OPTIONS.guides)) {
+  const card = document.createElement("label");
+  card.className = "card";
+  card.innerHTML = `<input type="radio" name="guide" value="${name}"><b></b><span></span>`;
+  card.querySelector("b").textContent = g.label;
+  card.querySelector("span").textContent = g.summary;
+  $("guides").append(card);
 }
+for (const [name, s] of Object.entries(OPTIONS.scripts)) $("script").add(new Option(s.label, name));
+$("llm-model").textContent = `Streams from ${OPTIONS.llm_model} through the Inworld Router.`;
+const guide = () => document.querySelector('input[name="guide"]:checked').value;
+let source = store.get("source") || "live";
+(document.querySelector(`input[name="guide"][value="${store.get("guide")}"]`) || document.querySelector('input[name="guide"]')).checked = true;
+$("prompt").value = store.get("prompt") || OPTIONS.system_prompt;
+$("voice").value = store.get("voice") || "Dennis";
 
-// Seconds of this turn's audio that have played: every chunk is scheduled
-// back to back, so sum how far the clock has run into each one.
-function heardSeconds(p) {
-  const now = audio.currentTime;
-  return p.chunks.reduce((sum, c) => sum + Math.min(Math.max(now - c.start, 0), c.duration), 0);
+function setSource(value) {
+  source = value;
+  store.set("source", value);
+  document.querySelectorAll("[data-source]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.source === value));
+  $("live-settings").hidden = value !== "live";
+  $("scripted-settings").hidden = value !== "scripted";
+  $("text").value = value === "live" ? OPTIONS.live_suggestion : OPTIONS.scripts[$("script").value].prompt;
+  autosize();
 }
+document.querySelectorAll("[data-source]").forEach((b) => b.onclick = () => setSource(b.dataset.source));
+$("script").onchange = () => setSource("scripted");
+$("reset-prompt").onclick = () => { $("prompt").value = OPTIONS.system_prompt; store.set("prompt", ""); };
+$("prompt").oninput = () => store.set("prompt", $("prompt").value);
+$("voice").oninput = () => store.set("voice", $("voice").value);
+$("guides").onchange = () => store.set("guide", guide());
+$("toggle-settings").onclick = () => $("app").classList.toggle("settings-open");
+$("new-chat").onclick = () => {
+  interrupt();
+  send({ type: "reset" });
+  $("thread").replaceChildren($("empty"));
+  $("empty").hidden = false;
+};
+setSource(source);
 
-function play(p, b64) {
+// ---- Composer ----
+function autosize() {
+  const t = $("text");
+  t.style.height = "auto";
+  t.style.height = Math.min(t.scrollHeight, 160) + "px";
+  t.style.overflowY = t.scrollHeight > 160 ? "auto" : "hidden";
+}
+$("text").oninput = autosize;
+$("text").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("form").requestSubmit(); } };
+$("form").onsubmit = (e) => {
+  e.preventDefault();
+  const text = $("text").value.trim();
+  if (!text) return;
+  audio ??= new AudioContext({ sampleRate: RATE });
+  interrupt(); // a new message barges in
+  $("empty").hidden = true;
+  const bubble = document.createElement("div");
+  bubble.className = "user";
+  bubble.textContent = text;
+  $("thread").append(bubble);
+  pending.push(performance.now());
+  send({ type: "say", text, reply: source === "live" ? "live" : $("script").value, guide: guide(),
+         voice_id: $("voice").value, system_prompt: $("prompt").value });
+  if (source === "live") $("text").value = "";
+  autosize();
+  scrollDown();
+};
+$("stop").onclick = interrupt;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") interrupt(); });
+const scrollDown = () => $("messages").scrollTo({ top: $("messages").scrollHeight, behavior: "smooth" });
+
+// ---- Audio ----
+function play(t, b64) {
   const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
   const samples = new Int16Array(bytes.buffer, 0, bytes.length >> 1);
   const buffer = audio.createBuffer(1, samples.length, RATE);
@@ -110,73 +263,178 @@ function play(p, b64) {
   const source = audio.createBufferSource();
   source.buffer = buffer;
   source.connect(audio.destination);
-  const start = Math.max(audio.currentTime + 0.05, p.nextTime);
+  const start = Math.max(audio.currentTime + 0.05, t.nextTime);
   source.start(start);
-  source.onended = finishIfPlayed;
-  p.nextTime = start + buffer.duration;
-  p.chunks.push({ source, start, duration: buffer.duration });
+  source.onended = () => finishIfPlayed(t);
+  if (t.at.playStart === undefined) t.at.playStart = now(t) + (start - audio.currentTime);
+  t.nextTime = start + buffer.duration;
+  t.chunks.push({ source, start, duration: buffer.duration });
 }
 
-function setSpeaking(p) { playing = p; $("stop").disabled = !p; }
+// Seconds of the turn's audio that have played: chunks are scheduled back to
+// back, so sum how far the clock has run into each one.
+const heardSeconds = (t) => t.chunks.reduce((s, c) => s + Math.min(Math.max(audio.currentTime - c.start, 0), c.duration), 0);
+const playing = (t) => audio && t.chunks.length && audio.currentTime < t.nextTime;
 
-function finishIfPlayed() {
-  if (playing && playing.done && audio.currentTime >= playing.nextTime - 0.01) {
-    send({ type: "played", turn: playing.turn });
-    setSpeaking(null);
+function finishIfPlayed(t) {
+  if (t === active && t.at.closed !== undefined && !playing(t)) {
+    t.at.playEnd = now(t);
+    t.status = "done";
+    send({ type: "played", turn: t.id });
+    setActive(null);
+    render(t);
   }
 }
 
 // Barge-in: stop playback first, then tell the server how much was heard.
 function interrupt() {
-  if (!playing) return;
-  const p = playing;
-  const heard = heardSeconds(p);
-  p.chunks.forEach((c) => c.source.stop());
-  setSpeaking(null);
-  p.bubble.classList.add("cut");
-  send({ type: "interrupt", turn: p.turn, heard_seconds: heard });
+  const t = active;
+  if (!t) return;
+  t.heardSeconds = audio ? heardSeconds(t) : 0;
+  t.chunks.forEach((c) => c.source.stop());
+  t.at.interrupt = now(t);
+  if (t.at.playStart !== undefined) t.at.playEnd = t.at.interrupt;
+  t.status = "interrupted";
+  setActive(null);
+  send({ type: "interrupt", turn: t.id, heard_seconds: t.heardSeconds });
+  render(t);
 }
 
-$("form").onsubmit = (e) => {
-  e.preventDefault();
-  audio ??= new AudioContext({ sampleRate: RATE });
-  interrupt();
-  bubble("user", $("text").value);
-  send({ type: "say", text: $("text").value, reply: $("reply").value, guide: $("guide").value, voice_id: $("voice").value });
-  if ($("reply").value === "live") $("text").value = "";
-};
-$("stop").onclick = interrupt;
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") interrupt(); });
+function setActive(t) {
+  active = t;
+  $("stop").hidden = !t;
+}
+
+// ---- Turns ----
+const now = (t) => (performance.now() - t.t0) / 1000;
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const norm = (w) => w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+const fmt = (s) => (s === undefined ? "–" : `${s.toFixed(2)} s`);
+
+function newTurn(id, guideName) {
+  const el = document.createElement("article");
+  el.className = "agent";
+  el.innerHTML = `<div class="head"><span class="badge"></span><span class="status"></span></div>
+    <div class="text"></div><div class="cut" hidden></div><div class="chips"></div><div class="track"></div>
+    <details><summary>Events</summary><ol></ol></details>`;
+  el.querySelector(".badge").textContent = OPTIONS.guides[guideName].label;
+  $("thread").append(el);
+  const t = { id, el, t0: pending.shift() ?? performance.now(), text: "", at: {}, syntheses: [], chunks: [], nextTime: 0, status: "thinking" };
+  turns[id] = t;
+  setActive(t);
+  render(t);
+  return t;
+}
+
+// Split the reply into markup and words, and mark the words after the last
+// one the user heard. Heard words come from TTS timestamps, so match them
+// loosely and stop at the first one that can't be found.
+function renderText(t) {
+  const items = t.text.match(/\[[^\]]*\]?|<[^>]*>?|\s+|[^\s\[<]+/g) || [];
+  let cut = t.heard === undefined ? items.length : -1;
+  if (t.heard !== undefined) {
+    let i = 0;
+    for (const word of t.heard.split(/\s+/).map(norm).filter(Boolean)) {
+      let j = i;
+      while (j < items.length && j < i + 8 && norm(items[j]) !== word) j++;
+      if (j >= items.length || j >= i + 8) break;
+      cut = j;
+      i = j + 1;
+    }
+  }
+  return items.map((s, i) => {
+    if (/^[\[<]/.test(s)) return `<span class="mk">${esc(s)}</span>`;
+    return i > cut ? `<span class="unheard">${esc(s)}</span>` : esc(s);
+  }).join("");
+}
+
+const STATUS = { thinking: "Thinking", writing: "Writing", speaking: "Speaking", done: "Done", interrupted: "Interrupted", error: "Error" };
+
+function render(t) {
+  if (t === active) t.status = playing(t) ? "speaking" : t.at.firstToken !== undefined ? "writing" : "thinking";
+  const status = t.el.querySelector(".status");
+  status.className = `status ${t.status}`;
+  status.innerHTML = (t.status === "speaking" ? '<span class="bars"><i></i><i></i><i></i></span>' : "") + STATUS[t.status];
+  t.el.querySelector(".text").innerHTML = renderText(t);
+
+  const cut = t.el.querySelector(".cut");
+  cut.hidden = t.heard === undefined && !t.error;
+  if (t.error) {
+    cut.innerHTML = "<b>Error.</b> ";
+    cut.append(t.error);
+  } else if (t.heard !== undefined) {
+    cut.innerHTML = `<b>Interrupted after ${t.heardSeconds.toFixed(1)} s of playback.</b> The LLM history keeps: `;
+    cut.append(t.heard ? `“${t.heard}”` : "nothing, since no word finished playing.");
+  }
+
+  const chips = [["First token", fmt(t.at.firstToken)], ["First audio", fmt(t.at.firstAudio)],
+                 ["Syntheses", String(t.syntheses.length)], ["Audio", t.audioSeconds ? `${t.audioSeconds.toFixed(1)} s` : "–"]];
+  const empty = t.at.firstToken === undefined && t.at.firstAudio === undefined;
+  for (const sel of [".chips", ".track", "details"]) t.el.querySelector(sel).hidden = empty && t.status !== "thinking";
+  t.el.querySelector(".chips").innerHTML = chips.map(([k, v]) => `<span class="chip">${k} <b>${v}</b></span>`).join("");
+  renderTrack(t);
+
+  const events = [["firstToken", "First LLM token"], ["llmDone", "LLM done"], ["firstAudio", "First audio"],
+                  ["playStart", "Playback starts"], ["closed", "contextClosed: all audio received"],
+                  ["interrupt", "Interrupted"], ["playEnd", "Playback ends"]]
+    .filter(([k]) => t.at[k] !== undefined).map(([k, label]) => [t.at[k], label])
+    .concat(t.syntheses.map((s) => [s.t, `Synthesis ${s.count} complete (${s.audio_seconds.toFixed(1)} s of audio)`]))
+    .sort((a, b) => a[0] - b[0]);
+  t.el.querySelector("ol").innerHTML = events.map(([at, label]) => `<li><span>${at.toFixed(2)} s</span>${esc(label)}</li>`).join("");
+}
+
+function renderTrack(t) {
+  const live = t === active;
+  const end = Math.max(1, live ? now(t) : 0, ...Object.values(t.at), ...t.syntheses.map((s) => s.t));
+  const pct = (s) => `${(100 * s / end).toFixed(2)}%`;
+  const span = (from, to, color) => from === undefined ? "" :
+    `<div class="span" style="left:${pct(from)};width:calc(${pct((to ?? (live ? now(t) : from)) - from)});background:${color}"></div>`;
+  const cutline = t.at.interrupt === undefined ? "" : `<div class="cutline" style="left:${pct(t.at.interrupt)}"></div>`;
+  const playEnd = t.at.playEnd ?? (t.at.playStart !== undefined ? Math.max(t.at.playStart, now(t)) : undefined);
+  t.el.querySelector(".track").innerHTML = `
+    <span>LLM</span><div class="lane">${span(t.at.firstToken, t.at.llmDone ?? t.at.interrupt, "var(--llm)")}${cutline}</div>
+    <span>TTS audio</span><div class="lane">${span(t.at.firstAudio, t.at.closed, "var(--tts)")}${t.syntheses.map((s) => `<div class="tick" style="left:${pct(s.t)}"></div>`).join("")}${cutline}</div>
+    <span>Playback</span><div class="lane">${span(t.at.playStart, playEnd, "var(--play)")}${cutline}</div>
+    <span></span><div class="axis"><span>0 s</span><span>${end.toFixed(1)} s</span></div>`;
+}
+
+setInterval(() => { if (active) render(active); }, 100);
 
 ws.onmessage = (event) => {
   const m = JSON.parse(event.data);
-  const b = bubbles[m.turn];
-  if (m.type === "turn") {
-    bubbles[m.turn] = bubble("agent", "");
-    setSpeaking({ turn: m.turn, bubble: bubbles[m.turn], chunks: [], nextTime: 0, done: false });
-  } else if (m.type === "token") {
-    b.querySelector(".text").textContent += m.text;
-  } else if (m.type === "audio") {
-    if (playing && playing.turn === m.turn) play(playing, m.pcm); // drop an interrupted turn's audio
-  } else if (m.type === "log") {
-    b.querySelector(".log").textContent += m.text + "\n";
-  } else if (m.type === "done") {
-    if (playing && playing.turn === m.turn) { playing.done = true; finishIfPlayed(); }
-  } else if (m.type === "heard") {
-    b.querySelector(".heard").innerHTML = "<b>Interrupted.</b> Heard: ";
-    b.querySelector(".heard").append(`“${m.text || ""}”`);
-  } else if (m.type === "history") {
-    $("history").replaceChildren(...m.messages.map((msg) => {
-      const div = document.createElement("div");
-      div.className = msg.role;
-      div.innerHTML = `<span class="role">${msg.role}</span>`;
-      div.append(msg.content);
-      return div;
-    }));
-  } else if (m.type === "error") {
-    const div = bubble("agent", m.message);
-    div.classList.add("error");
+  if (m.type === "turn") { newTurn(m.turn, m.guide); scrollDown(); return; }
+  const t = turns[m.turn];
+  if (m.type === "error") {
+    const target = t ?? newTurn(`error-${Date.now()}`, guide());
+    target.status = "error";
+    target.error = m.message;
+    if (target === active) setActive(null);
+    render(target);
+    return;
   }
+  if (!t) return;
+  if (m.type === "token") {
+    t.at.firstToken ??= now(t);
+    t.text += m.text;
+  } else if (m.type === "audio") {
+    if (t !== active) return; // an interrupted turn's audio
+    t.at.firstAudio ??= now(t);
+    play(t, m.pcm);
+  } else if (m.type === "event") {
+    if (m.name === "llm_done") t.at.llmDone = now(t);
+    if (m.name === "synthesis") { t.syntheses.push({ t: now(t), count: m.count, audio_seconds: m.audio_seconds }); t.audioSeconds = m.audio_seconds; }
+    if (m.name === "closed") { t.at.closed = now(t); t.audioSeconds = m.audio_seconds; finishIfPlayed(t); }
+  } else if (m.type === "heard") {
+    t.heard = m.text;
+  }
+  render(t);
+};
+ws.onclose = () => {
+  const t = newTurn(`closed-${Date.now()}`, guide());
+  t.status = "error";
+  t.error = "Lost the connection to the playground server. Restart it and reload the page.";
+  setActive(null);
+  render(t);
 };
 </script>
 </body>

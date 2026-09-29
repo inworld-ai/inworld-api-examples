@@ -15,7 +15,6 @@ import base64
 import json
 import os
 import sys
-import time
 from http import HTTPStatus
 from pathlib import Path
 
@@ -40,17 +39,18 @@ import whole_turn  # noqa: E402
 
 # Every guide exposes the same Speaker interface; the page lists them all.
 GUIDES = {
-    "whole_turn": ("1. Whole turn, auto mode off", whole_turn),
-    "client_segmented": ("2. Auto mode, client-side English sentences", client_segmented),
-    "sentence_boundary": ("3. Auto mode, sentence boundary (Preview)", sentence_boundary),
+    "whole_turn": ("Whole turn", "Auto mode off. The reply is sent once the LLM finishes.", whole_turn),
+    "client_segmented": ("Client sentences", "Auto mode. An English splitter sends each sentence.", client_segmented),
+    "sentence_boundary": ("Sentence boundary", "Auto mode (Preview). Tokens go straight in.", sentence_boundary),
 }
 
 
 async def conversation(browser, args, api_key: str):
     """One browser tab: one conversation, with its own history and TTS connection."""
     speakers = {}
-    history = [{"role": "system", "content": replies.SYSTEM_PROMPT}]
+    history = [{"role": "system", "content": replies.DEFAULT_SYSTEM_PROMPT}]
     turns = {}  # turn id -> {"turn", "speaker", "text": the reply so far}
+    trimming = set()  # interrupted turns still waiting for their timestamps
 
     async def send(message: dict):
         await browser.send(json.dumps(message))
@@ -60,76 +60,71 @@ async def conversation(browser, args, api_key: str):
         voice_id = request.get("voice_id") or "Dennis"
         key = (guide, voice_id)
         if key not in speakers:
-            speakers[key] = GUIDES[guide][1].Speaker(api_key, voice_id, args.model_id, args.tts_url)
+            speakers[key] = GUIDES[guide][2].Speaker(api_key, voice_id, args.model_id, args.tts_url)
         speaker = speakers[key]
 
+        # The next LLM request needs the interrupted reply, as far as it was heard.
+        for task in list(trimming):
+            await task
+        history[0]["content"] = request.get("system_prompt") or replies.DEFAULT_SYSTEM_PROMPT
         history.append({"role": "user", "content": request.get("text", "")})
-        await send({"type": "history", "messages": history})
         source = request.get("reply")
         reply = (replies.live(list(history), api_key, args.llm_model) if source == "live"
                  else replies.scripted(source))
 
-        start = time.time()
         try:
             turn = await speaker.start_turn()
         except Exception as e:
             await send({"type": "error", "message": f"could not open a TTS context: {e}"})
             return
-        record = turns[turn.context_id] = {"turn": turn, "speaker": speaker, "text": "", "start": start}
-        await send({"type": "turn", "turn": turn.context_id})
+        record = turns[turn.context_id] = {"turn": turn, "speaker": speaker, "text": ""}
+        await send({"type": "turn", "turn": turn.context_id, "guide": guide})
 
-        def log(text: str):
-            return send({"type": "log", "turn": turn.context_id, "text": f"+{time.time() - start:.2f}s  {text}"})
+        def event(name: str, **data):
+            return send({"type": "event", "turn": turn.context_id, "name": name, **data})
 
         async def forward_events():
-            first_audio = True
             while True:
                 kind, value = await turn.events.get()
                 if kind == "audio":
-                    if first_audio:
-                        first_audio = False
-                        await log("first audio")
                     await send({"type": "audio", "turn": turn.context_id, "pcm": base64.b64encode(value).decode()})
                 elif kind == "synthesis":
-                    await log(f"synthesis {value} complete ({turn.audio_seconds:.1f}s of audio)")
+                    await event("synthesis", count=value, audio_seconds=round(turn.audio_seconds, 2))
                 elif kind == "error":
-                    await send({"type": "error", "message": value})
+                    await send({"type": "error", "turn": turn.context_id, "message": value})
                     break
                 elif kind == "closed":
-                    await log("contextClosed: all audio received")
+                    await event("closed", audio_seconds=round(turn.audio_seconds, 2))
                     break
-            await send({"type": "done", "turn": turn.context_id})
 
         forwarder = asyncio.create_task(forward_events())
-        first_token = True
         try:
             async for token in reply:
                 if turn.interrupted:
                     break
-                if first_token:
-                    first_token = False
-                    await log("first LLM token")
                 record["text"] += token
                 await send({"type": "token", "turn": turn.context_id, "text": token})
                 await speaker.send_text(turn, token)
             if not turn.interrupted:
-                await log("LLM done")
+                await event("llm_done")
         except Exception as e:
-            await send({"type": "error", "message": f"reply failed: {e}"})
+            await send({"type": "error", "turn": turn.context_id, "message": f"reply failed: {e}"})
         finally:
             await reply.aclose()
             await speaker.end_turn(turn)
         await forwarder
 
-    def remember(turn_id: str, heard_seconds: float | None):
+    def remember(record: dict, text: str):
         """Keep the reply in the history as far as the user heard it."""
-        record = turns.pop(turn_id, None)
-        if record is None:
-            return None
-        text = record["text"] if heard_seconds is None else record["turn"].heard(heard_seconds)
         if text:
             history.append({"role": "assistant", "content": text})
-        return text
+
+    async def interrupted(record: dict, heard_seconds: float):
+        # Stop the turn first; the trailing timestamps keep arriving.
+        await record["speaker"].interrupt(record["turn"])
+        heard = await record["turn"].heard_after_timestamps(heard_seconds)
+        remember(record, heard)
+        await send({"type": "heard", "turn": record["turn"].context_id, "text": heard})
 
     tasks = set()
     async for raw in browser:
@@ -141,21 +136,19 @@ async def conversation(browser, args, api_key: str):
         elif request["type"] == "interrupt":
             # The page has already stopped playback; it reports how much of
             # the turn's audio was heard.
-            record = turns.get(request["turn"])
+            record = turns.pop(request["turn"], None)
             if record is not None:
-                was_open = not record["turn"].closing
-                await record["speaker"].interrupt(record["turn"])
-                heard = remember(request["turn"], request["heard_seconds"])
-                await send({"type": "log", "turn": request["turn"],
-                            "text": f"+{time.time() - record['start']:.2f}s  interrupted after "
-                                    f"{request['heard_seconds']:.1f}s of playback"
-                                    + ("; closeContext" if was_open else "")})
-                await send({"type": "heard", "turn": request["turn"], "text": heard})
-                await send({"type": "history", "messages": history})
+                task = asyncio.create_task(interrupted(record, request["heard_seconds"]))
+                trimming.add(task)
+                task.add_done_callback(trimming.discard)
         elif request["type"] == "played":
             # The whole reply played: keep all of it.
-            remember(request["turn"], None)
-            await send({"type": "history", "messages": history})
+            record = turns.pop(request["turn"], None)
+            if record is not None:
+                remember(record, record["text"])
+        elif request["type"] == "reset":
+            del history[1:]
+            turns.clear()
     for speaker in speakers.values():
         await speaker.close()
 
@@ -190,9 +183,11 @@ async def main():
         return 1
 
     options = {
-        "guides": {name: label for name, (label, _) in GUIDES.items()},
+        "guides": {name: {"label": label, "summary": summary} for name, (label, summary, _) in GUIDES.items()},
         "scripts": {name: {"label": s["label"], "prompt": s["prompt"]} for name, s in replies.SCRIPTS.items()},
         "llm_model": args.llm_model,
+        "system_prompt": replies.DEFAULT_SYSTEM_PROMPT,
+        "live_suggestion": replies.LIVE_PROMPT_SUGGESTION,
     }
     async with serve(lambda ws: conversation(ws, args, api_key), "localhost", args.port,
                      process_request=page_handler(options), max_size=None):

@@ -9,7 +9,7 @@ The base guide: speak an agent's replies over the TTS WebSocket, and let the use
 
 ## Try it
 
-Run the [playground](../README.md#playground) and choose the guide *1. Whole turn*. Pick a scripted reply or a live LLM, and send. Press Esc, or send another message, to interrupt. The right-hand panel shows the LLM history as the next request would send it.
+Run the [playground](../README.md#playground) and choose the guide *Whole turn*. Send a message to a live LLM or pick a scripted reply, then press Esc, or send another message, to interrupt. The reply shows what you heard, which is what the LLM history keeps.
 
 To speak one reply into a WAV file without the page, after the [setup](../README.md#setup): `python whole_turn.py`.
 
@@ -44,8 +44,8 @@ In the playground, the page stops playback the moment you press Esc or send a me
 If the agent was interrupted, the user heard only part of its reply, and the LLM should know that. With `"timestampType": "WORD"` and the `ASYNC` transport, the audio comes first and the words follow in trailing messages, before that synthesis's `flushCompleted`. Their start and end times reset at each synthesis: add the audio the turn had received before that synthesis started, which the previous `flushCompleted` marks, and every word has a time in the turn's audio. `Turn.heard(seconds)` returns the words that finished playing in the first `seconds`. The assistant message you keep ends there:
 
 ```python
-heard = turn.heard(seconds_played)   # "Sure, here's an easy one. Start by warming two tablespoons of olive oil in"
+heard = await turn.heard_after_timestamps(seconds_played)   # "Sure, here's an easy one. Start by warming two tablespoons of olive oil in"
 history.append({"role": "assistant", "content": heard})
 ```
 
-Timestamps trail their audio by a little, so if the user cuts in at the very start of a synthesis, its first words may not have their timestamps yet and are left out. The history can come out a word short, never a word long.
+With the `ASYNC` transport, timestamps trail their audio, so the words the user just heard may not have their timestamps yet when they cut in. `Turn.heard_after_timestamps(seconds)` waits up to two seconds for timestamps to cover the played audio, then returns `heard(seconds)`. Closing the context doesn't stop them: the timestamps for audio already synthesized still arrive. If they don't arrive in time, the history comes out a few words short, never long.

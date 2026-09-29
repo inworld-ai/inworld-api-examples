@@ -16,11 +16,16 @@ import requests
 
 ROUTER_URL = "https://api.inworld.ai/v1/chat/completions"
 DEFAULT_LLM_MODEL = "openai/gpt-4.1-mini"
-SYSTEM_PROMPT = (
-    "You are a friendly voice assistant. Everything you write is spoken aloud, so reply in plain "
-    "conversational sentences: no markdown, lists, emoji, or symbols such as < and [. "
-    "Keep replies to a few sentences unless the user asks for more."
-)
+DEFAULT_SYSTEM_PROMPT = """You are a friendly voice assistant. Everything you write is spoken aloud by a text-to-speech voice, so reply in plain conversational sentences, with no markdown, lists or emoji. Keep replies to a few sentences unless the user asks for more.
+
+Direct the voice with markup where it helps the listener, not in every sentence:
+- A delivery instruction in square brackets, written in English, before the words it applies to: [say warmly], [whisper], [say excitedly]. It lasts until the next instruction or [reset].
+- A sound: [laugh], [sigh], [breathe].
+- A pause: <break time="500ms"/>, up to 10 seconds, and only a few per reply.
+- Anything to be read out character by character, such as a code or reference number: <verbatim>AB12C</verbatim>.
+
+Close every tag, and never write [ or < for anything else."""
+LIVE_PROMPT_SUGGESTION = "Give me a booking reference, then tell me a very short spooky story."
 
 FIRST_TOKEN_DELAY_S = 0.35
 TOKENS_PER_SECOND = 60
@@ -44,6 +49,13 @@ SCRIPTS = {
                  "simmer for twenty minutes, stirring now and then. When it's done, blend it until smooth, "
                  "taste it, and add a little cream or a drizzle of olive oil. Serve it hot with some toasted "
                  "bread on the side.",
+    },
+    "markup": {
+        "label": "Steering, pauses and verbatim",
+        "prompt": "What's my booking reference?",
+        "reply": "[say warmly] Welcome back! <break time=\"500ms\"/> Your booking reference is "
+                 "<verbatim>KX7Q2</verbatim>. [whisper] And a little secret: the lounge has free cookies. "
+                 "[reset] Is there anything else I can help with?",
     },
     "lookup": {
         "label": "LLM pauses mid-sentence",

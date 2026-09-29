@@ -9,7 +9,7 @@ Start speaking before the LLM has finished: cut its tokens into sentences on the
 
 ## Try it
 
-Run the [playground](../README.md#playground), choose the guide *2. Auto mode, client-side English sentences*, and compare the first-audio time in the log with *1. Whole turn*.
+Run the [playground](../README.md#playground), choose the guide *Client sentences*, and compare its first-audio time with *Whole turn*.
 
 To speak one reply into a WAV file without the page, after the [setup](../README.md#setup): `python client_segmented.py`.
 
@@ -33,6 +33,6 @@ Send sentences, not tokens: auto mode starts a synthesis on the first `sendText`
 
 ## The splitter
 
-`split_sentences` in [`client_segmented.py`](./client_segmented.py) is a dozen lines and handles English only. A sentence ends at `.`, `!` or `?` followed by whitespace, unless the period follows a common abbreviation (*Dr.*, *e.g.*) or an initial (*J. R.*). The last sentence has no whitespace after it yet, so it goes out when the reply ends.
+`split_sentences` in [`client_segmented.py`](./client_segmented.py) is short and handles English only. A sentence ends at `.`, `!` or `?` followed by whitespace, unless the period follows a common abbreviation (*Dr.*, *e.g.*) or an initial (*J. R.*), or sits inside markup: `[say warmly]`, `<break time="500ms"/>` and `<verbatim>AB. 12</verbatim>` stay whole, and an unfinished tag holds back the text after it. The last sentence has no whitespace after it yet, so it goes out when the reply ends.
 
 It doesn't know other languages' punctuation (`。` needs no space after it), and it splits a quotation after its `?`. For other languages, or to leave the splitting to the service, see [`../sentence_boundary/`](../sentence_boundary/).
