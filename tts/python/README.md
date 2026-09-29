@@ -231,6 +231,12 @@ python example_voice_design_publish.py
 
 **Best for:** Creating custom voices without audio samples; use Publish Voice to save a preview to your library.
 
+---
+
+### 12. `websocket_guides/` - WebSocket Usage Guides
+**Purpose:** Focused guides for the bidirectional WebSocket API, starting with auto mode: stream an LLM's reply token by token, handle barge-in, and keep the LLM history to what the user heard.
+
+**Best for:** Voice agents that speak an LLM's output. See [its README](./websocket_guides/README.md).
 
 ## Configuration Options
 

@@ -1,0 +1,244 @@
+#!/usr/bin/env python3
+"""
+Speak an LLM's replies over the TTS WebSocket: the recommended way.
+
+- One WebSocket connection for the whole conversation.
+- One context per agent turn, created with sentence-boundary auto mode
+  (Preview). Send each LLM token as it arrives; the service starts a synthesis
+  at every sentence end, so you need no sentence splitter of your own.
+- Close the context when the reply ends. That releases the last sentence, and
+  `contextClosed` arrives after the turn's last audio.
+- Barge-in: stop playback at once, then close the context and drop the rest of
+  its audio. Synthesis runs faster than playback, so most of an interrupted
+  reply has usually been synthesized already; stopping the player is what the
+  user hears.
+- Word timestamps tell you what the user actually heard, so the reply you keep
+  in the LLM's history can end there.
+
+Run it through the playground (../playground/server.py), or on its own to speak
+one reply into a WAV file:
+
+    python sentence_boundary.py
+"""
+
+import asyncio
+import base64
+import json
+import os
+import re
+import wave
+from dataclasses import dataclass
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv is optional; INWORLD_API_KEY can also be set via export
+
+import websockets
+
+WEBSOCKET_URL = "wss://api.inworld.ai/tts/v1/voice:streamBidirectional"
+SAMPLE_RATE_HZ = 24000
+
+
+@dataclass
+class Word:
+    text: str
+    start: float  # seconds from the start of the turn's audio
+    end: float
+
+
+class Turn:
+    """One agent reply, on its own context.
+
+    `events` yields ("audio", pcm_bytes), and ("synthesis", count) after each
+    synthesis the service completes. The last event is ("closed", None) once
+    the context is closed, or ("error", message).
+    """
+
+    def __init__(self, context_id: str):
+        self.context_id = context_id
+        self.events: asyncio.Queue = asyncio.Queue()
+        self.words: list[Word] = []
+        self.audio_seconds = 0.0  # audio received so far
+        self.syntheses = 0
+        self.interrupted = False
+        self.closing = False  # closeContext sent
+        # Word timestamps count from the start of each synthesis; this is
+        # where the current one starts in the turn's audio.
+        self._synthesis_start = 0.0
+
+    def heard(self, seconds: float) -> str:
+        """The words that finished playing in the first `seconds` of the turn's audio."""
+        return " ".join(w.text for w in self.words if w.end <= seconds)
+
+
+class Speaker:
+    """Speaks one conversation's agent turns over one WebSocket connection."""
+
+    def __init__(self, api_key: str, voice_id: str = "Dennis", model_id: str = "inworld-tts-2",
+                 url: str = WEBSOCKET_URL):
+        self.api_key, self.voice_id, self.model_id, self.url = api_key, voice_id, model_id, url
+        self._ws = None
+        self._reader = None
+        self._turns: dict[str, Turn] = {}
+        self._count = 0
+
+    async def start_turn(self) -> Turn:
+        """Open a context for the next agent turn."""
+        if self._ws is None or self._reader.done():
+            self._ws = await websockets.connect(
+                self.url, additional_headers={"Authorization": f"Basic {self.api_key}"}, max_size=None)
+            self._reader = asyncio.create_task(self._read())
+        self._count += 1
+        turn = Turn(f"turn-{self._count}")
+        self._turns[turn.context_id] = turn
+        # No need to wait for contextCreated: the service handles messages in order.
+        await self._send(turn, {"create": {
+            "voiceId": self.voice_id,
+            "modelId": self.model_id,
+            "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": SAMPLE_RATE_HZ},
+            "timestampType": "WORD",
+            "autoMode": True,
+            "autoModeStrategy": "SENTENCE_BOUNDARY",
+        }})
+        return turn
+
+    async def send_text(self, turn: Turn, token: str):
+        """Send an LLM token as it arrives."""
+        if not turn.closing:
+            await self._send(turn, {"sendText": {"text": token}})
+
+    async def flush(self, turn: Turn):
+        """Speak an unfinished sentence now, for example before a tool call.
+        Sentence mode has no timer: without this, it waits for more text."""
+        if not turn.closing:
+            await self._send(turn, {"flushContext": {}})
+
+    async def end_turn(self, turn: Turn):
+        """The reply is complete: release its last sentence and close the context."""
+        if not turn.closing:
+            turn.closing = True
+            await self._send(turn, {"closeContext": {}})
+
+    async def interrupt(self, turn: Turn):
+        """Barge-in. Stop your player first; this closes the context and
+        drops whatever audio it still sends."""
+        turn.interrupted = True
+        await self.end_turn(turn)
+
+    async def close(self):
+        if self._ws is not None:
+            await self._ws.close()
+
+    async def _send(self, turn: Turn, payload: dict):
+        await self._ws.send(json.dumps({"contextId": turn.context_id, **payload}))
+
+    def _finish(self, turn: Turn, event: tuple):
+        turn.closing = True  # nothing more to send on this context
+        self._turns.pop(turn.context_id, None)
+        turn.events.put_nowait(event)
+
+    async def _read(self):
+        """Route every response to the turn whose context it names. An error
+        ends its turn; a dropped connection ends them all."""
+        try:
+            async for message in self._ws:
+                response = json.loads(message)
+                result = response.get("result", response)
+                context_id = result.get("contextId")
+                turn = self._turns.get(context_id)
+                status = result.get("status") or {}
+                if "error" in response or status.get("code"):
+                    # An error that names no context applies to all of them.
+                    error = (response.get("error") or status).get("message", "unknown error")
+                    for t in [turn] if turn else [] if context_id else list(self._turns.values()):
+                        self._finish(t, ("error", error))
+                    continue
+                if turn is None:
+                    continue  # an interrupted turn's context, already finished
+                if "audioChunk" in result:
+                    chunk = result["audioChunk"]
+                    words = (chunk.get("timestampInfo") or {}).get("wordAlignment") or {}
+                    for text, start, end in zip(words.get("words", []), words.get("wordStartTimeSeconds", []),
+                                                words.get("wordEndTimeSeconds", [])):
+                        turn.words.append(Word(text, turn._synthesis_start + start, turn._synthesis_start + end))
+                    if chunk.get("audioContent"):
+                        pcm = strip_wav_header(base64.b64decode(chunk["audioContent"]))
+                        turn.audio_seconds += len(pcm) / 2 / SAMPLE_RATE_HZ
+                        if not turn.interrupted:
+                            turn.events.put_nowait(("audio", pcm))
+                elif "flushCompleted" in result:
+                    # In auto mode, one per synthesis the service ran.
+                    turn.syntheses += 1
+                    turn._synthesis_start = turn.audio_seconds
+                    turn.events.put_nowait(("synthesis", turn.syntheses))
+                elif "contextClosed" in result:
+                    self._finish(turn, ("closed", None))
+        finally:
+            for turn in list(self._turns.values()):
+                self._finish(turn, ("error", "connection closed"))
+
+
+def strip_wav_header(audio: bytes) -> bytes:
+    """Return the PCM samples of a chunk, dropping its RIFF/WAV header."""
+    if audio[:4] != b"RIFF" or audio[8:12] != b"WAVE":
+        return audio
+    pos = 12
+    while pos + 8 <= len(audio):
+        chunk_id = audio[pos:pos + 4]
+        chunk_size = int.from_bytes(audio[pos + 4:pos + 8], "little")
+        if chunk_id == b"data":
+            return audio[pos + 8:]
+        pos += 8 + chunk_size
+    return b""
+
+
+async def main():
+    api_key = os.getenv("INWORLD_API_KEY")
+    if not api_key:
+        print("Error: set INWORLD_API_KEY, for example with: export INWORLD_API_KEY=your_api_key_here")
+        return 1
+    reply = ("Sure, I can help with that. Your flight to Chicago leaves at 7:45 from gate B12, "
+             "and boarding starts 30 minutes earlier. Would you like me to book a taxi?")
+    tokens = re.findall(r"\s*\S{1,4}", reply)  # pieces the size of LLM tokens
+
+    speaker = Speaker(api_key, url=os.getenv("INWORLD_TTS_URL", WEBSOCKET_URL))
+    turn = await speaker.start_turn()
+
+    async def stream_llm():
+        for token in tokens:
+            await speaker.send_text(turn, token)
+            await asyncio.sleep(0.02)
+        await speaker.end_turn(turn)
+
+    pcm = bytearray()
+    sender = asyncio.create_task(stream_llm())
+    while True:
+        kind, value = await turn.events.get()
+        if kind == "audio":
+            pcm.extend(value)  # hand to your audio player here
+        elif kind == "synthesis":
+            print(f"synthesis {value} complete, {turn.audio_seconds:.1f}s of audio so far")
+        elif kind == "error":
+            print(f"error: {value}")
+            sender.cancel()
+            await speaker.close()
+            return 1
+        elif kind == "closed":
+            break
+    await sender
+    await speaker.close()
+
+    with wave.open("sentence_boundary.wav", "wb") as f:
+        f.setnchannels(1)
+        f.setsampwidth(2)
+        f.setframerate(SAMPLE_RATE_HZ)
+        f.writeframes(pcm)
+    print(f"Wrote {len(pcm) / 2 / SAMPLE_RATE_HZ:.1f}s of audio to sentence_boundary.wav")
+    print(f"Heard through the first 3 seconds: {turn.heard(3.0)!r}")
+    return 0
+
+
+if __name__ == "__main__":
+    exit(asyncio.run(main()))

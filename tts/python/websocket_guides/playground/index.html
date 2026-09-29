@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebSocket Playground</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e2e2dd;
+    --user: #e8eefc; --agent: #ffffff; --accent: #2f5bd3; --stop: #c2410c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151514; --panel: #1e1e1c; --text: #ececea; --muted: #9a9a94; --line: #33332f;
+      --user: #22304f; --agent: #1e1e1c; --accent: #7aa2ff; --stop: #fb923c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
+  header { padding: 16px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+  h1 { font-size: 17px; margin: 0 16px 0 0; align-self: center; }
+  label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 2px; max-width: 100%; }
+  select { max-width: 100%; }
+  select, input, button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.stop { color: var(--stop); border-color: var(--stop); }
+  button:disabled { opacity: 0.4; cursor: default; }
+  main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; padding: 16px; max-width: 1200px; margin: 0 auto; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+  #chat { display: flex; flex-direction: column; gap: 10px; min-height: 50vh; }
+  .msg { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); max-width: 90%; white-space: pre-wrap; }
+  .user { background: var(--user); align-self: flex-end; border-color: transparent; }
+  .agent { background: var(--agent); align-self: flex-start; }
+  .agent.cut .text { color: var(--muted); text-decoration: line-through; }
+  .heard { margin-top: 6px; }
+  .heard b { color: var(--stop); font-weight: 600; }
+  .log { margin-top: 8px; font: 12px/1.45 ui-monospace, monospace; color: var(--muted); }
+  form { display: flex; gap: 8px; margin-top: 12px; }
+  form input { flex: 1; min-width: 0; }
+  aside { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; align-self: start; }
+  aside h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 600; }
+  #history div { padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px; white-space: pre-wrap; }
+  #history .role { color: var(--muted); font-size: 12px; display: block; }
+  #history .system { color: var(--muted); }
+  .error { color: var(--stop); }
+</style>
+</head>
+<body>
+<header>
+  <h1>WebSocket Playground</h1>
+  <label>Guide <select id="guide"></select></label>
+  <label>Voice <input id="voice" value="Dennis" size="10"></label>
+  <label>Reply <select id="reply"></select></label>
+</header>
+<main>
+  <section>
+    <div id="chat"></div>
+    <form id="form">
+      <input id="text" autocomplete="off" placeholder="Say something">
+      <button class="primary" type="submit">Send</button>
+      <button class="stop" type="button" id="stop" disabled aria-keyshortcuts="Escape">Interrupt (Esc)</button>
+    </form>
+  </section>
+  <aside>
+    <h2>LLM history: what the agent said, as far as you heard it</h2>
+    <div id="history"></div>
+  </aside>
+</main>
+<script>
+const OPTIONS = __OPTIONS__;
+const RATE = 24000;
+const $ = (id) => document.getElementById(id);
+const ws = new WebSocket(`ws://${location.host}/ws`);
+const send = (message) => ws.send(JSON.stringify(message));
+let audio;         // AudioContext, created on the first send (browsers need a click first)
+let playing = null; // the agent turn being spoken: {turn, bubble, chunks, nextTime, done}
+const bubbles = {};
+
+for (const [name, label] of Object.entries(OPTIONS.guides)) $("guide").add(new Option(label, name));
+for (const [name, script] of Object.entries(OPTIONS.scripts)) $("reply").add(new Option(`Scripted: ${script.label}`, name));
+$("reply").add(new Option(`Live LLM (${OPTIONS.llm_model})`, "live"));
+const prefill = () => { const s = OPTIONS.scripts[$("reply").value]; $("text").value = s ? s.prompt : ""; };
+$("reply").onchange = prefill;
+prefill();
+
+function bubble(kind, text) {
+  const div = document.createElement("div");
+  div.className = `msg ${kind}`;
+  div.innerHTML = '<div class="text"></div><div class="heard"></div><div class="log"></div>';
+  div.querySelector(".text").textContent = text;
+  $("chat").append(div);
+  div.scrollIntoView({ block: "end" });
+  return div;
+}
+
+// Seconds of this turn's audio that have played: every chunk is scheduled
+// back to back, so sum how far the clock has run into each one.
+function heardSeconds(p) {
+  const now = audio.currentTime;
+  return p.chunks.reduce((sum, c) => sum + Math.min(Math.max(now - c.start, 0), c.duration), 0);
+}
+
+function play(p, b64) {
+  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const samples = new Int16Array(bytes.buffer, 0, bytes.length >> 1);
+  const buffer = audio.createBuffer(1, samples.length, RATE);
+  const channel = buffer.getChannelData(0);
+  for (let i = 0; i < samples.length; i++) channel[i] = samples[i] / 32768;
+  const source = audio.createBufferSource();
+  source.buffer = buffer;
+  source.connect(audio.destination);
+  const start = Math.max(audio.currentTime + 0.05, p.nextTime);
+  source.start(start);
+  source.onended = finishIfPlayed;
+  p.nextTime = start + buffer.duration;
+  p.chunks.push({ source, start, duration: buffer.duration });
+}
+
+function setSpeaking(p) { playing = p; $("stop").disabled = !p; }
+
+function finishIfPlayed() {
+  if (playing && playing.done && audio.currentTime >= playing.nextTime - 0.01) {
+    send({ type: "played", turn: playing.turn });
+    setSpeaking(null);
+  }
+}
+
+// Barge-in: stop playback first, then tell the server how much was heard.
+function interrupt() {
+  if (!playing) return;
+  const p = playing;
+  const heard = heardSeconds(p);
+  p.chunks.forEach((c) => c.source.stop());
+  setSpeaking(null);
+  p.bubble.classList.add("cut");
+  send({ type: "interrupt", turn: p.turn, heard_seconds: heard });
+}
+
+$("form").onsubmit = (e) => {
+  e.preventDefault();
+  audio ??= new AudioContext({ sampleRate: RATE });
+  interrupt();
+  bubble("user", $("text").value);
+  send({ type: "say", text: $("text").value, reply: $("reply").value, guide: $("guide").value, voice_id: $("voice").value });
+  if ($("reply").value === "live") $("text").value = "";
+};
+$("stop").onclick = interrupt;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") interrupt(); });
+
+ws.onmessage = (event) => {
+  const m = JSON.parse(event.data);
+  const b = bubbles[m.turn];
+  if (m.type === "turn") {
+    bubbles[m.turn] = bubble("agent", "");
+    setSpeaking({ turn: m.turn, bubble: bubbles[m.turn], chunks: [], nextTime: 0, done: false });
+  } else if (m.type === "token") {
+    b.querySelector(".text").textContent += m.text;
+  } else if (m.type === "audio") {
+    if (playing && playing.turn === m.turn) play(playing, m.pcm); // drop an interrupted turn's audio
+  } else if (m.type === "log") {
+    b.querySelector(".log").textContent += m.text + "\n";
+  } else if (m.type === "done") {
+    if (playing && playing.turn === m.turn) { playing.done = true; finishIfPlayed(); }
+  } else if (m.type === "heard") {
+    b.querySelector(".heard").innerHTML = "<b>Interrupted.</b> Heard: ";
+    b.querySelector(".heard").append(`“${m.text || ""}”`);
+  } else if (m.type === "history") {
+    $("history").replaceChildren(...m.messages.map((msg) => {
+      const div = document.createElement("div");
+      div.className = msg.role;
+      div.innerHTML = `<span class="role">${msg.role}</span>`;
+      div.append(msg.content);
+      return div;
+    }));
+  } else if (m.type === "error") {
+    const div = bubble("agent", m.message);
+    div.classList.add("error");
+  }
+};
+</script>
+</body>
+</html>
