@@ -9,6 +9,8 @@ Start speaking before the LLM has finished: cut its tokens into sentences on the
 
 ## Try it
 
+Set up the virtual environment and API key once, as in [the guides' setup](../README.md#setup). Then:
+
 ```bash
 cd ../playground
 python server.py   # then open http://localhost:8766

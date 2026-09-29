@@ -9,6 +9,8 @@ The base guide: speak an agent's replies over the TTS WebSocket, and let the use
 
 ## Try it
 
+Set up the virtual environment and API key once, as in [the guides' setup](../README.md#setup). Then:
+
 ```bash
 cd ../playground
 python server.py   # then open http://localhost:8766

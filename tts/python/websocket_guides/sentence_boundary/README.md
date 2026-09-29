@@ -11,6 +11,8 @@ Let the service split the sentences: send the LLM's tokens as they arrive to a c
 
 ## Try it
 
+Set up the virtual environment and API key once, as in [the guides' setup](../README.md#setup). Then:
+
 ```bash
 cd ../playground
 python server.py   # then open http://localhost:8766
