@@ -11,7 +11,7 @@ Let the service split the sentences: send the LLM's tokens as they arrive to a c
 
 ## Try it
 
-Run the [playground](../README.md#playground) and choose the guide *Sentence boundary*.
+Run the [playground](../README.md#playground) and choose the mode *One token at a time*.
 
 To speak one reply into a WAV file without the page, after the [setup](../README.md#setup): `python sentence_boundary.py`.
 

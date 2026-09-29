@@ -37,11 +37,13 @@ import replies  # noqa: E402
 import sentence_boundary  # noqa: E402
 import whole_turn  # noqa: E402
 
-# Every guide exposes the same Speaker interface; the page lists them all.
+# Each guide's Speaker is one way to send a reply; the page offers them as modes.
 GUIDES = {
-    "whole_turn": ("Whole turn", "Auto mode off. The reply is sent once the LLM finishes.", whole_turn),
-    "client_segmented": ("Client sentences", "Auto mode. An English splitter sends each sentence.", client_segmented),
-    "sentence_boundary": ("Sentence boundary", "Auto mode (Preview). Tokens go straight in.", sentence_boundary),
+    "whole_turn": ("One flush per turn", "Send the whole reply once the LLM finishes.", whole_turn),
+    "client_segmented": ("Client-side sentence segmentation",
+                         "Send each sentence as soon as the LLM completes it.", client_segmented),
+    "sentence_boundary": ("One token at a time", "Send every token as it arrives; the service finds the sentences. Preview.",
+                          sentence_boundary),
 }
 
 

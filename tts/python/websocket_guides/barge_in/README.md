@@ -9,7 +9,7 @@ The base guide: speak an agent's replies over the TTS WebSocket, and let the use
 
 ## Try it
 
-Run the [playground](../README.md#playground) and choose the guide *Whole turn*. Send a message to a live LLM or pick a scripted reply, then press Esc, or send another message, to interrupt. The reply shows what you heard, which is what the LLM history keeps.
+Run the [playground](../README.md#playground) and choose the mode *One flush per turn*. Send a message to a live LLM or pick a scripted reply, then press Esc, or send another message, to interrupt. The reply shows what you heard, which is what the LLM history keeps.
 
 To speak one reply into a WAV file without the page, after the [setup](../README.md#setup): `python whole_turn.py`.
 
@@ -17,14 +17,15 @@ To speak one reply into a WAV file without the page, after the [setup](../README
 
 1. Open one WebSocket connection for the conversation.
 2. For each agent turn, create a context with word timestamps, delivered with `"timestampTransportStrategy": "ASYNC"` so they never hold up the audio. You don't need to wait for `contextCreated`: messages on a connection are processed in order.
-3. When the LLM finishes, send the reply in one `sendText` (up to 2,000 characters), then `closeContext`. With auto mode off, closing the context synthesizes what it holds. Keep receiving until `contextClosed`, which arrives after the turn's last audio.
+3. When the LLM finishes, send the reply in one `sendText` (up to 2,000 characters) with `flushContext`, then `closeContext`. Keep receiving until `contextClosed`, which arrives after the turn's last audio.
 4. On barge-in, stop playback, close the context, drop the rest of its audio, and keep only the words the user heard in the LLM history.
 
 ```json
 {"contextId": "turn-1", "create": {"voiceId": "Dennis", "modelId": "inworld-tts-2",
   "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": 24000},
   "timestampType": "WORD", "timestampTransportStrategy": "ASYNC"}}
-{"contextId": "turn-1", "sendText": {"text": "Your flight to Chicago leaves at 7:45 from gate B12. Boarding starts 30 minutes earlier."}}
+{"contextId": "turn-1", "sendText": {"text": "Your flight to Chicago leaves at 7:45 from gate B12. Boarding starts 30 minutes earlier.",
+  "flushContext": {}}}
 {"contextId": "turn-1", "closeContext": {}}
 ```
 

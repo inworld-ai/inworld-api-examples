@@ -3,9 +3,9 @@
 Speak an agent's replies over the TTS WebSocket, with barge-in.
 
 - One WebSocket connection for the whole conversation.
-- One context per agent turn, with auto mode off. The reply goes out whole:
-  one `sendText` once the LLM has finished, then `closeContext`, which
-  synthesizes it. `contextClosed` arrives after the turn's last audio.
+- One context per agent turn, with auto mode off, and one flush per turn: the
+  whole reply in one `sendText` with `flushContext` once the LLM has finished,
+  then `closeContext`. `contextClosed` arrives after the turn's last audio.
 - Barge-in: stop playback at once, then close the context and drop the rest
   of its audio. Synthesis runs faster than playback, so most of an interrupted
   reply has usually been synthesized already; stopping the player is what the
@@ -127,12 +127,12 @@ class Speaker:
         turn.pending += token
 
     async def end_turn(self, turn: Turn):
-        """The reply is complete: send it and close the context, which
-        synthesizes it. A sendText carries up to 2,000 characters."""
+        """The reply is complete: flush what is left of it and close the
+        context. A sendText carries up to 2,000 characters."""
         if turn.closing:
             return
         if turn.pending.strip():
-            await self._send_text(turn, turn.pending)
+            await self._send(turn, {"sendText": {"text": turn.pending, "flushContext": {}}})
         turn.pending = ""
         await self._close(turn)
 

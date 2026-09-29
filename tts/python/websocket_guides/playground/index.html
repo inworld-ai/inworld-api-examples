@@ -116,33 +116,33 @@
   <aside>
     <div class="brand">WebSocket Playground<small>Inworld TTS · barge-in and auto mode</small></div>
     <section>
-      <h3>Guide</h3>
+      <h3>Voice</h3>
+      <div class="field"><input id="voice" value="Dennis" aria-label="Voice ID"></div>
+    </section>
+    <section>
+      <h3>Mode</h3>
       <div class="cards" id="guides"></div>
     </section>
     <section>
       <h3>Reply</h3>
       <div class="segmented" role="group" aria-label="Reply source">
-        <button type="button" data-source="live" aria-pressed="true">Live LLM</button>
-        <button type="button" data-source="scripted" aria-pressed="false">Scripted</button>
+        <button type="button" data-source="scripted" aria-pressed="true">Scripted</button>
+        <button type="button" data-source="live" aria-pressed="false">Live LLM</button>
       </div>
-      <div id="live-settings">
+      <div id="live-settings" hidden>
         <div class="field">
           <label for="prompt">System prompt <button type="button" class="link" id="reset-prompt">Reset</button></label>
           <textarea id="prompt" spellcheck="false"></textarea>
         </div>
         <p class="hint" id="llm-model"></p>
       </div>
-      <div id="scripted-settings" hidden>
+      <div id="scripted-settings">
         <div class="field">
           <label for="script">Reply</label>
           <select id="script"></select>
         </div>
         <p class="hint">The same tokens every run, with an LLM's timing.</p>
       </div>
-    </section>
-    <section>
-      <h3>Voice</h3>
-      <div class="field"><input id="voice" value="Dennis" aria-label="Voice ID"></div>
     </section>
     <button type="button" class="ghost" id="new-chat">New chat</button>
   </aside>
@@ -153,7 +153,7 @@
     </div>
     <div id="messages">
       <div class="thread" id="thread">
-        <div class="empty" id="empty"><b>Talk to the agent</b>Send a message, then interrupt it mid-reply with Esc.</div>
+        <div class="empty" id="empty"><b>Chat with the agent</b>Send a message, then interrupt its spoken reply with Esc.</div>
       </div>
     </div>
     <div class="composer">
@@ -193,7 +193,7 @@ for (const [name, g] of Object.entries(OPTIONS.guides)) {
 for (const [name, s] of Object.entries(OPTIONS.scripts)) $("script").add(new Option(s.label, name));
 $("llm-model").textContent = `Streams from ${OPTIONS.llm_model} through the Inworld Router.`;
 const guide = () => document.querySelector('input[name="guide"]:checked').value;
-let source = store.get("source") || "live";
+let source = store.get("source") || "scripted";
 (document.querySelector(`input[name="guide"][value="${store.get("guide")}"]`) || document.querySelector('input[name="guide"]')).checked = true;
 $("prompt").value = store.get("prompt") || OPTIONS.system_prompt;
 $("voice").value = store.get("voice") || "Dennis";

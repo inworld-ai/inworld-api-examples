@@ -9,7 +9,7 @@ Start speaking before the LLM has finished: cut its tokens into sentences on the
 
 ## Try it
 
-Run the [playground](../README.md#playground), choose the guide *Client sentences*, and compare its first-audio time with *Whole turn*.
+Run the [playground](../README.md#playground), choose the mode *Client-side sentence segmentation*, and compare its first-audio time with *One flush per turn*.
 
 To speak one reply into a WAV file without the page, after the [setup](../README.md#setup): `python client_segmented.py`.
 
