@@ -104,6 +104,8 @@ class Speaker:
             "modelId": self.model_id,
             "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": SAMPLE_RATE_HZ},
             "timestampType": "WORD",
+            # Audio first, timestamps in trailing messages: the lowest latency.
+            "timestampTransportStrategy": "ASYNC",
             **self.CREATE,
         }})
         return turn

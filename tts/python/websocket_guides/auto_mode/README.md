@@ -26,7 +26,8 @@ To speak one reply into a WAV file without the page: `python client_segmented.py
 
 ```json
 {"contextId": "turn-1", "create": {"voiceId": "Dennis", "modelId": "inworld-tts-2",
-  "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": 24000}, "timestampType": "WORD",
+  "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": 24000},
+  "timestampType": "WORD", "timestampTransportStrategy": "ASYNC",
   "autoMode": true}}
 {"contextId": "turn-1", "sendText": {"text": "Your flight to Chicago leaves at 7:45 from gate B12. "}}
 {"contextId": "turn-1", "sendText": {"text": "Boarding starts 30 minutes earlier."}}

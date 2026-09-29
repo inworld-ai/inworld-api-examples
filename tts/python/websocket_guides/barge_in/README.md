@@ -21,13 +21,14 @@ To speak one reply into a WAV file without the page: `python whole_turn.py`.
 ## The pattern
 
 1. Open one WebSocket connection for the conversation.
-2. For each agent turn, create a context with word timestamps. You don't need to wait for `contextCreated`: messages on a connection are processed in order.
+2. For each agent turn, create a context with word timestamps, delivered with `"timestampTransportStrategy": "ASYNC"` so they never hold up the audio. You don't need to wait for `contextCreated`: messages on a connection are processed in order.
 3. When the LLM finishes, send the reply in one `sendText` (up to 2,000 characters), then `closeContext`. With auto mode off, closing the context synthesizes what it holds. Keep receiving until `contextClosed`, which arrives after the turn's last audio.
 4. On barge-in, stop playback, close the context, drop the rest of its audio, and keep only the words the user heard in the LLM history.
 
 ```json
 {"contextId": "turn-1", "create": {"voiceId": "Dennis", "modelId": "inworld-tts-2",
-  "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": 24000}, "timestampType": "WORD"}}
+  "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": 24000},
+  "timestampType": "WORD", "timestampTransportStrategy": "ASYNC"}}
 {"contextId": "turn-1", "sendText": {"text": "Your flight to Chicago leaves at 7:45 from gate B12. Boarding starts 30 minutes earlier."}}
 {"contextId": "turn-1", "closeContext": {}}
 ```
@@ -45,9 +46,11 @@ In the playground, the page stops playback the moment you press Esc or send a me
 
 ## Keep the history to what the user heard
 
-If the agent was interrupted, the user heard only part of its reply, and the LLM should know that. With `"timestampType": "WORD"`, audio chunks carry the words they contain, with start and end times that reset at each synthesis. Add the audio the turn had received before that synthesis started, which `flushCompleted` marks, and every word has a time in the turn's audio. `Turn.heard(seconds)` returns the words that finished playing in the first `seconds`. The assistant message you keep ends there:
+If the agent was interrupted, the user heard only part of its reply, and the LLM should know that. With `"timestampType": "WORD"` and the `ASYNC` transport, the audio comes first and the words follow in trailing messages, before that synthesis's `flushCompleted`. Their start and end times reset at each synthesis: add the audio the turn had received before that synthesis started, which the previous `flushCompleted` marks, and every word has a time in the turn's audio. `Turn.heard(seconds)` returns the words that finished playing in the first `seconds`. The assistant message you keep ends there:
 
 ```python
 heard = turn.heard(seconds_played)   # "Sure, here's an easy one. Start by warming two tablespoons of olive oil in"
 history.append({"role": "assistant", "content": heard})
 ```
+
+Timestamps trail their audio by a little, so if the user cuts in at the very start of a synthesis, its first words may not have their timestamps yet and are left out. The history can come out a word short, never a word long.

@@ -26,7 +26,8 @@ Choose the guide *3. Auto mode, sentence boundary*. To speak one reply into a WA
 
 ```json
 {"contextId": "turn-1", "create": {"voiceId": "Dennis", "modelId": "inworld-tts-2",
-  "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": 24000}, "timestampType": "WORD",
+  "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": 24000},
+  "timestampType": "WORD", "timestampTransportStrategy": "ASYNC",
   "autoMode": true, "autoModeStrategy": "SENTENCE_BOUNDARY"}}
 {"contextId": "turn-1", "sendText": {"text": "Your"}}
 {"contextId": "turn-1", "sendText": {"text": " flight"}}
