@@ -30,14 +30,19 @@ from websockets.datastructures import Headers
 from websockets.http11 import Response
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent / "auto_mode"))
+for guide_dir in ("barge_in", "auto_mode", "sentence_boundary"):
+    sys.path.insert(0, str(HERE.parent / guide_dir))
 
+import client_segmented  # noqa: E402
 import replies  # noqa: E402
 import sentence_boundary  # noqa: E402
+import whole_turn  # noqa: E402
 
 # Every guide exposes the same Speaker interface; the page lists them all.
 GUIDES = {
-    "sentence_boundary": ("Sentence boundary, one context per turn (recommended)", sentence_boundary),
+    "whole_turn": ("1. Whole turn, auto mode off", whole_turn),
+    "client_segmented": ("2. Auto mode, client-side English sentences", client_segmented),
+    "sentence_boundary": ("3. Auto mode, sentence boundary (Preview)", sentence_boundary),
 }
 
 
@@ -108,7 +113,7 @@ async def conversation(browser, args, api_key: str):
                 await send({"type": "token", "turn": turn.context_id, "text": token})
                 await speaker.send_text(turn, token)
             if not turn.interrupted:
-                await log("LLM done; closeContext")
+                await log("LLM done")
         except Exception as e:
             await send({"type": "error", "message": f"reply failed: {e}"})
         finally:
@@ -176,7 +181,7 @@ async def main():
     parser.add_argument("--model-id", default="inworld-tts-2", help="TTS model (default: inworld-tts-2)")
     parser.add_argument("--llm-model", default=replies.DEFAULT_LLM_MODEL,
                         help=f"LLM for live replies, through the Inworld Router (default: {replies.DEFAULT_LLM_MODEL})")
-    parser.add_argument("--tts-url", default=sentence_boundary.WEBSOCKET_URL, help="TTS WebSocket endpoint")
+    parser.add_argument("--tts-url", default=whole_turn.WEBSOCKET_URL, help="TTS WebSocket endpoint")
     args = parser.parse_args()
 
     api_key = os.getenv("INWORLD_API_KEY")

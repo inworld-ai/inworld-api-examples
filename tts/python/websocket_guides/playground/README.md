@@ -11,7 +11,7 @@ Set your API key in `tts/python/.env` or with `export INWORLD_API_KEY=...`. The 
 
 ## On the page
 
-- **Guide**: which client speaks the replies. Each guide is a module with the same `Speaker` interface; see [`../auto_mode/`](../auto_mode/).
+- **Guide**: which client speaks the replies: [`1. Whole turn`](../barge_in/), [`2. Auto mode`](../auto_mode/), or [`3. Sentence boundary`](../sentence_boundary/).
 - **Voice**: any voice ID.
 - **Reply**: a scripted reply, or a live LLM.
   - Scripted replies stream the same tokens every run, with an LLM's timing: a first token after about a third of a second, then 60 tokens a second. One pauses mid-sentence, the way an LLM does for a tool call.
@@ -28,4 +28,4 @@ python server.py --port 8766 --model-id inworld-tts-2 --llm-model openai/gpt-4.1
 
 ## Adding a guide
 
-Write a module with a `Speaker` class: `start_turn()` returns a `Turn`, then `send_text(turn, token)`, `flush(turn)`, `end_turn(turn)`, `interrupt(turn)` and `close()`. A `Turn` has an `events` queue and `heard(seconds)`, as in [`sentence_boundary.py`](../auto_mode/sentence_boundary.py). Add it to `GUIDES` in `server.py`.
+Subclass `Speaker` from [`whole_turn.py`](../barge_in/whole_turn.py), as the other guides do: set `CREATE` for the context settings, and override `send_text(turn, token)` and, if needed, `end_turn(turn)`. Add the module to `GUIDES` in `server.py`.
