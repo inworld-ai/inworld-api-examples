@@ -20,20 +20,16 @@ DEFAULT_LLM_MODEL = "openai/gpt-4.1-mini"
 ASSISTANT_PROMPT = """You are a friendly voice assistant. Everything you write is spoken aloud by a text-to-speech voice, so reply in plain conversational sentences, with no markdown, lists or emoji. Keep replies to a few sentences unless the user asks for more.
 
 Direct the voice with markup where it helps the listener, not in every sentence:
-- A delivery instruction in square brackets, written in English, before the words it applies to: [say warmly], [whisper], [say excitedly]. It lasts until the next instruction or [reset].
+- A delivery instruction in square brackets, written in English, before the words it applies to: [say warmly], [whisper], [say excitedly]. It lasts to the end of the reply, or until another instruction replaces it, so use one where the rest of the reply should sound that way.
 - A sound: [laugh], [sigh], [breathe].
-- A pause: <break time="500ms"/>, up to 10 seconds, and only a few per reply.
 - Anything to be read out character by character, such as a code or reference number: <verbatim>AB12C</verbatim>.
 
 Close every tag, and never write [ or < for anything else."""
-TUTOR_PROMPT = """You are a friendly Spanish tutor for an English speaker. Everything you write is spoken aloud by a text-to-speech voice, so reply in plain conversational sentences, with no markdown, lists or emoji. Teach one thing at a time, keep each reply short, and end by asking the learner to try.
+TUTOR_PROMPT = """You are a friendly Spanish tutor for an English speaker. Everything you write is spoken aloud by a text-to-speech voice, so reply in plain conversational sentences, with no markdown, lists or emoji. Teach one thing at a time, keep each reply short, and end it with a phrase for the learner to repeat.
 
 Mark every Spanish word or phrase, however short, with a language tag: <lang xml:lang="es-ES">El perro corre.</lang> Everything outside a tag is spoken in English.
 
-Direct the voice with markup where it helps a learner:
-- [say slowly and clearly] right before a phrase the learner should repeat, after any words that introduce it, then [reset] after it. Write instructions in English.
-- <break time="800ms"/> after a phrase, to leave the learner time to repeat it.
-- [say warmly] or [say encouragingly] when you praise or correct.
+Put [say slowly and clearly] right before the phrase to repeat at the end of the reply, after any words that introduce it: Now say it with me: <lang xml:lang="es-ES">[say slowly and clearly] El perro corre.</lang> An instruction lasts to the end of the reply, so use no other.
 
 Close every tag, and never write [ or < for anything else."""
 SYSTEM_PROMPTS = {
@@ -68,36 +64,33 @@ SCRIPTS = {
                  "bread on the side.",
     },
     "markup": {
-        "label": "Steering, pauses and verbatim",
+        "label": "Steering and verbatim",
         "prompt": "What's my booking reference?",
-        "reply": "[say warmly] Welcome back! <break time=\"500ms\"/> Your booking reference is "
-                 "<verbatim>KX7Q2</verbatim>. [whisper] And a little secret: the lounge has free cookies. "
-                 "[reset] Is there anything else I can help with?",
+        "reply": "Welcome back! Your booking reference is <verbatim>KX7Q2</verbatim>, and you're all set "
+                 "for tonight. [whisper] And a little secret: the lounge has free cookies.",
     },
     "tutor_es": {
         "label": "Spanish tutor: rolled r",
         "prompt": "How do I say \"the dog runs\" in Spanish?",
-        "reply": "[say warmly] Great question! \"The dog runs\" is "
-                 "<lang xml:lang=\"es-ES\">[say slowly and clearly] El perro corre.</lang> "
-                 "<break time=\"800ms\"/> [reset] Listen to the rolled r in <lang xml:lang=\"es-ES\">perro</lang>, "
-                 "and compare it with the single tap in <lang xml:lang=\"es-ES\">pero</lang>, which means \"but\". "
-                 "<break time=\"500ms\"/> [say encouragingly] Now you try: <lang xml:lang=\"es-ES\">El perro corre.</lang>",
+        "reply": "Great question! \"The dog runs\" is <lang xml:lang=\"es-ES\">El perro corre.</lang> "
+                 "Listen to the rolled r in <lang xml:lang=\"es-ES\">perro</lang>, and compare it with the single "
+                 "tap in <lang xml:lang=\"es-ES\">pero</lang>, which means \"but\". Now say it with me: "
+                 "<lang xml:lang=\"es-ES\">[say slowly and clearly] El perro corre.</lang>",
     },
     "tutor_ja": {
         "label": "Japanese tutor: thank you",
         "prompt": "How do I say thank you in Japanese?",
         "reply": "In Japanese, \"thank you\" is <lang xml:lang=\"ja-JP\">ありがとうございます。</lang> "
-                 "<break time=\"600ms\"/> Once more: "
-                 "<lang xml:lang=\"ja-JP\">[say slowly and clearly] ありがとうございます。</lang> [reset] With friends, "
-                 "the short <lang xml:lang=\"ja-JP\">ありがとう</lang> is fine. <break time=\"800ms\"/> Your turn!",
+                 "With friends, the short <lang xml:lang=\"ja-JP\">ありがとう</lang> is fine. Your turn, one more "
+                 "time: <lang xml:lang=\"ja-JP\">[say slowly and clearly] ありがとうございます。</lang>",
     },
     "tutor_fr": {
         "label": "French tutor: ordering a coffee",
         "prompt": "Help me order a coffee in French.",
         "reply": "Sure! Walk up to the counter and say "
-                 "<lang xml:lang=\"fr-FR\">[say slowly and clearly] Bonjour. Je voudrais un café, s'il vous plaît.</lang> "
-                 "<break time=\"800ms\"/> [reset] [whisper] A little tip: the barista will like it if you add "
-                 "<lang xml:lang=\"fr-FR\">merci beaucoup</lang> at the end. [reset] Want to try it?",
+                 "<lang xml:lang=\"fr-FR\">Bonjour. Je voudrais un café, s'il vous plaît.</lang> The barista will "
+                 "like it if you add <lang xml:lang=\"fr-FR\">merci beaucoup</lang> at the end. [whisper] And a little "
+                 "secret: most people there drink it standing at the bar.",
     },
     "lookup": {
         "label": "LLM pauses mid-sentence",

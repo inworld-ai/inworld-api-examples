@@ -51,8 +51,7 @@ To add a guide, subclass `Speaker` from [`barge_in/whole_turn.py`](./barge_in/wh
 
 An LLM can direct the voice with markup in its reply, and every mode passes it through:
 
-- [Steering instructions](https://docs.inworld.ai/tts/capabilities/steering) in English, before the words they apply to: `[say warmly]`, `[whisper]`, until `[reset]`. Sounds such as `[laugh]`.
-- Pauses: `<break time="800ms"/>`.
+- [Steering instructions](https://docs.inworld.ai/tts/capabilities/steering) in English, before the words they apply to: `[say slowly and clearly]`, `[whisper]`. An instruction lasts to the end of the reply, or until another replaces it, so the playground's replies place one where the rest of the reply should sound that way. Sounds such as `[laugh]`.
 - `<verbatim>KX7Q2</verbatim>` to read a code character by character.
 - Language tags: `<lang xml:lang="es-ES">El perro corre.</lang>` speaks the span in Spanish, on the voice's localized prompt for Spanish when it has one. Text outside a span keeps the context's language. This is what a language tutor needs; pick a voice with a localized prompt for the language being taught.
 
