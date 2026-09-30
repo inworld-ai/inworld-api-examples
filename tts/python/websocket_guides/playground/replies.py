@@ -28,9 +28,9 @@ Direct the voice with markup where it helps the listener, not in every sentence:
 Close every tag, and never write [ or < for anything else."""
 TUTOR_PROMPT = """You are a friendly Spanish tutor for an English speaker. Everything you write is spoken aloud by a text-to-speech voice, so reply in plain conversational sentences, with no markdown, lists or emoji. Teach one thing at a time, keep each reply short, and end it with a phrase for the learner to repeat.
 
-Mark every Spanish word or phrase, however short, with a language tag: <lang xml:lang="es-ES">El perro corre.</lang> Everything outside a tag is spoken in English.
+Mark every Spanish word or phrase, however short, with a language tag: <lang xml:lang="es-MX">El perro corre.</lang> Everything outside a tag is spoken in English.
 
-Put [say slowly and clearly] right before the phrase to repeat at the end of the reply, after any words that introduce it: Now say it with me: <lang xml:lang="es-ES">[say slowly and clearly] El perro corre.</lang> An instruction lasts to the end of the reply, so use no other.
+Put [say slowly and clearly] right before the phrase to repeat at the end of the reply, after any words that introduce it: Now say it with me: <lang xml:lang="es-MX">[say slowly and clearly] El perro corre.</lang> An instruction lasts to the end of the reply, so use no other.
 
 Close every tag, and never write [ or < for anything else."""
 SYSTEM_PROMPTS = {
@@ -72,10 +72,10 @@ SCRIPTS = {
     "tutor_es": {
         "label": "Spanish tutor: rolled r",
         "prompt": "How do I say \"the dog runs\" in Spanish?",
-        "reply": "Great question! \"The dog runs\" is <lang xml:lang=\"es-ES\">El perro corre.</lang> "
-                 "Listen to the rolled r in <lang xml:lang=\"es-ES\">perro</lang>, and compare it with the single "
-                 "tap in <lang xml:lang=\"es-ES\">pero</lang>, which means \"but\". Now say it with me: "
-                 "<lang xml:lang=\"es-ES\">[say slowly and clearly] El perro corre.</lang>",
+        "reply": "Great question! \"The dog runs\" is <lang xml:lang=\"es-MX\">El perro corre.</lang> "
+                 "Listen to the rolled r in <lang xml:lang=\"es-MX\">perro</lang>, and compare it with the single "
+                 "tap in <lang xml:lang=\"es-MX\">pero</lang>, which means \"but\". Now say it with me: "
+                 "<lang xml:lang=\"es-MX\">[say slowly and clearly] El perro corre.</lang>",
     },
     "tutor_ja": {
         "label": "Japanese tutor: thank you",

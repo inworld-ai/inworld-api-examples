@@ -57,13 +57,22 @@ async def conversation(browser, args, api_key: str):
     async def send(message: dict):
         await browser.send(json.dumps(message))
 
-    async def speak(request: dict):
+    def speaker_for(request: dict):
+        """One connection per mode and voice, kept open for the conversation."""
         guide = request.get("guide") or next(iter(GUIDES))
-        voice_id = request.get("voice_id") or "Dennis"
-        key = (guide, voice_id)
-        if key not in speakers:
-            speakers[key] = GUIDES[guide][2].Speaker(api_key, voice_id, args.model_id, args.tts_url)
-        speaker = speakers[key]
+        voice_id = request.get("voice_id") or "Sarah"
+        if (guide, voice_id) not in speakers:
+            speakers[guide, voice_id] = GUIDES[guide][2].Speaker(api_key, voice_id, args.model_id, args.tts_url)
+        return guide, speakers[guide, voice_id]
+
+    async def connect(request: dict):
+        try:
+            await speaker_for(request)[1].connect()
+        except Exception as e:
+            await send({"type": "error", "message": f"could not connect to the TTS WebSocket: {e}"})
+
+    async def speak(request: dict):
+        guide, speaker = speaker_for(request)
 
         # The next LLM request needs the interrupted reply, as far as it was heard.
         for task in list(trimming):
@@ -131,8 +140,10 @@ async def conversation(browser, args, api_key: str):
     tasks = set()
     async for raw in browser:
         request = json.loads(raw)
-        if request["type"] == "say":
-            task = asyncio.create_task(speak(request))
+        if request["type"] in ("connect", "say"):
+            # The page asks to connect when it loads and whenever the mode or
+            # voice changes, so no reply waits for a handshake.
+            task = asyncio.create_task(connect(request) if request["type"] == "connect" else speak(request))
             tasks.add(task)
             task.add_done_callback(tasks.discard)
         elif request["type"] == "interrupt":

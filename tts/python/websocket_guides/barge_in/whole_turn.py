@@ -2,7 +2,8 @@
 """
 Speak an agent's replies over the TTS WebSocket, with barge-in.
 
-- One WebSocket connection for the whole conversation.
+- One WebSocket connection for the whole conversation, opened before the user
+  says anything, so its handshake never delays a reply.
 - One context per agent turn, with auto mode off, and one flush per turn: the
   whole reply in one `sendText` with `flushContext` once the LLM has finished,
   then `closeContext`. `contextClosed` arrives after the turn's last audio.
@@ -105,20 +106,28 @@ class Speaker:
     # Extra `create` settings; the other guides set auto mode here.
     CREATE: dict = {}
 
-    def __init__(self, api_key: str, voice_id: str = "Dennis", model_id: str = "inworld-tts-2",
+    def __init__(self, api_key: str, voice_id: str = "Sarah", model_id: str = "inworld-tts-2",
                  url: str = WEBSOCKET_URL):
         self.api_key, self.voice_id, self.model_id, self.url = api_key, voice_id, model_id, url
         self._ws = None
         self._reader = None
+        self._connecting = asyncio.Lock()
         self._turns: dict[str, Turn] = {}
         self._count = 0
 
+    async def connect(self):
+        """Open the connection, or reopen a dropped one. Call it before the
+        conversation starts: the TCP, TLS and WebSocket handshakes take a
+        round trip or more, which the first reply shouldn't wait for."""
+        async with self._connecting:
+            if self._ws is None or self._reader.done():
+                self._ws = await websockets.connect(
+                    self.url, additional_headers={"Authorization": f"Basic {self.api_key}"}, max_size=None)
+                self._reader = asyncio.create_task(self._read())
+
     async def start_turn(self) -> Turn:
         """Open a context for the next agent turn."""
-        if self._ws is None or self._reader.done():
-            self._ws = await websockets.connect(
-                self.url, additional_headers={"Authorization": f"Basic {self.api_key}"}, max_size=None)
-            self._reader = asyncio.create_task(self._read())
+        await self.connect()  # returns at once when already connected
         self._count += 1
         turn = Turn(f"turn-{self._count}")
         self._turns[turn.context_id] = turn
@@ -244,6 +253,7 @@ async def speak_one_reply(speaker_class, output_file: str):
     tokens = re.findall(r"\s*\S{1,4}", reply)  # pieces the size of LLM tokens
 
     speaker = speaker_class(api_key)
+    await speaker.connect()
     turn = await speaker.start_turn()
 
     async def stream_llm():

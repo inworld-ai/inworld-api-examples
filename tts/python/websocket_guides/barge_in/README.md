@@ -15,13 +15,13 @@ To speak one reply into a WAV file without the page, after the [setup](../README
 
 ## The pattern
 
-1. Open one WebSocket connection for the conversation.
+1. Open one WebSocket connection for the conversation before the user's first message (`Speaker.connect`), so its handshake never delays a reply.
 2. For each agent turn, create a context with word timestamps, delivered with `"timestampTransportStrategy": "ASYNC"` so they never hold up the audio. You don't need to wait for `contextCreated`: messages on a connection are processed in order.
 3. When the LLM finishes, send the reply in one `sendText` (up to 2,000 characters) with `flushContext`, then `closeContext`. Keep receiving until `contextClosed`, which arrives after the turn's last audio.
 4. On barge-in, stop playback, close the context, drop the rest of its audio, and keep only the words the user heard in the LLM history.
 
 ```json
-{"contextId": "turn-1", "create": {"voiceId": "Dennis", "modelId": "inworld-tts-2",
+{"contextId": "turn-1", "create": {"voiceId": "Sarah", "modelId": "inworld-tts-2",
   "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": 24000},
   "timestampType": "WORD", "timestampTransportStrategy": "ASYNC"}}
 {"contextId": "turn-1", "sendText": {"text": "Your flight to Chicago leaves at 7:45 from gate B12. Boarding starts 30 minutes earlier.",

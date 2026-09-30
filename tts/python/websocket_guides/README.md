@@ -43,7 +43,7 @@ python server.py --port 8766 --model-id inworld-tts-2 --llm-model openai/gpt-4.1
 - **Replay** plays a reply again, or only what you heard of an interrupted one.
 - **New chat** clears the LLM history.
 
-Each reply shows when the first LLM token and the first audio arrived, how many syntheses the service ran, and a timeline of the LLM writing, TTS audio arriving and playback, with any interrupt marked. *Events* lists the same moments.
+The server opens the TTS connection for the chosen mode and voice when the page loads and whenever you change either, so no reply's times include the handshake. Each reply shows when the first LLM token and the first audio arrived, how many syntheses the service ran, and a timeline of the LLM writing, TTS audio arriving and playback, with any interrupt marked. *Events* lists the same moments.
 
 To add a guide, subclass `Speaker` from [`barge_in/whole_turn.py`](./barge_in/whole_turn.py) as the other guides do: set `CREATE` for the context settings, override `send_text(turn, token)` and, if needed, `end_turn(turn)`, and add the module to `GUIDES` in `playground/server.py`.
 
@@ -53,7 +53,7 @@ An LLM can direct the voice with markup in its reply, and every mode passes it t
 
 - [Steering instructions](https://docs.inworld.ai/tts/capabilities/steering) in English, before the words they apply to: `[say slowly and clearly]`, `[whisper]`. An instruction lasts to the end of the reply, or until another replaces it, so the playground's replies place one where the rest of the reply should sound that way. Sounds such as `[laugh]`.
 - `<verbatim>KX7Q2</verbatim>` to read a code character by character.
-- Language tags: `<lang xml:lang="es-ES">El perro corre.</lang>` speaks the span in Spanish, on the voice's localized prompt for Spanish when it has one. Text outside a span keeps the context's language. This is what a language tutor needs; pick a voice with a localized prompt for the language being taught.
+- Language tags: `<lang xml:lang="es-MX">El perro corre.</lang>` speaks the span in Spanish, on the voice's localized prompt for Spanish when it has one. Text outside a span keeps the context's language. This is what a language tutor needs; pick a voice with a localized prompt for the language being taught.
 
 A span can open in one `sendText` and close in a later one: on a context, it lasts until its closing tag. What each mode needs:
 
@@ -76,7 +76,7 @@ The service answers with `contextCreated`, then `audioChunk` messages (base64 au
 Syntheses on one context run in order and share its conversation history, so the voice's delivery carries from one to the next. Separate contexts are independent.
 
 ```json
-{"contextId": "turn-1", "create": {"voiceId": "Dennis", "modelId": "inworld-tts-2",
+{"contextId": "turn-1", "create": {"voiceId": "Sarah", "modelId": "inworld-tts-2",
   "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": 24000}}}
 {"contextId": "turn-1", "sendText": {"text": "Hello there. How can I help?", "flushContext": {}}}
 {"contextId": "turn-1", "closeContext": {}}

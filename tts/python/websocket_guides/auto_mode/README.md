@@ -20,7 +20,7 @@ To speak one reply into a WAV file without the page, after the [setup](../README
 - `flushCompleted` now marks each synthesis the service ran, not each `sendText`. `contextClosed` still marks the end of the turn's audio.
 
 ```json
-{"contextId": "turn-1", "create": {"voiceId": "Dennis", "modelId": "inworld-tts-2",
+{"contextId": "turn-1", "create": {"voiceId": "Sarah", "modelId": "inworld-tts-2",
   "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": 24000},
   "timestampType": "WORD", "timestampTransportStrategy": "ASYNC",
   "autoMode": true}}

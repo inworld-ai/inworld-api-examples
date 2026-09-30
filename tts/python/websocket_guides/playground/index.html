@@ -122,7 +122,7 @@
     <div class="brand">WebSocket Playground<small>Inworld TTS · barge-in and auto mode</small></div>
     <section>
       <h3>Voice</h3>
-      <div class="field"><input id="voice" value="Dennis" aria-label="Voice ID"></div>
+      <div class="field"><input id="voice" value="Sarah" aria-label="Voice ID"></div>
     </section>
     <section>
       <h3>Mode</h3>
@@ -208,7 +208,7 @@ let source = store.get("source") || "scripted";
 (document.querySelector(`input[name="guide"][value="${store.get("guide")}"]`) || document.querySelector('input[name="guide"]')).checked = true;
 if (OPTIONS.system_prompts[store.get("preset")]) $("preset").value = store.get("preset");
 $("prompt").value = store.get("prompt") || preset().prompt;
-$("voice").value = store.get("voice") || "Dennis";
+$("voice").value = store.get("voice") || "Sarah";
 
 function setSource(value) {
   source = value;
@@ -229,8 +229,12 @@ $("preset").onchange = () => {
   setSource("live");
 };
 $("prompt").oninput = () => store.set("prompt", $("prompt").value);
+// Open the TTS connection for the chosen mode and voice before the first message.
+const connect = () => send({ type: "connect", guide: guide(), voice_id: $("voice").value });
+ws.onopen = connect;
 $("voice").oninput = () => store.set("voice", $("voice").value);
-$("guides").onchange = () => store.set("guide", guide());
+$("voice").onchange = connect;
+$("guides").onchange = () => { store.set("guide", guide()); connect(); };
 $("toggle-settings").onclick = () => $("app").classList.toggle("settings-open");
 $("new-chat").onclick = () => {
   interrupt();
@@ -389,7 +393,7 @@ function heardLength(text, heard) {
 function renderText(t) {
   const items = t.text.match(/\[[^\]]*\]?|<[^>]*>?|\s+|[^\s\[<]+/g) || [];
   const cut = t.heard === undefined ? Infinity : heardLength(t.text, t.heard);
-  // <lang xml:lang="es-ES"> shows as its code, and the span's words are underlined.
+  // <lang xml:lang="es-MX"> shows as its code, and the span's words are underlined.
   const langs = [];
   let at = 0;
   return items.map((s) => {
