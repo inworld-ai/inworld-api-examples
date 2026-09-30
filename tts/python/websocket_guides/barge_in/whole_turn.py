@@ -49,7 +49,6 @@ class Word:
     text: str
     start: float  # seconds from the start of the turn's audio
     end: float
-    synthesis: int  # which of the turn's syntheses spoke it
 
 
 class Turn:
@@ -70,23 +69,24 @@ class Turn:
         self.closing = False  # closeContext sent, or the context ended
         self.finished = False  # no more responses will arrive
         self.pending = ""  # reply text not sent yet
+        self.sent = ""  # reply text sent so far
         # Word timestamps count from the start of each synthesis; this is
         # where the current one starts in the turn's audio.
         self._synthesis_start = 0.0
 
     def heard(self, seconds: float) -> str:
-        """The text that finished playing in the first `seconds` of the turn's
-        audio. Timestamp words are pieces of the text you sent, spaces and
-        punctuation included, so joining them gives that text back."""
-        text, synthesis = "", 0
+        """The start of the reply, as sent, up to the last word that finished
+        playing in the first `seconds` of the turn's audio. Timestamp words are
+        pieces of the text you sent, so each one is found in it in turn."""
+        end = 0
         for w in self.words:
             if w.end > seconds:
                 break
-            # A synthesis's pieces don't carry the space before its first word.
-            if w.synthesis != synthesis and text and not text[-1].isspace() and not w.text[:1].isspace():
-                text += " "
-            text, synthesis = text + w.text, w.synthesis
-        return text.strip()
+            piece = w.text.strip()
+            at = self.sent.find(piece, end) if piece else -1
+            if at >= 0:
+                end = at + len(piece)
+        return self.sent[:end].strip()
 
     async def heard_after_timestamps(self, seconds: float, timeout: float = 2.0) -> str:
         """heard(seconds), once timestamps cover that much audio. With the ASYNC
@@ -145,7 +145,7 @@ class Speaker:
         if turn.closing:
             return
         if turn.pending.strip():
-            await self._send(turn, {"sendText": {"text": turn.pending, "flushContext": {}}})
+            await self._send_text(turn, turn.pending, flush=True)
         turn.pending = ""
         await self._close(turn)
 
@@ -159,9 +159,11 @@ class Speaker:
         if self._ws is not None:
             await self._ws.close()
 
-    async def _send_text(self, turn: Turn, text: str):
+    async def _send_text(self, turn: Turn, text: str, flush: bool = False):
         if not turn.closing:
-            await self._send(turn, {"sendText": {"text": text}})
+            turn.sent += text
+            message = {"text": text, "flushContext": {}} if flush else {"text": text}
+            await self._send(turn, {"sendText": message})
 
     async def _close(self, turn: Turn):
         if not turn.closing:
@@ -200,8 +202,7 @@ class Speaker:
                     words = (chunk.get("timestampInfo") or {}).get("wordAlignment") or {}
                     for text, start, end in zip(words.get("words", []), words.get("wordStartTimeSeconds", []),
                                                 words.get("wordEndTimeSeconds", [])):
-                        turn.words.append(Word(text, turn._synthesis_start + start, turn._synthesis_start + end,
-                                               turn.syntheses))
+                        turn.words.append(Word(text, turn._synthesis_start + start, turn._synthesis_start + end))
                     if chunk.get("audioContent"):
                         pcm = strip_wav_header(base64.b64decode(chunk["audioContent"]))
                         turn.audio_seconds += len(pcm) / 2 / SAMPLE_RATE_HZ
