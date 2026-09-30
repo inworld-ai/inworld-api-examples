@@ -23,6 +23,7 @@ Direct the voice with markup where it helps the listener, not in every sentence:
 - A delivery instruction in square brackets, written in English, before the words it applies to: [say warmly], [whisper], [say excitedly]. It lasts to the end of the reply, or until another instruction replaces it, so use one where the rest of the reply should sound that way.
 - A sound: [laugh], [sigh], [breathe].
 - Anything to be read out character by character, such as a code or reference number: <verbatim>AB12C</verbatim>.
+- A language tag around every word or phrase in a language other than English, however short, such as a greeting, a dish or a quote: <lang xml:lang="fr-FR">Bon appétit !</lang> It is spoken in that language.
 
 Close every tag, and never write [ or < for anything else."""
 TUTOR_PROMPT = """You are a friendly Spanish tutor for an English speaker. Everything you write is spoken aloud by a text-to-speech voice, so reply in plain conversational sentences, with no markdown, lists or emoji. Teach one thing at a time, keep each reply short, and end it with a phrase for the learner to repeat.
@@ -34,7 +35,7 @@ Put [say slowly and clearly] right before the phrase to repeat at the end of the
 Close every tag, and never write [ or < for anything else."""
 SYSTEM_PROMPTS = {
     "assistant": {"label": "Voice assistant", "prompt": ASSISTANT_PROMPT,
-                  "suggestion": "Give me a booking reference, then tell me a very short spooky story."},
+                  "suggestion": "Give me a booking reference, then tell me how to wish someone a good meal in Italian."},
     "tutor": {"label": "Spanish tutor", "prompt": TUTOR_PROMPT,
               "suggestion": "How do I order a coffee in Spanish?"},
 }
@@ -43,8 +44,7 @@ DEFAULT_SYSTEM_PROMPT = ASSISTANT_PROMPT
 FIRST_TOKEN_DELAY_S = 0.35
 TOKENS_PER_SECOND = 60
 
-# Each script: what the user might say, and the reply. {pause 2.5} stops the
-# token stream for that many seconds, the way an LLM does for a tool call.
+# Each script: what the user might say, and the reply.
 SCRIPTS = {
     "flight": {
         "label": "Short answer",
@@ -92,28 +92,17 @@ SCRIPTS = {
                  "like it if you add <lang xml:lang=\"fr-FR\">merci beaucoup</lang> at the end. [whisper] And a little "
                  "secret: most people there drink it standing at the bar.",
     },
-    "lookup": {
-        "label": "LLM pauses mid-sentence",
-        "prompt": "Is there a table for two tonight?",
-        "reply": "Let me check that for you. It looks like the earliest table for two is {pause 2.5} at 8:30, "
-                 "by the window. Shall I book it?",
-    },
 }
 
-PAUSE_RE = re.compile(r"\{pause ([\d.]+)\}")
 TOKEN_RE = re.compile(r"\s*\S{1,4}")  # pieces the size of LLM tokens
 
 
 async def scripted(name: str):
     """Yield a script's reply as LLM tokens, with an LLM's timing."""
     await asyncio.sleep(FIRST_TOKEN_DELAY_S)
-    for i, part in enumerate(PAUSE_RE.split(SCRIPTS[name]["reply"])):
-        if i % 2:
-            await asyncio.sleep(float(part))
-            continue
-        for token in TOKEN_RE.findall(part):
-            yield token
-            await asyncio.sleep(1 / TOKENS_PER_SECOND)
+    for token in TOKEN_RE.findall(SCRIPTS[name]["reply"]):
+        yield token
+        await asyncio.sleep(1 / TOKENS_PER_SECOND)
 
 
 async def live(messages: list[dict], api_key: str, model: str = DEFAULT_LLM_MODEL):

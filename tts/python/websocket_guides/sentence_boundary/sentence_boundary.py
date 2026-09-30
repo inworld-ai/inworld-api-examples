@@ -26,12 +26,6 @@ class Speaker(whole_turn.Speaker):
         """Send each LLM token as it arrives."""
         await self._send_text(turn, token)
 
-    async def flush(self, turn: whole_turn.Turn):
-        """Speak an unfinished sentence now, for example before a tool call.
-        Without this it waits for more text."""
-        if not turn.closing:
-            await self._send(turn, {"flushContext": {}})
-
 
 if __name__ == "__main__":
     exit(asyncio.run(whole_turn.speak_one_reply(Speaker, "sentence_boundary.wav")))
