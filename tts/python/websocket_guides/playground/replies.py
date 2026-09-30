@@ -23,14 +23,14 @@ Direct the voice with markup where it helps the listener, not in every sentence:
 - A delivery instruction in square brackets, written in English, before the words it applies to: [say warmly], [whisper], [say excitedly]. It lasts to the end of the reply, or until another instruction replaces it, so use one where the rest of the reply should sound that way.
 - A sound: [laugh], [sigh], [breathe].
 - Anything to be read out character by character, such as a code or reference number: <verbatim>AB12C</verbatim>.
-- A language tag around every word or phrase in a language other than English, however short, such as a greeting, a dish or a quote: <lang xml:lang="fr-FR">Bon appétit !</lang> It is spoken in that language.
+- Language tags, when a reply mixes languages, around every part, English included, however short the other language's part: a greeting, a dish or a quote. Each part is spoken in its tag's language: <lang xml:lang="en-US">Before a meal in France, people say</lang> <lang xml:lang="fr-FR">Bon appétit !</lang>
 
 Close every tag, and never write [ or < for anything else."""
 TUTOR_PROMPT = """You are a friendly Spanish tutor for an English speaker. Everything you write is spoken aloud by a text-to-speech voice, so reply in plain conversational sentences, with no markdown, lists or emoji. Teach one thing at a time, keep each reply short, and end it with a phrase for the learner to repeat.
 
-Mark every Spanish word or phrase, however short, with a language tag: <lang xml:lang="es-MX">El perro corre.</lang> Everything outside a tag is spoken in English.
+Explain in English, and wrap everything you write in a language tag, leaving nothing outside one. Every Spanish word or phrase gets its own Spanish tag, even in the middle of an English sentence or a quote: <lang xml:lang="en-US">You can say</lang> <lang xml:lang="es-MX">Quisiera un café,</lang> <lang xml:lang="en-US">which means "I would like a coffee."</lang>
 
-Put [say slowly and clearly] right before the phrase to repeat at the end of the reply, after any words that introduce it: Now say it with me: <lang xml:lang="es-MX">[say slowly and clearly] El perro corre.</lang> An instruction lasts to the end of the reply, so use no other.
+Put [say slowly and clearly] right before the phrase to repeat at the end of the reply, inside its tag: <lang xml:lang="en-US">Now say it with me:</lang> <lang xml:lang="es-MX">[say slowly and clearly] El perro corre.</lang> An instruction lasts to the end of the reply, so use no other.
 
 Close every tag, and never write [ or < for anything else."""
 SYSTEM_PROMPTS = {
@@ -70,27 +70,23 @@ SCRIPTS = {
                  "for tonight. [whisper] And a little secret: the lounge has free cookies.",
     },
     "tutor_es": {
-        "label": "Spanish tutor: rolled r",
+        "label": "Spanish for English speakers",
         "prompt": "How do I say \"the dog runs\" in Spanish?",
-        "reply": "Great question! \"The dog runs\" is <lang xml:lang=\"es-MX\">El perro corre.</lang> "
-                 "Listen to the rolled r in <lang xml:lang=\"es-MX\">perro</lang>, and compare it with the single "
-                 "tap in <lang xml:lang=\"es-MX\">pero</lang>, which means \"but\". Now say it with me: "
-                 "<lang xml:lang=\"es-MX\">[say slowly and clearly] El perro corre.</lang>",
+        "reply": "<lang xml:lang=\"en-US\">Great question! \"The dog runs\" is</lang> "
+                 "<lang xml:lang=\"es-MX\">El perro corre.</lang> "
+                 "<lang xml:lang=\"en-US\">Listen to the rolled r in</lang> <lang xml:lang=\"es-MX\">perro</lang>"
+                 "<lang xml:lang=\"en-US\">, and compare it with the single tap in</lang> "
+                 "<lang xml:lang=\"es-MX\">pero</lang><lang xml:lang=\"en-US\">, which means \"but\". "
+                 "Now say it with me:</lang> <lang xml:lang=\"es-MX\">[say slowly and clearly] El perro corre.</lang>",
     },
     "tutor_ja": {
-        "label": "Japanese tutor: thank you",
-        "prompt": "How do I say thank you in Japanese?",
-        "reply": "In Japanese, \"thank you\" is <lang xml:lang=\"ja-JP\">ありがとうございます。</lang> "
-                 "With friends, the short <lang xml:lang=\"ja-JP\">ありがとう</lang> is fine. Your turn, one more "
-                 "time: <lang xml:lang=\"ja-JP\">[say slowly and clearly] ありがとうございます。</lang>",
-    },
-    "tutor_fr": {
-        "label": "French tutor: ordering a coffee",
-        "prompt": "Help me order a coffee in French.",
-        "reply": "Sure! Walk up to the counter and say "
-                 "<lang xml:lang=\"fr-FR\">Bonjour. Je voudrais un café, s'il vous plaît.</lang> The barista will "
-                 "like it if you add <lang xml:lang=\"fr-FR\">merci beaucoup</lang> at the end. [whisper] And a little "
-                 "secret: most people there drink it standing at the bar.",
+        "label": "Japanese for Chinese speakers",
+        "prompt": "「日本大学」用日语怎么读？",
+        "reply": "<lang xml:lang=\"zh-CN\">「日本大学」用日语读作</lang><lang xml:lang=\"ja-JP\">日本大学。</lang>"
+                 "<lang xml:lang=\"zh-CN\">同样的汉字，日语的读法和中文不一样：「日本」读作</lang>"
+                 "<lang xml:lang=\"ja-JP\">日本</lang><lang xml:lang=\"zh-CN\">，「大学」读作</lang>"
+                 "<lang xml:lang=\"ja-JP\">大学。</lang><lang xml:lang=\"zh-CN\">跟我一起说：</lang>"
+                 "<lang xml:lang=\"ja-JP\">[say slowly and clearly] 日本大学。</lang>",
     },
 }
 
