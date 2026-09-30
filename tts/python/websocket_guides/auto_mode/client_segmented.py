@@ -30,10 +30,11 @@ import whole_turn  # noqa: E402
 
 # A sentence ends at ".", "!" or "?" followed by whitespace, as in most
 # languages written in Latin or Cyrillic script. Chinese and Japanese "。！？",
-# Arabic "؟" and Devanagari "।" "॥" need no space after them. Closing quotes,
-# brackets and tags such as </lang> go with the sentence they close.
+# Arabic "؟" and Devanagari "।" "॥" need no space after them, so the sentence
+# ends once the next character arrives. Closing quotes, brackets and tags such
+# as </lang> go with the sentence they close.
 CLOSERS = r"(?:[\"')」』）]|</\w+>)*"
-SENTENCE_END = re.compile(rf"[.!?]+{CLOSERS}\s+|[。！？؟।॥]+{CLOSERS}\s*")
+SENTENCE_END = re.compile(rf"[.!?]+{CLOSERS}\s+|[。！？؟।॥]+{CLOSERS}\s*(?=\S)(?![\"')」』）]|</)")
 # English words whose period doesn't end a sentence.
 ABBREVIATIONS = {"mr", "mrs", "ms", "dr", "st", "jr", "sr", "vs", "etc", "e.g", "i.e"}
 # Markup a sentence must not be cut inside: [instructions], <verbatim>...</verbatim>
