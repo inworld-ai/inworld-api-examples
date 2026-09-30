@@ -12,9 +12,9 @@ Everything else, including barge-in and the LLM history, is the base guide's
   one as soon as it is complete, so the first sentence is spoken while the LLM
   is still writing the rest.
 
-The splitter below is deliberately small and handles English only. For other
-languages, or to skip client-side splitting, see
-../sentence_boundary/sentence_boundary.py.
+The splitter below is deliberately small. It knows the sentence-ending
+punctuation of widely used scripts, and English abbreviations only. To leave
+the splitting to the service, see ../sentence_boundary/sentence_boundary.py.
 
     python client_segmented.py
 """
@@ -28,10 +28,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "barge_in"))
 
 import whole_turn  # noqa: E402
 
-# ".", "!" or "?", then any closing quotes or closing tags such as </lang>,
-# then whitespace.
-SENTENCE_END = re.compile(r"[.!?]+(?:[\"')]|</\w+>)*\s+")
-# Words whose period doesn't end a sentence.
+# A sentence ends at ".", "!" or "?" followed by whitespace, as in most
+# languages written in Latin or Cyrillic script. Chinese and Japanese "。！？",
+# Arabic "؟" and Devanagari "।" "॥" need no space after them. Closing quotes,
+# brackets and tags such as </lang> go with the sentence they close.
+CLOSERS = r"(?:[\"')」』）]|</\w+>)*"
+SENTENCE_END = re.compile(rf"[.!?]+{CLOSERS}\s+|[。！？؟।॥]+{CLOSERS}\s*")
+# English words whose period doesn't end a sentence.
 ABBREVIATIONS = {"mr", "mrs", "ms", "dr", "st", "jr", "sr", "vs", "etc", "e.g", "i.e"}
 # Markup a sentence must not be cut inside: [instructions], <verbatim>...</verbatim>
 # and <say-as>...</say-as> as a whole, and any other <tag>.
@@ -39,10 +42,9 @@ MARKUP = re.compile(r"\[[^\]]*\]|<verbatim>.*?</verbatim>|<say-as\b.*?</say-as>|
 
 
 def split_sentences(text: str) -> tuple[list[str], str]:
-    """Split complete English sentences off the front of text; return them and
-    the unfinished rest. A sentence ends at ".", "!" or "?" followed by
-    whitespace, unless the period follows an abbreviation or an initial, or
-    sits inside markup."""
+    """Split complete sentences off the front of text; return them and the
+    unfinished rest. A sentence ends at SENTENCE_END, unless the period follows
+    an abbreviation or an initial, is an ellipsis, or sits inside markup."""
     markup = [m.span() for m in MARKUP.finditer(text)]
     # An unclosed tag, or a <verbatim> or <say-as> still waiting for its
     # closing tag, holds back everything from its start.
@@ -57,7 +59,8 @@ def split_sentences(text: str) -> tuple[list[str], str]:
             continue
         word = text[start:m.start()].split()[-1:] or [""]
         word = word[0].lstrip("\"'([").lower()
-        if m.group().startswith(".") and (word in ABBREVIATIONS or (len(word) == 1 and word.isalpha())):
+        if m.group().startswith("..") or m.group().startswith(".") and (
+                word in ABBREVIATIONS or (len(word) == 1 and word.isalpha())):
             continue
         sentences.append(text[start:m.end()])
         start = m.end()

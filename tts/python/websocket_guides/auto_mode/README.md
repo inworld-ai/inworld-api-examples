@@ -4,7 +4,7 @@ Start speaking before the LLM has finished: cut its tokens into sentences on the
 
 | File | What it shows |
 |---|---|
-| [`client_segmented.py`](./client_segmented.py) | The base guide's client with auto mode and a small English sentence splitter |
+| [`client_segmented.py`](./client_segmented.py) | The base guide's client with auto mode and a small sentence splitter |
 | [Playground](../README.md#playground) | A local web page to talk to the agent, hear it, and interrupt it |
 
 ## Try it
@@ -33,6 +33,6 @@ Send sentences, not tokens: auto mode starts a synthesis on the first `sendText`
 
 ## The splitter
 
-`split_sentences` in [`client_segmented.py`](./client_segmented.py) is short and handles English only. A sentence ends at `.`, `!` or `?` followed by whitespace, unless the period follows a common abbreviation (*Dr.*, *e.g.*) or an initial (*J. R.*), or sits inside markup: `[say warmly]`, `<break time="500ms"/>` and `<verbatim>AB. 12</verbatim>` stay whole, and an unfinished tag holds back the text after it. A sentence can end at a closing tag, as in `El perro corre.</lang> `, or inside a language span, which then carries on into the next message (see [markup in replies](../README.md#markup-in-replies)). The last sentence has no whitespace after it yet, so it goes out when the reply ends.
+`split_sentences` in [`client_segmented.py`](./client_segmented.py) is the simplest splitter that works across widely used languages. A sentence ends at `.`, `!` or `?` followed by whitespace, as in languages written in Latin or Cyrillic script, or right after Chinese and Japanese `。！？`, Arabic `؟` or Devanagari `।` `॥`, which need no space after them. It doesn't end at an ellipsis, after a common English abbreviation (*Dr.*, *e.g.*) or an initial (*J. R.*), or inside markup: `[say warmly]`, `<break time="500ms"/>` and `<verbatim>AB. 12</verbatim>` stay whole, and an unfinished tag holds back the text after it. A sentence can end at a closing tag, as in `El perro corre.</lang> `, or inside a language span, which then carries on into the next message (see [markup in replies](../README.md#markup-in-replies)). A sentence that ends in `.`, `!` or `?` waits for the whitespace after it, so the reply's last one goes out when the reply ends.
 
-It doesn't know other languages' punctuation (`。` needs no space after it), and it splits a quotation after its `?`. For other languages, or to leave the splitting to the service, see [`../sentence_boundary/`](../sentence_boundary/).
+It has no abbreviations for other languages, and it ends a sentence after a quoted one, as in `「はい。」と言った` or `"Really?" she asked`. For a splitter that handles those, leave the splitting to the service: see [`../sentence_boundary/`](../sentence_boundary/).
