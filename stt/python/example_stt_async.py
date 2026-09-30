@@ -36,6 +36,13 @@ API_BASE = "https://api.inworld.ai"
 POLL_INTERVAL_S = 3
 POLL_TIMEOUT_S = 600
 
+# Bound every request. requests applies no timeout by default, so a stalled
+# connection would hang forever and the polling deadline below would never be
+# consulted. The pair is (connect, read) and each applies to one socket
+# operation rather than to the whole transfer, so it does not cut short a large
+# upload or download that is still making progress.
+REQUEST_TIMEOUT_S = (10, 60)
+
 
 def check_api_key():
     """Check if INWORLD_API_KEY environment variable is set."""
@@ -81,7 +88,9 @@ def submit(audio_path: str, options: dict | None = None, api_key: str = ""):
         "Authorization": f"Basic {api_key}",
     }
 
-    response = requests.post(f"{API_BASE}/stt/v1/transcribe:async", headers=headers, json=body)
+    response = requests.post(
+        f"{API_BASE}/stt/v1/transcribe:async", headers=headers, json=body, timeout=REQUEST_TIMEOUT_S
+    )
     response.raise_for_status()
     return response.json()
 
@@ -99,16 +108,27 @@ def wait_for_operation(name: str, api_key: str, timeout_s: int = POLL_TIMEOUT_S)
         dict: The finished operation, carrying either "response" or "error"
     """
     headers = {"Authorization": f"Basic {api_key}"}
+    connect_timeout, read_timeout = REQUEST_TIMEOUT_S
     deadline = time.monotonic() + timeout_s
 
     while True:
-        response = requests.get(f"{API_BASE}/lro/v1alpha/{name}", headers=headers)
+        # Checked before each request, and used to bound it: a deadline
+        # consulted only between requests cannot stop a poll that stalls inside
+        # one.
+        remaining_s = deadline - time.monotonic()
+        if remaining_s <= 0:
+            raise TimeoutError(f"job did not finish within {timeout_s} s")
+
+        response = requests.get(
+            f"{API_BASE}/lro/v1alpha/{name}",
+            headers=headers,
+            timeout=(min(connect_timeout, remaining_s), min(read_timeout, remaining_s)),
+        )
         response.raise_for_status()
+
         operation = response.json()
         if operation.get("done"):
             return operation
-        if time.monotonic() >= deadline:
-            raise TimeoutError(f"job did not finish within {timeout_s} s")
         time.sleep(POLL_INTERVAL_S)
 
 
@@ -117,7 +137,7 @@ def download_transcript(result_uri: str):
     Download the transcript document. The link is signed, so it carries its own
     authorization and must not be sent with the API key.
     """
-    response = requests.get(result_uri)
+    response = requests.get(result_uri, timeout=REQUEST_TIMEOUT_S)
     response.raise_for_status()
     return response.json()
 

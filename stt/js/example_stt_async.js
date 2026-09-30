@@ -42,15 +42,15 @@ function checkApiKey() {
 
 /**
  * Turn a failed response into an error carrying whatever the server said.
+ *
+ * The body is read once, as text. Consuming it as JSON and falling back to
+ * text() on a non-JSON body fails with "Body is unusable" and loses the
+ * server's actual message — which is the one thing this function is for.
+ *
  * @param {Response} response
  */
 async function toError(response) {
-    let details = '';
-    try {
-        details = JSON.stringify(await response.json());
-    } catch {
-        details = await response.text();
-    }
+    const details = await response.text();
     return new Error(`HTTP ${response.status}: ${details}`);
 }
 
@@ -99,16 +99,23 @@ async function waitForOperation(name, apiKey, timeoutMs = POLL_TIMEOUT_MS) {
     const deadline = Date.now() + timeoutMs;
 
     for (;;) {
+        // Checked before each request, and used to bound it: a deadline
+        // consulted only between requests cannot stop a poll that stalls
+        // inside one.
+        const remainingMs = deadline - Date.now();
+        if (remainingMs <= 0) {
+            throw new Error(`job did not finish within ${timeoutMs / 1000} s`);
+        }
+
         const response = await fetch(`${API_BASE}/lro/v1alpha/${name}`, {
-            headers: { 'Authorization': `Basic ${apiKey}` }
+            headers: { 'Authorization': `Basic ${apiKey}` },
+            signal: AbortSignal.timeout(remainingMs)
         });
         if (!response.ok) throw await toError(response);
 
         const operation = await response.json();
         if (operation.done) return operation;
-        if (Date.now() >= deadline) {
-            throw new Error(`job did not finish within ${timeoutMs / 1000} s`);
-        }
+
         await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
     }
 }

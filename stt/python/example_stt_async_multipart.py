@@ -29,6 +29,7 @@ import requests
 
 from example_stt_async import (
     API_BASE,
+    REQUEST_TIMEOUT_S,
     check_api_key,
     download_transcript,
     print_result,
@@ -99,7 +100,9 @@ def submit_multipart(audio_path: str, options: dict | None = None, api_key: str 
     }
     body = _multipart_body(boundary, transcribe_config, audio_path, os.path.basename(audio_path))
 
-    response = requests.post(f"{API_BASE}/stt/v1/transcribe:async", headers=headers, data=body)
+    response = requests.post(
+        f"{API_BASE}/stt/v1/transcribe:async", headers=headers, data=body, timeout=REQUEST_TIMEOUT_S
+    )
     response.raise_for_status()
     return response.json()
 
