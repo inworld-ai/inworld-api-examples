@@ -2,10 +2,34 @@
 
 | Directory | Description |
 |---|---|
-| [`js/`](js/) | Speech-to-text examples in JavaScript/Node.js (sync HTTP, WebSocket from file or mic) |
-| [`python/`](python/) | Speech-to-text examples in Python (sync HTTP, WebSocket from file or mic) |
+| [`js/`](js/) | Speech-to-text examples in JavaScript/Node.js (sync HTTP, async jobs, WebSocket from file or mic) |
+| [`python/`](python/) | Speech-to-text examples in Python (sync HTTP, async jobs, WebSocket from file or mic) |
 | [`tests-data/`](tests-data/) | Test audio for file-based examples (e.g. `audio/test-audio.wav`, `audio/test-pcm-audio.pcm`) |
 
+
+## Asynchronous transcription
+
+For a recording too long to wait on, submit it as a job and collect the
+transcript when the job finishes. Three steps:
+
+1. `POST https://api.inworld.ai/stt/v1/transcribe:async` returns an
+   **operation** — a handle naming the job, not the transcript.
+2. `GET https://api.inworld.ai/lro/v1alpha/{operation name}` reports whether
+   the job has finished. Poll every few seconds.
+3. The finished operation carries `response.resultUri`, a signed link to the
+   transcript. It needs no credentials and expires 24 hours after completion,
+   so download the transcript if you need to keep it.
+
+Send the audio inline as base64 (`audioData.content`), as a streamed
+`multipart/form-data` upload, or as a URL for the service to fetch
+(`audioUri`). Multipart is the one to use for large files: nothing holds the
+recording whole, and base64 is avoided. When sending multipart, put the
+`transcribeConfig` part **before** the `file` part — the upload is read as a
+stream, so a config that arrives after the audio is found too late.
+
+Every audio encoding is accepted here, including the compressed formats the
+streaming endpoint rejects. Full reference:
+[Async transcription](https://docs.inworld.ai/stt/async-transcription).
 
 ## Streaming integration
 

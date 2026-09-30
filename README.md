@@ -45,10 +45,10 @@ inworld-api-examples/
 
 ### [STT](./stt/) (Speech-to-Text)
 
-Transcribe audio via synchronous HTTP or real-time WebSocket streaming.
+Transcribe audio via synchronous HTTP, asynchronous jobs for long recordings, or real-time WebSocket streaming.
 
-- **[Python](./stt/python/)** — Sync and streaming STT examples in Python
-- **[JavaScript](./stt/js/)** — Sync and streaming STT examples in JavaScript
+- **[Python](./stt/python/)** — Sync, async and streaming STT examples in Python
+- **[JavaScript](./stt/js/)** — Sync, async and streaming STT examples in JavaScript
 
 ### [TTS](./tts)
 

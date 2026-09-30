@@ -92,12 +92,41 @@ python example_stt_mic.py
 
 **Output:** [interim] and [FINAL] segments in real time, then full transcript on exit.
 
+### 6. `example_stt_async.py` - Asynchronous transcription (HTTP)
+
+Submits a recording as a job, polls until it finishes, and downloads the transcript. For recordings too long to wait on: meetings, interviews, podcasts. The audio is sent inline, base64-encoded, which suits small files. Default input: `tests-data/audio/test-audio.wav`.
+
+**Usage:**
+```bash
+python example_stt_async.py
+# or
+python example_stt_async.py [path/to/audio.wav]
+```
+
+**Output:** The job name while it runs, then the transcript, its segments and the billed audio duration.
+
+### 7. `example_stt_async_multipart.py` - Asynchronous transcription with a streamed upload
+
+Same job as `example_stt_async.py`, but the audio is uploaded as `multipart/form-data` and streamed from disk a block at a time. Use it for large recordings: memory stays flat regardless of file size, and it avoids the third that base64 encoding adds to the request.
+
+**Usage:**
+```bash
+python example_stt_async_multipart.py
+# or
+python example_stt_async_multipart.py [path/to/audio.wav]
+```
+
+**Output:** Same as `example_stt_async.py`.
+
 ## Configuration
 
 - **Sync:** Uses `groq/whisper-large-v3`; see [API reference](https://docs.inworld.ai/api-reference/sttAPI/speechtotext/transcribe) for the full request body.
 - **WebSocket (file or mic):** Uses STT WebSocket with LINEAR16, 16 kHz, 1 channel. Default model is `inworld/inworld-stt-1`; see [STT overview](https://docs.inworld.ai/stt/overview) for all supported models and the [API reference](https://docs.inworld.ai/api-reference/sttAPI/speechtotext/transcribe-stream-websocket) for the full request body.
+- **Async:** Uses `inworld/inworld-stt-1`. Every audio encoding is accepted, including the compressed formats streaming rejects (MP3, FLAC, OGG_OPUS), because the audio is a stored file rather than a live stream. See [Async transcription](https://docs.inworld.ai/stt/async-transcription).
 
 ## API Endpoints
 
 - **Sync:** `https://api.inworld.ai/stt/v1/transcribe`
 - **WebSocket:** `wss://api.inworld.ai/stt/v1/transcribe:streamBidirectional`
+- **Async submit:** `https://api.inworld.ai/stt/v1/transcribe:async`
+- **Async poll:** `https://api.inworld.ai/lro/v1alpha/{operation name}`
