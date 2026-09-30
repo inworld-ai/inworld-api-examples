@@ -28,8 +28,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "barge_in"))
 
 import whole_turn  # noqa: E402
 
-# ".", "!" or "?", then any closing quotes, then whitespace.
-SENTENCE_END = re.compile(r"[.!?]+[\"')]*\s+")
+# ".", "!" or "?", then any closing quotes or closing tags such as </lang>,
+# then whitespace.
+SENTENCE_END = re.compile(r"[.!?]+(?:[\"')]|</\w+>)*\s+")
 # Words whose period doesn't end a sentence.
 ABBREVIATIONS = {"mr", "mrs", "ms", "dr", "st", "jr", "sr", "vs", "etc", "e.g", "i.e"}
 # Markup a sentence must not be cut inside: [instructions], <verbatim>...</verbatim>

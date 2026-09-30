@@ -22,7 +22,7 @@ pip install -r requirements.txt
 cp .env.example .env   # then set INWORLD_API_KEY
 ```
 
-With the virtual environment active, run each guide's scripts from its own folder. They read the key from `tts/python/.env`, or from `export INWORLD_API_KEY=...`, which takes precedence.
+With the virtual environment active, run each guide's scripts from its own folder. They read the key from `tts/python/.env`, or from `export INWORLD_API_KEY=...`, which takes precedence. Set `INWORLD_API_BASE_URL` the same way if you don't use `https://api.inworld.ai`.
 
 ## Playground
 
@@ -37,14 +37,31 @@ python server.py --port 8766 --model-id inworld-tts-2 --llm-model openai/gpt-4.1
 - **Voice**: any voice ID.
 - **Mode**: how the reply is sent, one per guide: [One flush per turn](./barge_in/), [Client-side sentence segmentation](./auto_mode/), or [One token at a time](./sentence_boundary/).
 - **Reply**: a scripted reply or a live LLM.
-  - *Scripted* replies stream the same tokens every run, with an LLM's timing: a first token after about a third of a second, then 60 tokens a second. One uses steering, a pause and verbatim; one pauses mid-sentence, the way an LLM does for a tool call.
-  - *Live LLM* streams from the Inworld Router's chat completions API with the same API key; `--llm-model` picks the model. Edit the system prompt in the sidebar. The default asks the LLM to use [steering instructions](https://docs.inworld.ai/tts/capabilities/steering) such as `[say warmly]`, sounds such as `[laugh]`, pauses (`<break time="500ms"/>`), and `<verbatim>` for codes.
+  - *Scripted* replies stream the same tokens every run, with an LLM's timing: a first token after about a third of a second, then 60 tokens a second. They cover a long answer to interrupt, [markup](#markup-in-replies), language tutors in Spanish, Japanese and French, and an LLM that pauses mid-sentence, the way it does for a tool call.
+  - *Live LLM* streams from the Inworld Router's chat completions API with the same API key; `--llm-model` picks the model. Pick an agent, *Voice assistant* or *Spanish tutor*, and edit its system prompt in the sidebar. Both prompts ask the LLM for [markup](#markup-in-replies).
 - **Interrupt**: press Esc, click Interrupt, or send another message. The page stops playback at once and reports how many seconds of the turn it played. The server closes the turn's context and keeps only the words you heard in the LLM history. The reply shows what was heard, with the rest struck through.
 - **New chat** clears the LLM history.
 
 Each reply shows when the first LLM token and the first audio arrived, how many syntheses the service ran, and a timeline of the LLM writing, TTS audio arriving and playback, with any interrupt marked. *Events* lists the same moments.
 
 To add a guide, subclass `Speaker` from [`barge_in/whole_turn.py`](./barge_in/whole_turn.py) as the other guides do: set `CREATE` for the context settings, override `send_text(turn, token)` and, if needed, `end_turn(turn)`, and add the module to `GUIDES` in `playground/server.py`.
+
+## Markup in replies
+
+An LLM can direct the voice with markup in its reply, and every mode passes it through:
+
+- [Steering instructions](https://docs.inworld.ai/tts/capabilities/steering) in English, before the words they apply to: `[say warmly]`, `[whisper]`, until `[reset]`. Sounds such as `[laugh]`.
+- Pauses: `<break time="800ms"/>`.
+- `<verbatim>KX7Q2</verbatim>` to read a code character by character.
+- Language tags: `<lang xml:lang="es-ES">El perro corre.</lang>` speaks the span in Spanish, on the voice's localized prompt for Spanish when it has one. Text outside a span keeps the context's language. This is what a language tutor needs; pick a voice with a localized prompt for the language being taught.
+
+A span can open in one `sendText` and close in a later one: on a context, it lasts until its closing tag. What each mode needs:
+
+- **One flush per turn**: nothing; the reply goes out whole.
+- **Client-side sentence segmentation**: cut at sentence ends as usual, never inside a tag. The splitter in [`auto_mode/`](./auto_mode/) holds back an unfinished tag.
+- **One token at a time**: nothing; the service holds a tag split across tokens until it closes.
+
+When the user interrupts, the LLM history keeps the markup the user heard along with the words.
 
 ## The protocol in brief
 

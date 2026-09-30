@@ -72,6 +72,8 @@
   @keyframes bar { 0%, 100% { height: 3px; } 50% { height: 10px; } }
   .text { white-space: pre-wrap; overflow-wrap: anywhere; }
   .text .unheard { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--stop) 60%, transparent); }
+  .lang { text-decoration: underline dotted var(--tts); text-underline-offset: 4px; }
+  .mk.langtag { color: var(--tts); background: color-mix(in srgb, var(--tts) 12%, transparent); }
   .mk { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--llm); background: color-mix(in srgb, var(--llm) 10%, transparent); border-radius: 5px; padding: 0 4px; }
   .cut { margin-top: 10px; padding: 8px 10px; border-radius: 10px; background: var(--stop-soft); font-size: 14px; }
   .cut b { color: var(--stop); font-weight: 600; }
@@ -130,6 +132,10 @@
         <button type="button" data-source="live" aria-pressed="false">Live LLM</button>
       </div>
       <div id="live-settings" hidden>
+        <div class="field">
+          <label for="preset">Agent</label>
+          <select id="preset"></select>
+        </div>
         <div class="field">
           <label for="prompt">System prompt <button type="button" class="link" id="reset-prompt">Reset</button></label>
           <textarea id="prompt" spellcheck="false"></textarea>
@@ -191,11 +197,14 @@ for (const [name, g] of Object.entries(OPTIONS.guides)) {
   $("guides").append(card);
 }
 for (const [name, s] of Object.entries(OPTIONS.scripts)) $("script").add(new Option(s.label, name));
+for (const [name, p] of Object.entries(OPTIONS.system_prompts)) $("preset").add(new Option(p.label, name));
+const preset = () => OPTIONS.system_prompts[$("preset").value];
 $("llm-model").textContent = `Streams from ${OPTIONS.llm_model} through the Inworld Router.`;
 const guide = () => document.querySelector('input[name="guide"]:checked').value;
 let source = store.get("source") || "scripted";
 (document.querySelector(`input[name="guide"][value="${store.get("guide")}"]`) || document.querySelector('input[name="guide"]')).checked = true;
-$("prompt").value = store.get("prompt") || OPTIONS.system_prompt;
+if (OPTIONS.system_prompts[store.get("preset")]) $("preset").value = store.get("preset");
+$("prompt").value = store.get("prompt") || preset().prompt;
 $("voice").value = store.get("voice") || "Dennis";
 
 function setSource(value) {
@@ -204,12 +213,18 @@ function setSource(value) {
   document.querySelectorAll("[data-source]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.source === value));
   $("live-settings").hidden = value !== "live";
   $("scripted-settings").hidden = value !== "scripted";
-  $("text").value = value === "live" ? OPTIONS.live_suggestion : OPTIONS.scripts[$("script").value].prompt;
+  $("text").value = value === "live" ? preset().suggestion : OPTIONS.scripts[$("script").value].prompt;
   autosize();
 }
 document.querySelectorAll("[data-source]").forEach((b) => b.onclick = () => setSource(b.dataset.source));
 $("script").onchange = () => setSource("scripted");
-$("reset-prompt").onclick = () => { $("prompt").value = OPTIONS.system_prompt; store.set("prompt", ""); };
+$("reset-prompt").onclick = () => { $("prompt").value = preset().prompt; store.set("prompt", ""); };
+$("preset").onchange = () => {
+  store.set("preset", $("preset").value);
+  $("prompt").value = preset().prompt;
+  store.set("prompt", "");
+  setSource("live");
+};
 $("prompt").oninput = () => store.set("prompt", $("prompt").value);
 $("voice").oninput = () => store.set("voice", $("voice").value);
 $("guides").onchange = () => store.set("guide", guide());
@@ -303,12 +318,12 @@ function interrupt() {
 function setActive(t) {
   active = t;
   $("stop").hidden = !t;
+  autosize(); // the Interrupt button changes the box's width
 }
 
 // ---- Turns ----
 const now = (t) => (performance.now() - t.t0) / 1000;
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const norm = (w) => w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 const fmt = (s) => (s === undefined ? "–" : `${s.toFixed(2)} s`);
 
 function newTurn(id, guideName) {
@@ -326,25 +341,35 @@ function newTurn(id, guideName) {
   return t;
 }
 
-// Split the reply into markup and words, and mark the words after the last
-// one the user heard. Heard words come from TTS timestamps, so match them
-// loosely and stop at the first one that can't be found.
+// Split the reply into markup and words. After an interrupt, the words the
+// user heard stay plain: the heard text is the start of the reply as sent,
+// so walk both, ignoring differences in whitespace.
+function heardLength(text, heard) {
+  let i = 0, j = 0;
+  while (j < heard.length) {
+    if (/\s/.test(heard[j])) { j++; continue; }
+    while (i < text.length && /\s/.test(text[i])) i++;
+    if (text[i] !== heard[j]) break;
+    i++; j++;
+  }
+  return i;
+}
+
 function renderText(t) {
   const items = t.text.match(/\[[^\]]*\]?|<[^>]*>?|\s+|[^\s\[<]+/g) || [];
-  let cut = t.heard === undefined ? items.length : -1;
-  if (t.heard !== undefined) {
-    let i = 0;
-    for (const word of t.heard.split(/\s+/).map(norm).filter(Boolean)) {
-      let j = i;
-      while (j < items.length && j < i + 8 && norm(items[j]) !== word) j++;
-      if (j >= items.length || j >= i + 8) break;
-      cut = j;
-      i = j + 1;
-    }
-  }
-  return items.map((s, i) => {
+  const cut = t.heard === undefined ? Infinity : heardLength(t.text, t.heard);
+  // <lang xml:lang="es-ES"> shows as its code, and the span's words are underlined.
+  const langs = [];
+  let at = 0;
+  return items.map((s) => {
+    const start = at;
+    at += s.length;
+    const open = s.match(/^<lang\b[^>]*lang\s*=\s*["']([^"']+)/i);
+    if (open) { langs.push(open[1]); return `<span class="mk langtag">${esc(open[1])}</span>`; }
+    if (/^<\/lang/i.test(s)) { langs.pop(); return `<span class="mk langtag">/</span>`; }
     if (/^[\[<]/.test(s)) return `<span class="mk">${esc(s)}</span>`;
-    return i > cut ? `<span class="unheard">${esc(s)}</span>` : esc(s);
+    const cls = [start >= cut && s.trim() ? "unheard" : "", langs.length && s.trim() ? "lang" : ""].filter(Boolean).join(" ");
+    return cls ? `<span class="${cls}">${esc(s)}</span>` : esc(s);
   }).join("");
 }
 

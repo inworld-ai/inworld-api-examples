@@ -33,6 +33,6 @@ Send sentences, not tokens: auto mode starts a synthesis on the first `sendText`
 
 ## The splitter
 
-`split_sentences` in [`client_segmented.py`](./client_segmented.py) is short and handles English only. A sentence ends at `.`, `!` or `?` followed by whitespace, unless the period follows a common abbreviation (*Dr.*, *e.g.*) or an initial (*J. R.*), or sits inside markup: `[say warmly]`, `<break time="500ms"/>` and `<verbatim>AB. 12</verbatim>` stay whole, and an unfinished tag holds back the text after it. The last sentence has no whitespace after it yet, so it goes out when the reply ends.
+`split_sentences` in [`client_segmented.py`](./client_segmented.py) is short and handles English only. A sentence ends at `.`, `!` or `?` followed by whitespace, unless the period follows a common abbreviation (*Dr.*, *e.g.*) or an initial (*J. R.*), or sits inside markup: `[say warmly]`, `<break time="500ms"/>` and `<verbatim>AB. 12</verbatim>` stay whole, and an unfinished tag holds back the text after it. A sentence can end at a closing tag, as in `El perro corre.</lang> `, or inside a language span, which then carries on into the next message (see [markup in replies](../README.md#markup-in-replies)). The last sentence has no whitespace after it yet, so it goes out when the reply ends.
 
 It doesn't know other languages' punctuation (`。` needs no space after it), and it splits a quotation after its `?`. For other languages, or to leave the splitting to the service, see [`../sentence_boundary/`](../sentence_boundary/).

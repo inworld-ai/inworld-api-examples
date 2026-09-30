@@ -38,7 +38,9 @@ except ImportError:
 
 import websockets
 
-WEBSOCKET_URL = "wss://api.inworld.ai/tts/v1/voice:streamBidirectional"
+# INWORLD_API_BASE_URL selects another endpoint, such as a regional one.
+API_BASE_URL = os.getenv("INWORLD_API_BASE_URL", "https://api.inworld.ai").rstrip("/")
+WEBSOCKET_URL = re.sub(r"^http", "ws", API_BASE_URL) + "/tts/v1/voice:streamBidirectional"
 SAMPLE_RATE_HZ = 24000
 
 
@@ -47,6 +49,7 @@ class Word:
     text: str
     start: float  # seconds from the start of the turn's audio
     end: float
+    synthesis: int  # which of the turn's syntheses spoke it
 
 
 class Turn:
@@ -72,8 +75,18 @@ class Turn:
         self._synthesis_start = 0.0
 
     def heard(self, seconds: float) -> str:
-        """The words that finished playing in the first `seconds` of the turn's audio."""
-        return " ".join(w.text for w in self.words if w.end <= seconds)
+        """The text that finished playing in the first `seconds` of the turn's
+        audio. Timestamp words are pieces of the text you sent, spaces and
+        punctuation included, so joining them gives that text back."""
+        text, synthesis = "", 0
+        for w in self.words:
+            if w.end > seconds:
+                break
+            # A synthesis's pieces don't carry the space before its first word.
+            if w.synthesis != synthesis and text and not text[-1].isspace() and not w.text[:1].isspace():
+                text += " "
+            text, synthesis = text + w.text, w.synthesis
+        return text.strip()
 
     async def heard_after_timestamps(self, seconds: float, timeout: float = 2.0) -> str:
         """heard(seconds), once timestamps cover that much audio. With the ASYNC
@@ -187,7 +200,8 @@ class Speaker:
                     words = (chunk.get("timestampInfo") or {}).get("wordAlignment") or {}
                     for text, start, end in zip(words.get("words", []), words.get("wordStartTimeSeconds", []),
                                                 words.get("wordEndTimeSeconds", [])):
-                        turn.words.append(Word(text, turn._synthesis_start + start, turn._synthesis_start + end))
+                        turn.words.append(Word(text, turn._synthesis_start + start, turn._synthesis_start + end,
+                                               turn.syntheses))
                     if chunk.get("audioContent"):
                         pcm = strip_wav_header(base64.b64decode(chunk["audioContent"]))
                         turn.audio_seconds += len(pcm) / 2 / SAMPLE_RATE_HZ
@@ -228,7 +242,7 @@ async def speak_one_reply(speaker_class, output_file: str):
              "and boarding starts 30 minutes earlier. Would you like me to book a taxi?")
     tokens = re.findall(r"\s*\S{1,4}", reply)  # pieces the size of LLM tokens
 
-    speaker = speaker_class(api_key, url=os.getenv("INWORLD_TTS_URL", WEBSOCKET_URL))
+    speaker = speaker_class(api_key)
     turn = await speaker.start_turn()
 
     async def stream_llm():
