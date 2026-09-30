@@ -61,6 +61,9 @@
   .user { align-self: flex-end; max-width: 80%; background: var(--accent); color: var(--on-accent); padding: 10px 14px; border-radius: 18px 18px 4px 18px; white-space: pre-wrap; }
   .agent { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
   .agent .head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 12px; }
+  .replay { margin-left: auto; display: inline-flex; gap: 5px; align-items: center; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 2px 10px 2px 8px; font-size: 12px; color: var(--text); }
+  .replay:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+  .replay svg { width: 10px; height: 10px; }
   .badge { color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
   .status { display: inline-flex; gap: 6px; align-items: center; border-radius: 999px; padding: 1px 8px; background: var(--surface-2); color: var(--muted); }
   .status.speaking { color: var(--play); }
@@ -284,6 +287,33 @@ function play(t, b64) {
   if (t.at.playStart === undefined) t.at.playStart = now(t) + (start - audio.currentTime);
   t.nextTime = start + buffer.duration;
   t.chunks.push({ source, start, duration: buffer.duration });
+  t.pcm.push(channel);
+}
+
+// Replay a turn as the user heard it: all of it, or up to the interrupt.
+let replaying = null;
+function replay(t) {
+  const again = replaying?.turn !== t;
+  if (replaying) { replaying.source.stop(); }
+  if (!again) return;
+  const total = t.pcm.reduce((n, c) => n + c.length, 0);
+  const length = t.heard === undefined ? total : Math.min(total, Math.round(t.heardSeconds * RATE));
+  if (!length) return;
+  const buffer = audio.createBuffer(1, length, RATE);
+  const channel = buffer.getChannelData(0);
+  let at = 0;
+  for (const c of t.pcm) {
+    if (at >= length) break;
+    channel.set(c.subarray(0, length - at), at);
+    at += c.length;
+  }
+  const source = audio.createBufferSource();
+  source.buffer = buffer;
+  source.connect(audio.destination);
+  source.onended = () => { if (replaying?.source === source) replaying = null; render(t); };
+  source.start();
+  replaying = { turn: t, source };
+  render(t);
 }
 
 // Seconds of the turn's audio that have played: chunks are scheduled back to
@@ -329,13 +359,14 @@ const fmt = (s) => (s === undefined ? "–" : `${s.toFixed(2)} s`);
 function newTurn(id, guideName) {
   const el = document.createElement("article");
   el.className = "agent";
-  el.innerHTML = `<div class="head"><span class="badge"></span><span class="status"></span></div>
+  el.innerHTML = `<div class="head"><span class="badge"></span><span class="status"></span><button type="button" class="replay" hidden></button></div>
     <div class="text"></div><div class="cut" hidden></div><div class="chips"></div><div class="track"></div>
     <details><summary>Events</summary><ol></ol></details>`;
   el.querySelector(".badge").textContent = OPTIONS.guides[guideName].label;
   $("thread").append(el);
-  const t = { id, el, t0: pending.shift() ?? performance.now(), text: "", at: {}, syntheses: [], chunks: [], nextTime: 0, status: "thinking" };
+  const t = { id, el, t0: pending.shift() ?? performance.now(), text: "", at: {}, syntheses: [], chunks: [], pcm: [], nextTime: 0, status: "thinking" };
   turns[id] = t;
+  el.querySelector(".replay").onclick = () => replay(t);
   setActive(t);
   render(t);
   return t;
@@ -381,6 +412,11 @@ function render(t) {
   status.className = `status ${t.status}`;
   status.innerHTML = (t.status === "speaking" ? '<span class="bars"><i></i><i></i><i></i></span>' : "") + STATUS[t.status];
   t.el.querySelector(".text").innerHTML = renderText(t);
+  const replayButton = t.el.querySelector(".replay");
+  replayButton.hidden = t === active || !t.pcm.length;
+  replayButton.innerHTML = replaying?.turn === t
+    ? '<svg viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="currentColor"/></svg>Stop'
+    : `<svg viewBox="0 0 10 10"><path d="M2 1l7 4-7 4z" fill="currentColor"/></svg>${t.heard === undefined ? "Replay" : "Replay what you heard"}`;
 
   const cut = t.el.querySelector(".cut");
   cut.hidden = t.heard === undefined && !t.error;

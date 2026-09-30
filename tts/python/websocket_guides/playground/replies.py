@@ -31,7 +31,7 @@ TUTOR_PROMPT = """You are a friendly Spanish tutor for an English speaker. Every
 Mark every Spanish word or phrase, however short, with a language tag: <lang xml:lang="es-ES">El perro corre.</lang> Everything outside a tag is spoken in English.
 
 Direct the voice with markup where it helps a learner:
-- [say slowly and clearly] before a phrase the learner should repeat, then [reset] after it. Write instructions in English, before the words they apply to.
+- [say slowly and clearly] right before a phrase the learner should repeat, after any words that introduce it, then [reset] after it. Write instructions in English.
 - <break time="800ms"/> after a phrase, to leave the learner time to repeat it.
 - [say warmly] or [say encouragingly] when you praise or correct.
 
@@ -86,10 +86,10 @@ SCRIPTS = {
     "tutor_ja": {
         "label": "Japanese tutor: thank you",
         "prompt": "How do I say thank you in Japanese?",
-        "reply": "[say cheerfully] In Japanese, \"thank you\" is <lang xml:lang=\"ja-JP\">ありがとうございます。</lang> "
-                 "<break time=\"600ms\"/> [say slowly and clearly] Once more: "
-                 "<lang xml:lang=\"ja-JP\">ありがとう、ございます。</lang> [reset] With friends, the short "
-                 "<lang xml:lang=\"ja-JP\">ありがとう</lang> is fine. <break time=\"800ms\"/> Your turn!",
+        "reply": "In Japanese, \"thank you\" is <lang xml:lang=\"ja-JP\">ありがとうございます。</lang> "
+                 "<break time=\"600ms\"/> Once more: "
+                 "<lang xml:lang=\"ja-JP\">[say slowly and clearly] ありがとうございます。</lang> [reset] With friends, "
+                 "the short <lang xml:lang=\"ja-JP\">ありがとう</lang> is fine. <break time=\"800ms\"/> Your turn!",
     },
     "tutor_fr": {
         "label": "French tutor: ordering a coffee",
