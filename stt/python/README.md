@@ -92,31 +92,44 @@ python example_stt_mic.py
 
 **Output:** [interim] and [FINAL] segments in real time, then full transcript on exit.
 
-### 6. `example_stt_async.py` - Asynchronous transcription (HTTP)
+### 6. `example_stt_async_file.py` - Asynchronous transcription, whole file in the request
 
-Submits a recording as a job, polls until it finishes, and downloads the transcript. For recordings too long to wait on: meetings, interviews, podcasts. The audio is sent inline, base64-encoded, which suits small files. Default input: `tests-data/audio/test-audio.wav`.
+Submits a recording as a job, polls until it finishes, and downloads the transcript. For recordings too long to wait on: meetings, interviews, podcasts. The whole file goes in the request, base64-encoded, which is the simplest handover and the right one for a small file. Default input: `tests-data/audio/test-audio.wav`.
 
 **Usage:**
 ```bash
-python example_stt_async.py
+python example_stt_async_file.py
 # or
-python example_stt_async.py [path/to/audio.wav]
+python example_stt_async_file.py [path/to/audio.wav]
 ```
 
 **Output:** The job name while it runs, then the transcript, its segments and the billed audio duration.
 
-### 7. `example_stt_async_multipart.py` - Asynchronous transcription with a streamed upload
+### 7. `example_stt_async_stream.py` - Asynchronous transcription, streamed upload
 
-Same job as `example_stt_async.py`, but the audio is uploaded as `multipart/form-data` and streamed from disk a block at a time. Use it for large recordings: memory stays flat regardless of file size, and it avoids the third that base64 encoding adds to the request.
+Same job, but the recording is streamed as a `multipart/form-data` upload, read from disk a block at a time. Use it for large files: memory stays flat however long the recording is, and it avoids the third that base64 adds to a request. Default input: `tests-data/audio/test-audio.wav`.
 
 **Usage:**
 ```bash
-python example_stt_async_multipart.py
+python example_stt_async_stream.py
 # or
-python example_stt_async_multipart.py [path/to/audio.wav]
+python example_stt_async_stream.py [path/to/audio.wav]
 ```
 
-**Output:** Same as `example_stt_async.py`.
+**Output:** Same as `example_stt_async_file.py`.
+
+### 8. `example_stt_async_uri.py` - Asynchronous transcription, audio named by URL
+
+Same job, but no audio is sent: the service is given a URL and fetches the recording itself. The cheapest handover when the audio already lives somewhere reachable, such as cloud storage. The URL must be `https`, must serve the audio directly, and must be reachable without your Inworld credentials — redirects are refused. Default input: a public Google Cloud Storage sample.
+
+**Usage:**
+```bash
+python example_stt_async_uri.py
+# or
+python example_stt_async_uri.py [https://host/path/audio.wav]
+```
+
+**Output:** Same as `example_stt_async_file.py`.
 
 ## Configuration
 

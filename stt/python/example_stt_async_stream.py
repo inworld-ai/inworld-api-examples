@@ -1,23 +1,33 @@
 #!/usr/bin/env python3
 """
-Example script for Inworld STT asynchronous transcription using HTTP.
+Example script for Inworld STT asynchronous transcription, streaming the upload.
 
-Asynchronous transcription is for recordings that are too long to wait on.
-Submitting returns a job; the transcript is collected once the job finishes:
+Asynchronous transcription is for recordings too long to wait on. You hand over
+a recording, receive a job, and collect the transcript when the job finishes:
 
     1. POST /stt/v1/transcribe:async        -> an operation naming the job
     2. GET  /lro/v1alpha/{operation name}   -> poll until done
     3. GET  {resultUri}                     -> the transcript document
 
-This script sends the audio inline, base64-encoded, which is the simplest way
-and suits small files. For large recordings use example_stt_async_multipart.py,
-which streams the file instead of holding it in memory.
+This script streams the recording as a multipart/form-data upload, reading it
+from disk a block at a time. It is the right way to hand over a large file:
+memory stays flat however long the recording is, and it avoids the third that
+base64 encoding adds to a request. For a small file
+example_stt_async_file.py is simpler; when the audio already lives somewhere
+reachable, example_stt_async_uri.py sends a URL instead of the bytes.
+
+The config part must be sent before the file part. The server reads the form as
+a stream, so a config arriving after the audio is found too late.
+
+Usage:
+    python example_stt_async_stream.py [path/to/audio.wav]
 """
 
-import base64
+import json
 import os
 import sys
 import time
+import uuid
 from pathlib import Path
 
 try:
@@ -31,17 +41,20 @@ import requests
 API_BASE = "https://api.inworld.ai"
 
 # How long to keep polling, and how long to wait between polls. A job takes
-# roughly as long as a fraction of the recording, so a two-hour file needs a
-# larger budget than this default.
+# roughly as long as a fraction of the recording, so a long file needs a larger
+# budget than this default.
 POLL_INTERVAL_S = 3
 POLL_TIMEOUT_S = 600
 
 # Bound every request. requests applies no timeout by default, so a stalled
-# connection would hang forever and the polling deadline below would never be
+# connection would hang forever and the polling deadline would never be
 # consulted. The pair is (connect, read) and each applies to one socket
 # operation rather than to the whole transfer, so it does not cut short a large
 # upload or download that is still making progress.
 REQUEST_TIMEOUT_S = (10, 60)
+
+# How much of the file to read at a time while uploading.
+UPLOAD_BLOCK_BYTES = 1024 * 1024
 
 
 def check_api_key():
@@ -54,9 +67,42 @@ def check_api_key():
     return api_key
 
 
+def multipart_body(boundary: str, transcribe_config: dict, audio_path: str):
+    """
+    Yield the multipart body a block at a time, config part first.
+
+    Written by hand rather than with requests' `files=` argument because that
+    one builds the whole body in memory, which is exactly what a large upload
+    needs to avoid.
+    """
+    config_part = (
+        f"--{boundary}\r\n"
+        'Content-Disposition: form-data; name="transcribeConfig"\r\n'
+        "Content-Type: application/json\r\n\r\n"
+        f"{json.dumps(transcribe_config)}\r\n"
+    )
+    yield config_part.encode("utf-8")
+
+    file_header = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="file"; filename="{os.path.basename(audio_path)}"\r\n'
+        "Content-Type: application/octet-stream\r\n\r\n"
+    )
+    yield file_header.encode("utf-8")
+
+    with open(audio_path, "rb") as f:
+        while True:
+            block = f.read(UPLOAD_BLOCK_BYTES)
+            if not block:
+                break
+            yield block
+
+    yield f"\r\n--{boundary}--\r\n".encode("utf-8")
+
+
 def submit(audio_path: str, options: dict | None = None, api_key: str = ""):
     """
-    Submit an asynchronous transcription job with the audio sent inline.
+    Submit an asynchronous transcription job, streaming the audio file.
 
     Args:
         audio_path: Path to audio file (WAV, MP3, FLAC, OGG, etc.)
@@ -66,9 +112,6 @@ def submit(audio_path: str, options: dict | None = None, api_key: str = ""):
     Returns:
         dict: The operation, whose "name" identifies the job
     """
-    with open(audio_path, "rb") as f:
-        content_b64 = base64.b64encode(f.read()).decode("utf-8")
-
     transcribe_config = {
         "modelId": "inworld/inworld-stt-1",
         # Asynchronous transcription accepts every encoding, including the
@@ -79,17 +122,15 @@ def submit(audio_path: str, options: dict | None = None, api_key: str = ""):
     if options:
         transcribe_config.update(options)
 
-    body = {
-        "transcribeConfig": transcribe_config,
-        "audioData": {"content": content_b64},
-    }
+    boundary = uuid.uuid4().hex
     headers = {
-        "Content-Type": "application/json",
+        "Content-Type": f"multipart/form-data; boundary={boundary}",
         "Authorization": f"Basic {api_key}",
     }
+    body = multipart_body(boundary, transcribe_config, audio_path)
 
     response = requests.post(
-        f"{API_BASE}/stt/v1/transcribe:async", headers=headers, json=body, timeout=REQUEST_TIMEOUT_S
+        f"{API_BASE}/stt/v1/transcribe:async", headers=headers, data=body, timeout=REQUEST_TIMEOUT_S
     )
     response.raise_for_status()
     return response.json()
@@ -171,8 +212,8 @@ def print_result(operation: dict, transcript_doc: dict):
 
 
 def main():
-    print("Inworld STT Asynchronous Transcription Example")
-    print("=" * 50)
+    print("Inworld STT Async Transcription - streamed upload")
+    print("=" * 60)
 
     api_key = check_api_key()
     if not api_key:
@@ -182,13 +223,14 @@ def main():
     audio_path = sys.argv[1] if len(sys.argv) > 1 else str(default_audio_path)
     if not os.path.isfile(audio_path):
         print(f"Error: Audio file not found: {audio_path}")
-        print("Usage: python example_stt_async.py [path/to/audio.wav]")
+        print("Usage: python example_stt_async_stream.py [path/to/audio.wav]")
         print("Default: tests-data/audio/test-audio.wav")
         return 1
 
     try:
-        print(f"Audio file: {audio_path}")
-        print("Submitting...")
+        size_mb = os.path.getsize(audio_path) / (1024 * 1024)
+        print(f"Audio file: {audio_path} ({size_mb:.1f} MB)")
+        print("Uploading...")
         start = time.perf_counter()
 
         operation = submit(audio_path, {}, api_key)

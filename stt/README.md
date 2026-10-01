@@ -20,12 +20,22 @@ transcript when the job finishes. Three steps:
    transcript. It needs no credentials and expires 24 hours after completion,
    so download the transcript if you need to keep it.
 
-Send the audio inline as base64 (`audioData.content`), as a streamed
-`multipart/form-data` upload, or as a URL for the service to fetch
-(`audioUri`). Multipart is the one to use for large files: nothing holds the
-recording whole, and base64 is avoided. When sending multipart, put the
-`transcribeConfig` part **before** the `file` part — the upload is read as a
-stream, so a config that arrives after the audio is found too late.
+The audio can be handed over three ways, and there is one self-contained
+example per way in [`js/`](js/) and [`python/`](python/):
+
+| Example | How the audio is handed over | Use it when |
+|---|---|---|
+| `example_stt_async_file` | the whole file in the request, base64 in `audioData.content` | the recording is small — simplest, but base64 makes the request about a third larger and holds it all in memory |
+| `example_stt_async_stream` | streamed `multipart/form-data` upload | the recording is large — memory stays flat however long it is |
+| `example_stt_async_uri` | an `https` URL the service fetches itself | the audio already lives somewhere reachable, such as cloud storage — the bytes never pass through your process |
+
+When sending multipart, put the `transcribeConfig` part **before** the `file`
+part: the upload is read as a stream, so a config arriving after the audio is
+found too late. When sending a URL, it must serve the audio directly and be
+reachable without your Inworld credentials; **redirects are refused**, which
+rules out most convenient sharing links. The service fetches it while the
+submit request is still in flight, so a URL it cannot reach comes back as a
+failed submit rather than a failed job.
 
 Every audio encoding is accepted here, including the compressed formats the
 streaming endpoint rejects. Full reference:

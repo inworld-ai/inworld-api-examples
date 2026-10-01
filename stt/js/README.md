@@ -92,31 +92,44 @@ node example_stt_mic.js
 
 **Output:** [interim] and [FINAL] segments in real time, then full transcript on exit.
 
-### 6. Asynchronous transcription (`example_stt_async.js`)
+### 6. Asynchronous transcription, whole file in the request (`example_stt_async_file.js`)
 
-Submits a recording as a job, polls until it finishes, and downloads the transcript. For recordings too long to wait on: meetings, interviews, podcasts. The audio is sent inline, base64-encoded, which suits small files. Default input: `../tests-data/audio/test-audio.wav`.
+Submits a recording as a job, polls until it finishes, and downloads the transcript. For recordings too long to wait on: meetings, interviews, podcasts. The whole file goes in the request, base64-encoded, which is the simplest handover and the right one for a small file. Default input: `../tests-data/audio/test-audio.wav`.
 
 **Usage:**
 ```bash
-npm run stt-async
+npm run stt-async-file
 # or
-node example_stt_async.js [path/to/audio.wav]
+node example_stt_async_file.js [path/to/audio.wav]
 ```
 
 **Output:** The job name while it runs, then the transcript, its segments and the billed audio duration.
 
-### 7. Asynchronous transcription with a streamed upload (`example_stt_async_multipart.js`)
+### 7. Asynchronous transcription, streamed upload (`example_stt_async_stream.js`)
 
-Same job as `example_stt_async.js`, but the audio is uploaded as `multipart/form-data` and streamed from disk a block at a time. Use it for large recordings: memory stays flat regardless of file size, and it avoids the third that base64 encoding adds to the request.
+Same job, but the recording is streamed as a `multipart/form-data` upload, read from disk a block at a time. Use it for large files: memory stays flat however long the recording is, and it avoids the third that base64 adds to a request. Default input: `../tests-data/audio/test-audio.wav`.
 
 **Usage:**
 ```bash
-npm run stt-async-multipart
+npm run stt-async-stream
 # or
-node example_stt_async_multipart.js [path/to/audio.wav]
+node example_stt_async_stream.js [path/to/audio.wav]
 ```
 
-**Output:** Same as `example_stt_async.js`.
+**Output:** Same as `example_stt_async_file.js`.
+
+### 8. Asynchronous transcription, audio named by URL (`example_stt_async_uri.js`)
+
+Same job, but no audio is sent: the service is given a URL and fetches the recording itself. The cheapest handover when the audio already lives somewhere reachable, such as cloud storage. The URL must be `https`, must serve the audio directly, and must be reachable without your Inworld credentials — redirects are refused. Default input: a public Google Cloud Storage sample.
+
+**Usage:**
+```bash
+npm run stt-async-uri
+# or
+node example_stt_async_uri.js [https://host/path/audio.wav]
+```
+
+**Output:** Same as `example_stt_async_file.js`.
 
 ## Configuration
 

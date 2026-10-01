@@ -1,17 +1,23 @@
 #!/usr/bin/env node
 /**
- * Example script for Inworld STT asynchronous transcription using HTTP.
+ * Example script for Inworld STT asynchronous transcription, sending the whole file.
  *
- * Asynchronous transcription is for recordings that are too long to wait on.
- * Submitting returns a job; the transcript is collected once the job finishes:
+ * Asynchronous transcription is for recordings too long to wait on. You hand
+ * over a recording, receive a job, and collect the transcript when it finishes:
  *
  *   1. POST /stt/v1/transcribe:async      -> an operation naming the job
  *   2. GET  /lro/v1alpha/{operation name} -> poll until done
  *   3. GET  {resultUri}                   -> the transcript document
  *
- * This script sends the audio inline, base64-encoded, which is the simplest way
- * and suits small files. For large recordings use example_stt_async_multipart.js,
- * which streams the file instead of holding it in memory.
+ * This script puts the whole file in the request, base64-encoded in the JSON
+ * body. It is the simplest of the three ways to hand over audio, and the right
+ * one for a small file. Base64 makes the request about a third larger than the
+ * recording, and the whole of it is held in memory, so for a large file prefer
+ * example_stt_async_stream.js (streams the file) or example_stt_async_uri.js
+ * (sends a URL for the service to fetch).
+ *
+ * Usage:
+ *   node example_stt_async_file.js [path/to/audio.wav]
  */
 
 const fs = require('fs');
@@ -21,8 +27,8 @@ try { require('dotenv').config(); } catch (_) {}
 const API_BASE = 'https://api.inworld.ai';
 
 // How long to keep polling, and how long to wait between polls. A job takes
-// roughly as long as a fraction of the recording, so a two-hour file needs a
-// larger budget than this default.
+// roughly as long as a fraction of the recording, so a long file needs a larger
+// budget than this default.
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 600000;
 
@@ -55,7 +61,7 @@ async function toError(response) {
 }
 
 /**
- * Submit an asynchronous transcription job with the audio sent inline.
+ * Submit an asynchronous transcription job with the whole file in the request.
  *
  * @param {string} audioPath - Path to audio file (WAV, MP3, FLAC, OGG, etc.)
  * @param {Object} options - Optional transcribeConfig overrides
@@ -176,8 +182,8 @@ function printResult(operation, transcriptDoc) {
  * Main.
  */
 async function main() {
-    console.log('Inworld STT Asynchronous Transcription Example');
-    console.log('='.repeat(50));
+    console.log('Inworld STT Async Transcription - whole file in the request');
+    console.log('='.repeat(60));
 
     const apiKey = checkApiKey();
     if (!apiKey) return 1;
@@ -186,13 +192,14 @@ async function main() {
     const audioPath = process.argv[2] || DEFAULT_AUDIO_PATH;
     if (!fs.existsSync(audioPath)) {
         console.log(`Error: Audio file not found: ${audioPath}`);
-        console.log('Usage: node example_stt_async.js [path/to/audio.wav]');
+        console.log('Usage: node example_stt_async_file.js [path/to/audio.wav]');
         console.log('Default: ../tests-data/audio/test-audio.wav');
         return 1;
     }
 
     try {
-        console.log(`Audio file: ${audioPath}`);
+        const sizeMb = (fs.statSync(audioPath).size / (1024 * 1024)).toFixed(1);
+        console.log(`Audio file: ${audioPath} (${sizeMb} MB)`);
         console.log('Submitting...');
         const start = Date.now();
 
@@ -217,8 +224,6 @@ async function main() {
     }
     return 0;
 }
-
-module.exports = { API_BASE, checkApiKey, toError, waitForOperation, downloadTranscript, printResult };
 
 if (require.main === module) {
     main().then(process.exit);
