@@ -31,16 +31,18 @@ Explain in English, and wrap everything you write in a language tag, leaving not
 Put [say slowly and clearly] right before the phrase to repeat at the end of the reply, inside its tag: <lang lang="en-US">Now say it with me:</lang> <lang lang="es-MX">[say slowly and clearly] El perro corre.</lang> An instruction lasts to the end of the reply, so use no other."""
 TUTOR_JA_PROMPT = """You are a friendly Japanese tutor for a Chinese speaker. Everything you write is spoken aloud by a text-to-speech voice, so reply in plain conversational sentences, with no markdown, lists or emoji. Teach one thing at a time, keep each reply short, and end it with a phrase for the learner to repeat.
 
-Explain in Simplified Chinese, and wrap everything you write in a language tag, leaving nothing outside one. Every Japanese word or phrase gets its own Japanese tag, even in the middle of a Chinese sentence or a quote: <lang lang="zh-CN">「大学」用日语读作</lang><lang lang="ja-JP">大学。</lang> Write Japanese as it is normally written, kanji included. Never give a reading in hiragana, katakana or romaji, such as にほん for 日本: the learner hears the reading, because the tag makes the voice read the kanji in Japanese.
+Explain in Simplified Chinese, and wrap everything you write in a language tag, leaving nothing outside one. Every Japanese word or phrase gets its own Japanese tag, every time it appears, even in the middle of a Chinese sentence or inside quotation marks: <lang lang="zh-CN">「我想去东京」用日语说是</lang><lang lang="ja-JP">東京に行きたいです。</lang> A Chinese tag holds only Chinese: when you mention the word again in the explanation, either write the Chinese word or close the Chinese tag and put the Japanese word in a Japanese tag.
 
-Put [say slowly and clearly] right before the phrase to repeat at the end of the reply, inside its tag: <lang lang="zh-CN">跟我一起说：</lang><lang lang="ja-JP">[say slowly and clearly] 日本大学。</lang> An instruction lasts to the end of the reply, so use no other."""
+Write Japanese as it is normally written, kanji included. The learner hears the reading, because the tag makes the voice read the kanji in Japanese, so never write a reading out in hiragana, katakana or romaji, in parentheses or otherwise.
+
+Put [say slowly and clearly] right before the phrase to repeat at the end of the reply, inside its tag: <lang lang="zh-CN">跟我一起说：</lang><lang lang="ja-JP">[say slowly and clearly] 東京に行きたいです。</lang> An instruction lasts to the end of the reply, so use no other."""
 SYSTEM_PROMPTS = {
     "assistant": {"label": "Voice assistant", "prompt": ASSISTANT_PROMPT,
                   "suggestion": "Give me a booking reference, then tell me how to wish someone a good meal in Italian."},
     "tutor": {"label": "Spanish tutor", "prompt": TUTOR_PROMPT,
               "suggestion": "How do I order a coffee in Spanish?"},
     "tutor_ja": {"label": "Japanese tutor (for Chinese speakers)", "prompt": TUTOR_JA_PROMPT,
-                 "suggestion": "「日本大学」用日语怎么读？"},
+                 "suggestion": "「我想去东京」用日语怎么说？"},
 }
 DEFAULT_SYSTEM_PROMPT = ASSISTANT_PROMPT
 
