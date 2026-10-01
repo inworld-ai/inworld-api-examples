@@ -403,7 +403,7 @@ function heardLength(text, heard) {
 function renderText(t) {
   const items = t.text.match(/\[[^\]]*\]?|<[^>]*>?|\s+|[^\s\[<]+/g) || [];
   const cut = t.heard === undefined ? Infinity : heardLength(t.text, t.heard);
-  // <lang xml:lang="es-MX"> shows as its code, and the span's words are underlined.
+  // <lang lang="es-MX"> shows as its code, and the span's words are underlined.
   const langs = [];
   let at = 0;
   return items.map((s) => {

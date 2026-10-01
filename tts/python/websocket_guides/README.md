@@ -54,7 +54,7 @@ An LLM can direct the voice with markup in its reply, and every mode passes it t
 
 - [Steering instructions](https://docs.inworld.ai/tts/capabilities/steering) in English, before the words they apply to: `[say slowly and clearly]`, `[whisper]`. An instruction lasts to the end of the reply, or until another replaces it, so the playground's replies place one where the rest of the reply should sound that way. Sounds such as `[laugh]`.
 - `<verbatim>KX7Q2</verbatim>` to read a code character by character.
-- Language tags: `<lang xml:lang="es-MX">El perro corre.</lang>` speaks the span in Spanish, on the voice's localized prompt for Spanish when it has one. This is what a language tutor needs; pick a voice with a localized prompt for each language. In a turn that mixes languages, tag every part, the learner's language too, so none of it is left to language detection: `<lang xml:lang="en-US">"The dog runs" is</lang> <lang xml:lang="es-MX">El perro corre.</lang>`.
+- Language tags: `<lang lang="es-MX">El perro corre.</lang>` speaks the span in Spanish, on the voice's localized prompt for Spanish when it has one. This is what a language tutor needs; pick a voice with a localized prompt for each language. In a turn that mixes languages, tag every part, the learner's language too, so none of it is left to language detection: `<lang lang="en-US">"The dog runs" is</lang> <lang lang="es-MX">El perro corre.</lang>`.
 
 A span can open in one `sendText` and close in a later one: on a context, it lasts until its closing tag. What each mode needs:
 
