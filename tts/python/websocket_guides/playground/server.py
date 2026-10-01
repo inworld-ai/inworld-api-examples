@@ -102,6 +102,7 @@ async def conversation(browser, args, api_key: str):
                 elif kind == "synthesis":
                     await event("synthesis", count=value, audio_seconds=round(turn.audio_seconds, 2))
                 elif kind == "error":
+                    turn.interrupted = True  # stops the reply loop below
                     await send({"type": "error", "turn": turn.context_id, "message": value})
                     break
                 elif kind == "closed":
@@ -109,6 +110,7 @@ async def conversation(browser, args, api_key: str):
                     break
 
         forwarder = asyncio.create_task(forward_events())
+        failed = False
         try:
             async for token in reply:
                 if turn.interrupted:
@@ -119,11 +121,18 @@ async def conversation(browser, args, api_key: str):
             if not turn.interrupted:
                 await event("llm_done")
         except Exception as e:
+            failed = True
             await send({"type": "error", "turn": turn.context_id, "message": f"reply failed: {e}"})
         finally:
             await reply.aclose()
             await speaker.end_turn(turn)
         await forwarder
+        if failed or (turn.interrupted and turn.context_id in turns):
+            # An error ended the turn: the page won't report it played, so keep
+            # what the timestamps confirm was synthesized, never the unspoken rest.
+            record = turns.pop(turn.context_id, None)
+            if record is not None:
+                remember(record, turn.heard(turn.audio_seconds))
 
     def remember(record: dict, text: str):
         """Keep the reply in the history as far as the user heard it."""
@@ -202,8 +211,10 @@ async def main():
         "system_prompt": replies.DEFAULT_SYSTEM_PROMPT,
         "live_suggestion": replies.LIVE_PROMPT_SUGGESTION,
     }
+    # Only the page itself may connect: the server spends your API key.
+    origins = [f"http://localhost:{args.port}", f"http://127.0.0.1:{args.port}"]
     async with serve(lambda ws: conversation(ws, args, api_key), "localhost", args.port,
-                     process_request=page_handler(options), max_size=None):
+                     process_request=page_handler(options), origins=origins, max_size=None):
         print(f"Open http://localhost:{args.port}")
         await asyncio.Future()
 

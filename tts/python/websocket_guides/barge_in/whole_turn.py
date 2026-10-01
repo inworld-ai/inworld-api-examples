@@ -28,6 +28,7 @@ import base64
 import json
 import os
 import re
+import uuid
 import wave
 from dataclasses import dataclass
 
@@ -114,7 +115,6 @@ class Speaker:
         self._reader = None
         self._connecting = asyncio.Lock()
         self._turns: dict[str, Turn] = {}
-        self._count = 0
 
     async def connect(self):
         """Open the connection, or reopen a dropped one. Call it before the
@@ -129,8 +129,7 @@ class Speaker:
     async def start_turn(self) -> Turn:
         """Open a context for the next agent turn."""
         await self.connect()  # returns at once when already connected
-        self._count += 1
-        turn = Turn(f"turn-{self._count}")
+        turn = Turn(f"turn-{uuid.uuid4().hex[:12]}")  # unique across connections
         self._turns[turn.context_id] = turn
         # No need to wait for contextCreated: the service handles messages in order.
         await self._send(turn, {"create": {

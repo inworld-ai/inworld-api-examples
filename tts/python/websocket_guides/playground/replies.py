@@ -75,12 +75,14 @@ async def live(messages: list[dict], api_key: str, model: str = DEFAULT_LLM_MODE
     loop = asyncio.get_running_loop()
     queue: asyncio.Queue = asyncio.Queue()
     stop = threading.Event()
+    open_response = []
 
     def stream():
         try:
             with requests.post(ROUTER_URL, headers={"Authorization": f"Basic {api_key}"},
                                json={"model": model, "messages": messages, "stream": True},
                                stream=True, timeout=60) as response:
+                open_response.append(response)
                 response.raise_for_status()
                 response.encoding = "utf-8"
                 for line in response.iter_lines(decode_unicode=True):
@@ -104,3 +106,5 @@ async def live(messages: list[dict], api_key: str, model: str = DEFAULT_LLM_MODE
             yield item
     finally:
         stop.set()
+        for response in open_response:
+            response.close()  # ends the request now, even while the LLM is silent

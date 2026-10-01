@@ -178,7 +178,7 @@ const $ = (id) => document.getElementById(id);
 const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } },
                 set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
 const ws = new WebSocket(`ws://${location.host}/ws`);
-const send = (message) => ws.send(JSON.stringify(message));
+const send = (message) => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message)); };
 let audio;          // AudioContext, created on the first send (browsers need a gesture first)
 let active = null;  // the turn being written or spoken
 const turns = {};
@@ -216,7 +216,8 @@ $("reset-prompt").onclick = () => { $("prompt").value = OPTIONS.system_prompt; s
 $("prompt").oninput = () => store.set("prompt", $("prompt").value);
 // Open the TTS connection for the chosen mode and voice before the first message.
 const connect = () => send({ type: "connect", guide: guide(), voice_id: $("voice").value });
-ws.onopen = connect;
+$("send").disabled = true; // until the page's connection to the server is open
+ws.onopen = () => { $("send").disabled = false; connect(); };
 $("voice").oninput = () => store.set("voice", $("voice").value);
 $("voice").onchange = connect;
 $("guides").onchange = () => { store.set("guide", guide()); connect(); };
@@ -241,7 +242,7 @@ $("text").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.prevent
 $("form").onsubmit = (e) => {
   e.preventDefault();
   const text = $("text").value.trim();
-  if (!text) return;
+  if (!text || ws.readyState !== WebSocket.OPEN) return;
   audio ??= new AudioContext({ sampleRate: RATE });
   interrupt(); // a new message barges in
   $("empty").hidden = true;
@@ -474,6 +475,7 @@ ws.onmessage = (event) => {
   render(t);
 };
 ws.onclose = () => {
+  $("send").disabled = true;
   const t = newTurn(`closed-${Date.now()}`, guide());
   t.status = "error";
   t.error = "Lost the connection to the playground server. Restart it and reload the page.";
