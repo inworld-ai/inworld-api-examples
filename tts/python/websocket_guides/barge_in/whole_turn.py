@@ -87,7 +87,8 @@ class Turn:
             at = self.sent.find(piece, end) if piece else -1
             if at >= 0:
                 end = at + len(piece)
-        return self.sent[:end].strip()
+        # Markup at the very end opens something not heard yet: <verbatim>, [whisper].
+        return re.sub(r"(\s*(<[^/>][^>]*>|\[[^\]]*\]))+\s*$", "", self.sent[:end]).strip()
 
     async def heard_after_timestamps(self, seconds: float, timeout: float = 2.0) -> str:
         """heard(seconds), once timestamps cover that much audio. With the ASYNC

@@ -199,7 +199,8 @@ async def main():
         "guides": {name: {"label": label, "summary": summary} for name, (label, summary, _) in GUIDES.items()},
         "scripts": {name: {"label": s["label"], "prompt": s["prompt"]} for name, s in replies.SCRIPTS.items()},
         "llm_model": args.llm_model,
-        "system_prompts": replies.SYSTEM_PROMPTS,
+        "system_prompt": replies.DEFAULT_SYSTEM_PROMPT,
+        "live_suggestion": replies.LIVE_PROMPT_SUGGESTION,
     }
     async with serve(lambda ws: conversation(ws, args, api_key), "localhost", args.port,
                      process_request=page_handler(options), max_size=None):

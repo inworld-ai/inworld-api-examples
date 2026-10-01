@@ -75,8 +75,6 @@
   @keyframes bar { 0%, 100% { height: 3px; } 50% { height: 10px; } }
   .text { white-space: pre-wrap; overflow-wrap: anywhere; }
   .text .unheard { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--stop) 60%, transparent); }
-  .lang { text-decoration: underline dotted var(--tts); text-underline-offset: 4px; }
-  .mk.langtag { color: var(--tts); background: color-mix(in srgb, var(--tts) 12%, transparent); }
   .mk { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--llm); background: color-mix(in srgb, var(--llm) 10%, transparent); border-radius: 5px; padding: 0 4px; }
   .cut { margin-top: 10px; padding: 8px 10px; border-radius: 10px; background: var(--stop-soft); font-size: 14px; }
   .cut b { color: var(--stop); font-weight: 600; }
@@ -135,10 +133,6 @@
         <button type="button" data-source="live" aria-pressed="false">Live LLM</button>
       </div>
       <div id="live-settings" hidden>
-        <div class="field">
-          <label for="preset">Agent</label>
-          <select id="preset"></select>
-        </div>
         <div class="field">
           <label for="prompt">System prompt <button type="button" class="link" id="reset-prompt">Reset</button></label>
           <textarea id="prompt" spellcheck="false"></textarea>
@@ -200,14 +194,11 @@ for (const [name, g] of Object.entries(OPTIONS.guides)) {
   $("guides").append(card);
 }
 for (const [name, s] of Object.entries(OPTIONS.scripts)) $("script").add(new Option(s.label, name));
-for (const [name, p] of Object.entries(OPTIONS.system_prompts)) $("preset").add(new Option(p.label, name));
-const preset = () => OPTIONS.system_prompts[$("preset").value];
 $("llm-model").textContent = `Streams from ${OPTIONS.llm_model} through the Inworld Router.`;
 const guide = () => document.querySelector('input[name="guide"]:checked').value;
 let source = store.get("source") || "scripted";
 (document.querySelector(`input[name="guide"][value="${store.get("guide")}"]`) || document.querySelector('input[name="guide"]')).checked = true;
-if (OPTIONS.system_prompts[store.get("preset")]) $("preset").value = store.get("preset");
-$("prompt").value = store.get("prompt") || preset().prompt;
+$("prompt").value = store.get("prompt") || OPTIONS.system_prompt;
 $("voice").value = store.get("voice") || "Sarah";
 
 function setSource(value) {
@@ -216,18 +207,12 @@ function setSource(value) {
   document.querySelectorAll("[data-source]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.source === value));
   $("live-settings").hidden = value !== "live";
   $("scripted-settings").hidden = value !== "scripted";
-  $("text").value = value === "live" ? preset().suggestion : OPTIONS.scripts[$("script").value].prompt;
+  $("text").value = value === "live" ? OPTIONS.live_suggestion : OPTIONS.scripts[$("script").value].prompt;
   autosize();
 }
 document.querySelectorAll("[data-source]").forEach((b) => b.onclick = () => setSource(b.dataset.source));
 $("script").onchange = () => setSource("scripted");
-$("reset-prompt").onclick = () => { $("prompt").value = preset().prompt; store.set("prompt", ""); };
-$("preset").onchange = () => {
-  store.set("preset", $("preset").value);
-  $("prompt").value = preset().prompt;
-  store.set("prompt", "");
-  setSource("live");
-};
+$("reset-prompt").onclick = () => { $("prompt").value = OPTIONS.system_prompt; store.set("prompt", ""); };
 $("prompt").oninput = () => store.set("prompt", $("prompt").value);
 // Open the TTS connection for the chosen mode and voice before the first message.
 const connect = () => send({ type: "connect", guide: guide(), voice_id: $("voice").value });
@@ -393,18 +378,12 @@ function heardLength(text, heard) {
 function renderText(t) {
   const items = t.text.match(/\[[^\]]*\]?|<[^>]*>?|\s+|[^\s\[<]+/g) || [];
   const cut = t.heard === undefined ? Infinity : heardLength(t.text, t.heard);
-  // <lang xml:lang="es-MX"> shows as its code, and the span's words are underlined.
-  const langs = [];
   let at = 0;
   return items.map((s) => {
     const start = at;
     at += s.length;
-    const open = s.match(/^<lang\b[^>]*lang\s*=\s*["']([^"']+)/i);
-    if (open) { langs.push(open[1]); return `<span class="mk langtag">${esc(open[1])}</span>`; }
-    if (/^<\/lang/i.test(s)) { langs.pop(); return `<span class="mk langtag">/</span>`; }
     if (/^[\[<]/.test(s)) return `<span class="mk">${esc(s)}</span>`;
-    const cls = [start >= cut && s.trim() ? "unheard" : "", langs.length && s.trim() ? "lang" : ""].filter(Boolean).join(" ");
-    return cls ? `<span class="${cls}">${esc(s)}</span>` : esc(s);
+    return start >= cut && s.trim() ? `<span class="unheard">${esc(s)}</span>` : esc(s);
   }).join("");
 }
 
