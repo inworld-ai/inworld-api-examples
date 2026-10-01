@@ -37,8 +37,8 @@ python server.py --port 8766 --model-id inworld-tts-2 --llm-model openai/gpt-4.1
 - **Voice**: any voice ID.
 - **Mode**: how the reply is sent, one per guide: [One flush per turn](./barge_in/), [Client-side sentence segmentation](./auto_mode/), or [One token at a time](./sentence_boundary/).
 - **Reply**: a scripted reply or a live LLM.
-  - *Scripted* replies stream the same tokens every run, with an LLM's timing: a first token after about a third of a second, then 60 tokens a second. They cover a short answer, a long one to interrupt, and [markup](#markup-in-replies).
-  - *Live LLM* streams from the Inworld Router's chat completions API with the same API key; `--llm-model` picks the model. Edit the system prompt in the sidebar; the default asks the LLM for [markup](#markup-in-replies).
+  - *Scripted* replies stream the same tokens every run, with an LLM's timing: a first token after about a third of a second, then 60 tokens a second. They cover a short answer, a long one to interrupt, [markup](#markup-in-replies), and two language tutors: Spanish for English speakers, and Japanese for Chinese speakers.
+  - *Live LLM* streams from the Inworld Router's chat completions API with the same API key; `--llm-model` picks the model. Pick an agent, *Voice assistant* or *Spanish tutor*, and edit its system prompt in the sidebar. Both prompts ask the LLM for [markup](#markup-in-replies).
 - **Interrupt**: press Esc, click Interrupt, or send another message. The page stops playback at once and reports how many seconds of the turn it played. The server closes the turn's context and keeps only the words you heard in the LLM history. The reply shows what was heard, with the rest struck through.
 - **Replay** plays a reply again, or only what you heard of an interrupted one.
 - **New chat** clears the LLM history.
@@ -53,7 +53,9 @@ An LLM can direct the voice with markup in its reply, and every mode passes it t
 
 - [Steering instructions](https://docs.inworld.ai/tts/capabilities/steering) in English, before the words they apply to: `[say slowly and clearly]`, `[whisper]`. An instruction lasts to the end of the reply, or until another replaces it, so the playground's replies place one where the rest of the reply should sound that way. Sounds such as `[laugh]`.
 - `<verbatim>KX7Q2</verbatim>` to read a code character by character.
-What each mode needs for markup:
+- Language tags: `<lang xml:lang="es-MX">El perro corre.</lang>` speaks the span in Spanish, on the voice's localized prompt for Spanish when it has one. This is what a language tutor needs; pick a voice with a localized prompt for each language. In a turn that mixes languages, tag every part, the learner's language too, so none of it is left to language detection: `<lang xml:lang="en-US">"The dog runs" is</lang> <lang xml:lang="es-MX">El perro corre.</lang>`.
+
+A span can open in one `sendText` and close in a later one: on a context, it lasts until its closing tag. What each mode needs:
 
 - **One flush per turn**: nothing; the reply goes out whole.
 - **Client-side sentence segmentation**: cut at sentence ends as usual, never inside a tag. The splitter in [`auto_mode/`](./auto_mode/) holds back an unfinished tag.

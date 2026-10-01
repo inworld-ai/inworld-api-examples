@@ -17,15 +17,29 @@ import requests
 
 ROUTER_URL = os.getenv("INWORLD_API_BASE_URL", "https://api.inworld.ai").rstrip("/") + "/v1/chat/completions"
 DEFAULT_LLM_MODEL = "openai/gpt-4.1-mini"
-DEFAULT_SYSTEM_PROMPT = """You are a friendly voice assistant. Everything you write is spoken aloud by a text-to-speech voice, so reply in plain conversational sentences, with no markdown, lists or emoji. Keep replies to a few sentences unless the user asks for more.
+ASSISTANT_PROMPT = """You are a friendly voice assistant. Everything you write is spoken aloud by a text-to-speech voice, so reply in plain conversational sentences, with no markdown, lists or emoji. Keep replies to a few sentences unless the user asks for more.
 
 Direct the voice with markup where it helps the listener, not in every sentence:
 - A delivery instruction in square brackets, written in English, before the words it applies to: [say warmly], [whisper], [say excitedly]. It lasts to the end of the reply, or until another instruction replaces it, so use one where the rest of the reply should sound that way.
 - A sound: [laugh], [sigh], [breathe].
 - Anything to be read out character by character, such as a code or reference number: <verbatim>AB12C</verbatim>.
+- Language tags, when a reply mixes languages, around every part, English included, however short the other language's part: a greeting, a dish or a quote. Each part is spoken in its tag's language: <lang xml:lang="en-US">Before a meal in France, people say</lang> <lang xml:lang="fr-FR">Bon appétit !</lang>
 
 Close every tag, and never write [ or < for anything else."""
-LIVE_PROMPT_SUGGESTION = "Give me a booking reference, then tell me a very short spooky story."
+TUTOR_PROMPT = """You are a friendly Spanish tutor for an English speaker. Everything you write is spoken aloud by a text-to-speech voice, so reply in plain conversational sentences, with no markdown, lists or emoji. Teach one thing at a time, keep each reply short, and end it with a phrase for the learner to repeat.
+
+Explain in English, and wrap everything you write in a language tag, leaving nothing outside one. Every Spanish word or phrase gets its own Spanish tag, even in the middle of an English sentence or a quote: <lang xml:lang="en-US">You can say</lang> <lang xml:lang="es-MX">Quisiera un café,</lang> <lang xml:lang="en-US">which means "I would like a coffee."</lang>
+
+Put [say slowly and clearly] right before the phrase to repeat at the end of the reply, inside its tag: <lang xml:lang="en-US">Now say it with me:</lang> <lang xml:lang="es-MX">[say slowly and clearly] El perro corre.</lang> An instruction lasts to the end of the reply, so use no other.
+
+Close every tag, and never write [ or < for anything else."""
+SYSTEM_PROMPTS = {
+    "assistant": {"label": "Voice assistant", "prompt": ASSISTANT_PROMPT,
+                  "suggestion": "Give me a booking reference, then tell me how to wish someone a good meal in Italian."},
+    "tutor": {"label": "Spanish tutor", "prompt": TUTOR_PROMPT,
+              "suggestion": "How do I order a coffee in Spanish?"},
+}
+DEFAULT_SYSTEM_PROMPT = ASSISTANT_PROMPT
 
 FIRST_TOKEN_DELAY_S = 0.35
 TOKENS_PER_SECOND = 60
@@ -54,6 +68,25 @@ SCRIPTS = {
         "prompt": "What's my booking reference?",
         "reply": "Welcome back! Your booking reference is <verbatim>KX7Q2</verbatim>, and you're all set "
                  "for tonight. [whisper] And a little secret: the lounge has free cookies.",
+    },
+    "tutor_es": {
+        "label": "Spanish for English speakers",
+        "prompt": "How do I say \"the dog runs\" in Spanish?",
+        "reply": "<lang xml:lang=\"en-US\">Great question! \"The dog runs\" is</lang> "
+                 "<lang xml:lang=\"es-MX\">El perro corre.</lang> "
+                 "<lang xml:lang=\"en-US\">Listen to the rolled r in</lang> <lang xml:lang=\"es-MX\">perro</lang>"
+                 "<lang xml:lang=\"en-US\">, and compare it with the single tap in</lang> "
+                 "<lang xml:lang=\"es-MX\">pero</lang><lang xml:lang=\"en-US\">, which means \"but\". "
+                 "Now say it with me:</lang> <lang xml:lang=\"es-MX\">[say slowly and clearly] El perro corre.</lang>",
+    },
+    "tutor_ja": {
+        "label": "Japanese for Chinese speakers",
+        "prompt": "「日本大学」用日语怎么读？",
+        "reply": "<lang xml:lang=\"zh-CN\">「日本大学」用日语读作</lang><lang xml:lang=\"ja-JP\">日本大学。</lang>"
+                 "<lang xml:lang=\"zh-CN\">同样的汉字，日语的读法和中文不一样：「日本」读作</lang>"
+                 "<lang xml:lang=\"ja-JP\">日本</lang><lang xml:lang=\"zh-CN\">，「大学」读作</lang>"
+                 "<lang xml:lang=\"ja-JP\">大学。</lang><lang xml:lang=\"zh-CN\">跟我一起说：</lang>"
+                 "<lang xml:lang=\"ja-JP\">[say slowly and clearly] 日本大学。</lang>",
     },
 }
 
