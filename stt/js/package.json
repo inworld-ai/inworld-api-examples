@@ -8,7 +8,10 @@
     "stt-stream": "node example_stt_websocket.js",
     "stt-mic": "node example_stt_mic.js",
     "stt-vad-config": "node example_stt_with_vad_config.js",
-    "stt-voice-profile": "node example_stt_with_voice_profile.js"
+    "stt-voice-profile": "node example_stt_with_voice_profile.js",
+    "stt-async-file": "node example_stt_async_file.js",
+    "stt-async-stream": "node example_stt_async_stream.js",
+    "stt-async-uri": "node example_stt_async_uri.js"
   },
   "keywords": [
     "inworld",
