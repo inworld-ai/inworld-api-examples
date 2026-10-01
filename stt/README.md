@@ -2,10 +2,44 @@
 
 | Directory | Description |
 |---|---|
-| [`js/`](js/) | Speech-to-text examples in JavaScript/Node.js (sync HTTP, WebSocket from file or mic) |
-| [`python/`](python/) | Speech-to-text examples in Python (sync HTTP, WebSocket from file or mic) |
+| [`js/`](js/) | Speech-to-text examples in JavaScript/Node.js (sync HTTP, async jobs, WebSocket from file or mic) |
+| [`python/`](python/) | Speech-to-text examples in Python (sync HTTP, async jobs, WebSocket from file or mic) |
 | [`tests-data/`](tests-data/) | Test audio for file-based examples (e.g. `audio/test-audio.wav`, `audio/test-pcm-audio.pcm`) |
 
+
+## Asynchronous transcription
+
+For a recording too long to wait on, submit it as a job and collect the
+transcript when the job finishes. Three steps:
+
+1. `POST https://api.inworld.ai/stt/v1/transcribe:async` returns an
+   **operation** — a handle naming the job, not the transcript.
+2. `GET https://api.inworld.ai/lro/v1alpha/{operation name}` reports whether
+   the job has finished. Poll every few seconds.
+3. The finished operation carries `response.resultUri`, a signed link to the
+   transcript. It needs no credentials and expires 24 hours after completion,
+   so download the transcript if you need to keep it.
+
+The audio can be handed over three ways, and there is one self-contained
+example per way in [`js/`](js/) and [`python/`](python/):
+
+| Example | How the audio is handed over | Use it when |
+|---|---|---|
+| `example_stt_async_file` | the whole file in the request, base64 in `audioData.content` | the recording is small — simplest, but base64 makes the request about a third larger and holds it all in memory |
+| `example_stt_async_stream` | streamed `multipart/form-data` upload | the recording is large — memory stays flat however long it is |
+| `example_stt_async_uri` | an `https` URL the service fetches itself | the audio already lives somewhere reachable, such as cloud storage — the bytes never pass through your process |
+
+When sending multipart, put the `transcribeConfig` part **before** the `file`
+part: the upload is read as a stream, so a config arriving after the audio is
+found too late. When sending a URL, it must serve the audio directly and be
+reachable without your Inworld credentials; **redirects are refused**, which
+rules out most convenient sharing links. The service fetches it while the
+submit request is still in flight, so a URL it cannot reach comes back as a
+failed submit rather than a failed job.
+
+Every audio encoding is accepted here, including the compressed formats the
+streaming endpoint rejects. Full reference:
+[Async transcription](https://docs.inworld.ai/stt/async-transcription).
 
 ## Streaming integration
 

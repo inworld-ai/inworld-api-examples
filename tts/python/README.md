@@ -234,9 +234,9 @@ python example_voice_design_publish.py
 ---
 
 ### 12. `websocket_guides/` - WebSocket Usage Guides
-**Purpose:** Focused guides for the bidirectional WebSocket API, starting with switching languages within a turn.
+**Purpose:** Focused guides for the bidirectional WebSocket API for voice agents: barge-in and keeping the LLM history to what the user heard, auto mode with client-side sentences, sentence-boundary auto mode for raw LLM tokens, and switching languages within a turn with language tags.
 
-**Best for:** Multilingual agents such as language tutors. See [language switching](./websocket_guides/language_switching/README.md).
+**Best for:** Voice agents that speak an LLM's output, including multilingual agents such as language tutors. See [its README](./websocket_guides/README.md).
 
 ## Configuration Options
 
