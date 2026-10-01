@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 """
-Local web demo for language switching over the TTS WebSocket.
+Local web demo for language switching with language tags.
 
-Type a tutor turn with the taught language in <l2>...</l2>, see what each mode
-sends, and hear it. The WebSocket client is ../language_switching.py; this
-server only runs it for the page, in its four modes:
+Type a tutor turn with every part in a <lang> tag, see what each mode sends,
+and hear it. The speakers are ../language_switching.py's; this server only
+runs them for the page:
 
-  one           the whole turn as one flush
-  per-language  a flush at every language switch
-  instructions  one flush, with an instruction such as [in pure Spanish] at every switch
-  sentence      streamed like an LLM's tokens, with sentence-boundary auto mode
-
-The page picks the voice for each mode.
+  tags          the tagged turn as one flush
+  sentence      the tagged turn token by token, with sentence-boundary auto mode
+  no-tags       the tags stripped, as one flush: one detected language
+  per-language  the tags stripped, and a flush at every switch: one detection per flush
 
 The server holds the API key and talks to the TTS WebSocket; the browser only
 talks to this server.
@@ -35,6 +33,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
 import language_switching as ls  # noqa: E402
+from whole_turn import SAMPLE_RATE_HZ, WEBSOCKET_URL  # noqa: E402
 
 SYNTHESIS_TIMEOUT_S = 90
 
@@ -44,55 +43,49 @@ def wav_base64(pcm: bytes) -> str:
     with wave.open(buf, "wb") as f:
         f.setnchannels(1)
         f.setsampwidth(2)
-        f.setframerate(ls.SAMPLE_RATE_HZ)
+        f.setframerate(SAMPLE_RATE_HZ)
         f.writeframes(pcm)
     return base64.b64encode(buf.getvalue()).decode()
 
 
-def messages_for(body: dict, mode: str) -> list[ls.Synthesis]:
-    names = body.get("languages") or {}
-    return ls.messages_for(mode, body.get("text", ""), {"l1": names.get("l1") or "English",
-                                                          "l2": names.get("l2") or "Spanish"},
-                           body.get("instruction") or ls.DEFAULT_INSTRUCTION)
-
-
-def plan(body: dict) -> dict:
-    """What each mode sends. Sentence mode sends the turn in pieces; the plan
-    shows it whole, since the service decides where its syntheses start."""
-    out = {mode: [{"language": m.language, "text": m.text} for m in messages_for(body, mode)]
-           for mode in ls.MODES if mode != "sentence"}
-    out["sentence"] = [{"language": "", "text": ls.plain_text(body.get("text", ""))}]
-    return out
+def plan(text: str) -> dict:
+    """What each mode sends: the turn's spans, and its text without the tags."""
+    return {
+        "spans": [{"language": language, "text": piece} for language, piece in ls.split_spans(text)],
+        "plain": ls.strip_tags(text),
+    }
 
 
 def synthesize(url: str, api_key: str, body: dict) -> dict:
     voice_id = (body.get("voice_id") or "").strip()
     if not voice_id:
         raise ValueError("Set a voice ID.")
-    mode = body.get("mode", "one")
+    mode, text = body.get("mode", "tags"), body.get("text", "")
     if mode not in ls.MODES:
         raise ValueError(f"Unknown mode {mode!r}.")
-    messages = messages_for(body, mode)
-    if not messages:
+    if not ls.speakable(ls.strip_tags(text)):
         raise ValueError("Nothing to synthesize.")
     start = time.time()
     syntheses = asyncio.run(asyncio.wait_for(
-        ls.synthesize(api_key, messages, voice_id, body.get("model_id") or "inworld-tts-2", url,
-                      sentence_mode=mode == "sentence"),
+        ls.speak(mode, text, api_key, voice_id, body.get("model_id") or "inworld-tts-2", url),
         SYNTHESIS_TIMEOUT_S,
     ))
+    # Per-language flushes are the turn's spans, in order.
+    spans = ls.split_spans(text) if mode == "per-language" else []
+    if len(spans) != len(syntheses):
+        spans = [("", "")] * len(syntheses)
     return {
         "elapsed_ms": round((time.time() - start) * 1000),
         "audio_wav": wav_base64(b"".join(s.pcm for s in syntheses)),
-        "flushes": [
+        "syntheses": [
             {
-                "language": s.language,
-                "text": s.text,
-                "duration_s": round(len(s.pcm) / 2 / ls.SAMPLE_RATE_HZ, 3),
+                "language": language,
+                "text": piece,
+                "duration_s": round(len(s.pcm) / 2 / SAMPLE_RATE_HZ, 3),
                 "first_audio_ms": round(s.first_audio_s * 1000),
                 "audio_wav": wav_base64(bytes(s.pcm)),
             }
-            for s in syntheses
+            for s, (language, piece) in zip(syntheses, spans)
         ],
     }
 
@@ -131,7 +124,7 @@ def make_handler(url: str, api_key: str):
                 return
             try:
                 if self.path == "/api/plan":
-                    self._json(200, plan(body))
+                    self._json(200, plan(body.get("text", "")))
                 elif self.path == "/api/synthesize":
                     self._json(200, synthesize(url, api_key, body))
                 else:
@@ -153,7 +146,7 @@ def make_handler(url: str, api_key: str):
 def main():
     parser = argparse.ArgumentParser(description="Inworld TTS language switching web demo")
     parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument("--url", default=ls.WEBSOCKET_URL, help="TTS WebSocket endpoint")
+    parser.add_argument("--url", default=WEBSOCKET_URL, help="TTS WebSocket endpoint")
     args = parser.parse_args()
 
     api_key = os.getenv("INWORLD_API_KEY")

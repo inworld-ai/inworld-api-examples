@@ -9,6 +9,7 @@ Read them in order; each builds on the one before and changes only how an agent'
 | 1. [`barge_in/`](./barge_in/) | The base: one context per agent turn, the whole reply sent at once, barge-in, and keeping the LLM history to what the user heard |
 | 2. [`auto_mode/`](./auto_mode/) | Start speaking while the LLM writes: a small client-side sentence splitter, with auto mode deciding when to synthesize |
 | 3. [`sentence_boundary/`](./sentence_boundary/) | Send the LLM's tokens as they arrive and let the service find the sentences (Preview) |
+| 4. [`language_switching/`](./language_switching/) | Switch languages within a turn with language tags, as a language tutor does; a local demo plays a turn with tags and without |
 | [Playground](#playground) | A local web page to try every guide: type to the agent, hear it, interrupt it |
 
 ## Setup

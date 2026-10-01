@@ -117,12 +117,11 @@
 <body>
 <main>
   <header>
-    <h1>Language switching on one TTS context</h1>
+    <h1>Language switching with language tags</h1>
     <p class="lede">
-      A tutor turn marks the language being taught with <code>&lt;l2&gt;…&lt;/l2&gt;</code>, with Japanese written in
-      kana. One WebSocket client
-      (<code>language_switching.py</code>) sends it four ways, and each card below is one of them: one flush, a flush per
-      language, a flush per language opening with an instruction, and a stream the service cuts at sentence ends.
+      A tutor turn wraps every part in a language tag, <code>&lt;lang lang="es-MX"&gt;…&lt;/lang&gt;</code>, and the
+      service speaks each span in its language. The first two cards send the tagged turn, as one flush and token by
+      token. The last two strip the tags, to hear what language detection does without them.
     </p>
   </header>
 
@@ -130,36 +129,30 @@
     <summary>What decides what you hear</summary>
     <div class="explain">
       <div>
-        <h4>Kana decides Japanese</h4>
-        <p>Most kanji have several readings, and the same characters read as Chinese. Kana has one reading and always
-          reads as Japanese, so ask your LLM to write Japanese in kana. Chinese characters have several readings too
-          (好, 还, 行, 长), and a Spanish word can be read as English: both are left to the voice and the prompt.</p>
+        <h4>A tag decides its span's language</h4>
+        <p>Each span is spoken on the voice's localized prompt for its language when the voice has one, and on the
+          voice's own prompt otherwise. The span's language also sets how its numbers are read, and its timestamps.
+          Tags are flat: a span lasts until its closing tag, even across messages, and tags never nest.</p>
       </div>
       <div>
-        <h4>Detection picks one language per synthesis</h4>
-        <p>The context sets no <code>language</code>, so the service detects one for every synthesis, by its script first:</p>
+        <h4>Tag every part</h4>
+        <p>Text outside every tag is left to language detection, which reads the whole of it at once. In a turn that
+          mixes languages, tag the learner's language too. Keep the switches few: each one starts a new synthesis
+          call inside the service.</p>
+      </div>
+      <div>
+        <h4>Every mode takes tags</h4>
+        <p>Sent as one flush or token by token with sentence-boundary auto mode, the tags mean the same. The service
+          holds back a tag split across tokens until it is whole.</p>
+      </div>
+      <div>
+        <h4>Without tags, detection picks one language per synthesis</h4>
         <ul>
           <li><b>Kana</b> reads as Japanese; <b>Hangul</b> as Korean.</li>
-          <li><b>Chinese characters</b> read as Chinese or Japanese; a word or two alone takes the language of the turn so far.</li>
+          <li><b>Chinese characters</b> read as Chinese or Japanese. A word or two alone reads by a character used in
+            only one of them (谢 is Chinese), and otherwise takes the language of the turn so far.</li>
           <li><b>Latin letters</b> go to a model, which needs a few words: a single Spanish word can read as English.</li>
         </ul>
-      </div>
-      <div>
-        <h4>The prompt decides the accent</h4>
-        <p>A voice with localized prompts speaks each flush on its prompt for the detected language, when
-          per-language prompt switching is enabled for your workspace; otherwise every flush uses its own prompt.
-          A voice cloned from a clip in both languages has one prompt with both accents, so no detection is needed
-          for its accent.</p>
-        <p>The detected language also sets how numbers are read, and timestamps.</p>
-      </div>
-      <div>
-        <h4>Instructions steer; sentence mode cuts</h4>
-        <p>An inline instruction such as <code>[in pure Spanish]</code> at the start of a flush steers its delivery on
-          whichever prompt the flush's detected language selects. Detection ignores the instruction, so it matters most
-          where detection places a flush on the other language's prompt, as it does a single word. Instructions need
-          <code>inworld-tts-2</code>.</p>
-        <p>In sentence-boundary auto mode the service starts a synthesis at every sentence end and detects its language.
-          Sentences that arrive while one runs are batched, and a batch is spoken in one language.</p>
       </div>
     </div>
   </details>
@@ -174,8 +167,7 @@
     <textarea id="text" spellcheck="false" aria-label="Turn text"></textarea>
     <div class="row">
       <label>Voice with localized prompts <input id="voice"></label>
-      <label>Bilingual voice <input id="bivoice"></label>
-      <label>Instruction <input id="instruction" value="in pure {language}"></label>
+      <label>Bilingual voice, for the no-tags card <input id="bivoice"></label>
       <label>Model <input id="model" value="inworld-tts-2"></label>
       <button class="go" id="go">Synthesize</button>
     </div>
@@ -184,130 +176,130 @@
   <section class="card" aria-labelledby="plan-h">
     <h2 id="plan-h">What gets sent</h2>
     <div class="sends">
-      <h3>One flush</h3>
-      <div class="sent" id="plan-one"></div>
+      <h3>With tags · the turn as written, and the spans the service speaks</h3>
+      <div class="plan" id="plan-spans"></div>
     </div>
     <div class="sends">
-      <h3>Per-language flushes</h3>
+      <h3>No tags · one flush</h3>
+      <div class="sent" id="plan-plain"></div>
+    </div>
+    <div class="sends">
+      <h3>No tags · a flush per language</h3>
       <div class="plan" id="plan-per"></div>
-    </div>
-    <div class="sends">
-      <h3>Instructions · a flush per language, each opening with an instruction</h3>
-      <div class="plan" id="plan-instructions"></div>
-    </div>
-    <div class="sends">
-      <h3>Sentence boundary · streamed in small pieces, cut by the service</h3>
-      <div class="sent" id="plan-sentence"></div>
     </div>
   </section>
 
   <section class="results">
-    <article class="card result" id="one">
-      <div><h3>One flush</h3>
-        <p class="sub">The whole turn as one flush: one detected language, one prompt. On a bilingual voice, that prompt
-          has both accents; without one, the voice with localized prompts speaks it.</p></div>
-      <div class="body"><p class="status">Not run yet.</p></div>
-    </article>
-    <article class="card result" id="per-language">
-      <div><h3>Per-language flushes</h3>
-        <p class="sub">A flush at every switch, on the voice with localized prompts: each flush gets its own detected
-          language and prompt.</p></div>
-      <div class="body"><p class="status">Not run yet.</p></div>
-    </article>
-    <article class="card result" id="instructions">
-      <div><h3>Instructions</h3>
-        <p class="sub">A flush at every switch on the voice with localized prompts, each opening with an instruction:
-          each flush gets its own detected language and prompt, and the instruction steers it.</p></div>
+    <article class="card result" id="tags">
+      <div><h3>Tags · one flush</h3>
+        <p class="sub">The tagged turn as one flush: the service speaks each span in its tag's language.</p></div>
       <div class="body"><p class="status">Not run yet.</p></div>
     </article>
     <article class="card result" id="sentence">
-      <div><h3>Sentence boundary</h3>
-        <p class="sub">The turn streamed like an LLM's tokens with sentence-boundary auto mode, on the voice with
-          localized prompts: a synthesis per sentence, or per batch of sentences, each with its own detected language.</p></div>
+      <div><h3>Tags · token by token</h3>
+        <p class="sub">The tagged turn streamed like an LLM's tokens, with sentence-boundary auto mode: the service
+          cuts at sentence ends, and a span carries across the cuts.</p></div>
+      <div class="body"><p class="status">Not run yet.</p></div>
+    </article>
+    <article class="card result" id="no-tags">
+      <div><h3>No tags · one flush</h3>
+        <p class="sub">The tags stripped: one detected language and one prompt for the whole turn. On a bilingual
+          voice, when you set one, that prompt has both accents.</p></div>
+      <div class="body"><p class="status">Not run yet.</p></div>
+    </article>
+    <article class="card result" id="per-language">
+      <div><h3>No tags · a flush per language</h3>
+        <p class="sub">The tags stripped and a flush at every switch: each flush gets its own detected language and
+          prompt.</p></div>
       <div class="body"><p class="status">Not run yet.</p></div>
     </article>
   </section>
 </main>
 
 <script>
-// Each card is one call to the same client: a mode and a voice. One flush uses
-// the bilingual voice when one is set; the other modes switch prompts by
-// language, so they use the voice with localized prompts.
+// Each card is one of language_switching.py's modes on one voice. The no-tags
+// flush uses the bilingual voice when one is set.
 const CARDS = {
-  "one": { mode: "one", voice: () => $("#bivoice").value.trim() || $("#voice").value.trim() },
-  "per-language": { mode: "per-language", voice: () => $("#voice").value.trim() },
-  "instructions": { mode: "instructions", voice: () => $("#voice").value.trim() },
-  "sentence": { mode: "sentence", voice: () => $("#voice").value.trim() },
+  "tags": () => $("#voice").value.trim(),
+  "sentence": () => $("#voice").value.trim(),
+  "no-tags": () => $("#bivoice").value.trim() || $("#voice").value.trim(),
+  "per-language": () => $("#voice").value.trim(),
 };
 
-// A language pair sets the labels, the voice with localized prompts for both
-// languages, and which bilingual voice ID the page remembers.
+const lang = (code, text) => `<lang lang="${code}">${text}</lang>`;
+
+// A language pair sets the voice with localized prompts for both languages,
+// and which bilingual voice ID the page remembers.
 const PAIRS = {
-  "en-es": { name: "English → Spanish", l1: "EN", l2: "ES", names: ["English", "Spanish"], voice: "Jason", presets: [
+  "en-es": { name: "English → Spanish", voice: "Sarah", presets: [
     { name: "Rolled r", text:
-      'Great job! In Spanish, "the dog runs" is <l2>El perro corre.</l2> ' +
-      'Listen for the rolled r in <l2>perro</l2>, "dog", and the single tap in <l2>pero</l2>, "but".',
-      note: `The Spanish sentence is long enough to read as Spanish, so per-language flushes speak it on the Spanish prompt;
-        as one flush on the localized voice the turn reads as English. The single words read as English even in their
-        own flushes, so the localized voice speaks them on its English prompt: listen for whether the r's survive, and
-        for what the instruction changes.` },
+      lang("en-US", 'Great job! "The dog runs" is') + " " + lang("es-MX", "El perro corre.") + " " +
+      lang("en-US", "Listen for the rolled r in") + " " + lang("es-MX", "perro") +
+      lang("en-US", ", and the single tap in") + " " + lang("es-MX", "pero") + lang("en-US", ', which means "but".'),
+      note: `With tags, every Spanish span is spoken on the Spanish prompt. Without them, the turn reads as English
+        as one flush. Per-language flushes reach the same prompts as the tags here, since each Spanish flush reads as
+        Spanish, at the cost of a flush at every switch.` },
     { name: "Single words", text:
-      'The word for dog is <l2>perro</l2>, and the word for but is <l2>pero</l2>. The number eleven is <l2>once</l2>.',
-      note: `<b>The pitfall.</b> A single Spanish word reads as English, even in its own flush, so the localized voice
-        speaks all three on its English prompt, and <i>once</i> can come out as the English word. Instructions steer them
-        toward Spanish; a bilingual voice gives them a Spanish accent.` },
+      lang("en-US", "The word for dog is") + " " + lang("es-MX", "perro") + lang("en-US", ", and the word for but is") + " " +
+      lang("es-MX", "pero") + lang("en-US", ". The number eleven is") + " " + lang("es-MX", "once") + lang("en-US", "."),
+      note: `Without tags, <i>once</i> reads as English even in its own flush, since it is an English word too, while
+        <i>perro</i> and <i>pero</i> read as Spanish. With tags, all three are Spanish spans.` },
     { name: "Replies", text:
-      'When someone thanks you, answer <l2>De nada.</l2> Or, more warmly, <l2>¡No hay de qué, fue un placer!</l2>',
-      note: `There is more Spanish than English here, so as one flush the turn reads as Spanish and the English is spoken
-        on the Spanish prompt. Per-language flushes give each language its own.` },
+      lang("en-US", "When someone thanks you, answer") + " " + lang("es-MX", "De nada.") + " " +
+      lang("en-US", "Or, more warmly,") + " " + lang("es-MX", "¡No hay de qué, fue un placer!"),
+      note: `Without tags there is more Spanish than English here, so as one flush the turn reads as Spanish and the
+        English is spoken on the Spanish prompt. Tags give each part its own language.` },
   ] },
-  "en-ja": { name: "English → Japanese", l1: "EN", l2: "JA", names: ["English", "Japanese"], voice: "Jason", presets: [
+  "en-ja": { name: "English → Japanese", voice: "Sarah", presets: [
     { name: "Thank you", text:
-      'In Japanese, "thank you very much" is <l2>ありがとうございます。</l2> To get someone\'s attention, say <l2>すみません。</l2>',
-      note: `Kana reads as Japanese, so per-language flushes speak it on the Japanese prompt. As one flush the kana is
-        enough of the turn to make all of it Japanese, English included.` },
+      lang("en-US", 'In Japanese, "thank you very much" is') + " " + lang("ja-JP", "ありがとうございます。") + " " +
+      lang("en-US", "To get someone's attention, say") + " " + lang("ja-JP", "すみません。"),
+      note: `Without tags, the kana is enough of the turn to make all of it Japanese as one flush, English included.
+        With tags, each part keeps its language.` },
   ] },
-  "zh-ja": { name: "Chinese → Japanese", l1: "ZH", l2: "JA", names: ["Chinese", "Japanese"], voice: "Sarah", presets: [
-    { name: "Kana", text:
-      '日语的“老师”是<l2>せんせい</l2>，“学生”是<l2>がくせい</l2>。早上见到老师，可以说：<l2>せんせい、おはようございます。</l2>',
-      note: `The Japanese is in kana, so each Japanese flush reads as Japanese and each Chinese one as Chinese. As one
-        flush, the kana makes the whole turn Japanese, and the Chinese is spoken on the Japanese prompt.` },
-    { name: "Kanji", text:
-      '日语的“老师”写作<l2>先生</l2>，“学生”写作<l2>学生</l2>。早上见到老师，可以说：<l2>先生、おはようございます。</l2>',
-      note: `<b>The pitfall.</b> The same turn with the Japanese in kanji. Alone, 先生 and 学生 read as Chinese, so they
-        are spoken on the Chinese prompt, as <i>xiānsheng</i> and <i>xuésheng</i> rather than <i>sensei</i> and <i>gakusei</i>.
-        Only the last flush, with kana in it, reads as Japanese.` },
+  "zh-ja": { name: "Chinese → Japanese", voice: "Sarah", presets: [
+    { name: "Shared characters", text:
+      lang("zh-CN", "日语的“老师”写作") + lang("ja-JP", "先生") + lang("zh-CN", "，“学生”写作") + lang("ja-JP", "学生") +
+      lang("zh-CN", "。早上见到老师，可以说：") + lang("ja-JP", "先生、おはようございます。"),
+      note: `Chinese and Japanese share these characters. Without tags, 先生 and 学生 alone read as Chinese, and as one
+        flush the kana makes the whole turn Japanese. With tags, each is a Japanese span on the Japanese prompt.` },
   ] },
-  "ja-zh": { name: "Japanese → Chinese", l1: "JA", l2: "ZH", names: ["Japanese", "Chinese"], voice: "Sarah", presets: [
-    { name: "Chinese characters", text:
-      '中国語で「ありがとう」は<l2>谢谢</l2>、「おいしい」は<l2>好吃</l2>です。レストランでは<l2>这个菜很好吃！</l2>と言ってみましょう。',
-      note: `A word or two of Chinese characters alone takes the language of the turn so far, so in per-language flushes
-        谢谢 and 好吃 are spoken on the Japanese prompt. The full sentence 这个菜很好吃！ reads as Chinese. As one flush,
-        the kana makes the whole turn Japanese.` },
+  "ja-zh": { name: "Japanese → Chinese", voice: "Sarah", presets: [
+    { name: "Short words", text:
+      lang("ja-JP", "中国語で「ありがとう」は") + lang("zh-CN", "谢谢") + lang("ja-JP", "、「おいしい」は") + lang("zh-CN", "好吃") +
+      lang("ja-JP", "です。レストランでは") + lang("zh-CN", "这个菜很好吃！") + lang("ja-JP", "と言ってみましょう。"),
+      note: `Without tags, 好吃 alone takes the Japanese of the turn so far, so it is spoken on the Japanese prompt.
+        谢谢 reads as Chinese because 谢 is written only in Chinese, and so does the full sentence. With tags, all three
+        are Chinese spans.` },
   ] },
-  "ko-ja": { name: "Korean → Japanese", l1: "KO", l2: "JA", names: ["Korean", "Japanese"], voice: "Sarah", presets: [
+  "ko-ja": { name: "Korean → Japanese", voice: "Sarah", presets: [
     { name: "Greetings", text:
-      '일본어로 "안녕하세요"는 <l2>こんにちは</l2>예요. 아침에는 <l2>おはようございます</l2>라고 해요.',
-      note: `Kana reads as Japanese and Hangul as Korean, so per-language flushes give each language its prompt.
-        As one flush the turn reads as Korean.` },
+      lang("ko-KR", '일본어로 "안녕하세요"는') + " " + lang("ja-JP", "こんにちは") + lang("ko-KR", "예요. 아침에는") + " " +
+      lang("ja-JP", "おはようございます") + lang("ko-KR", "라고 해요."),
+      note: `Kana reads as Japanese and Hangul as Korean, so here per-language flushes without tags reach the same
+        prompts the tags do, with a flush at every switch. As one flush without tags, the turn reads as Korean.` },
   ] },
-  "ko-zh": { name: "Korean → Chinese", l1: "KO", l2: "ZH", names: ["Korean", "Chinese"], voice: "Sarah", presets: [
-    { name: "Chinese characters", text:
-      '중국어로 "감사합니다"는 <l2>谢谢</l2>예요. "맛있어요"는 <l2>好吃</l2>라고 해요. 식당에서는 <l2>这个菜很好吃！</l2>라고 말해 보세요.',
-      note: `As with Japanese, 谢谢 and 好吃 alone take the Korean of the turn so far, so per-language flushes speak them on
-        the Korean prompt; the full sentence reads as Chinese. As one flush the turn reads as Korean.` },
+  "ko-zh": { name: "Korean → Chinese", voice: "Sarah", presets: [
+    { name: "Short words", text:
+      lang("ko-KR", '중국어로 "감사합니다"는') + " " + lang("zh-CN", "谢谢") + lang("ko-KR", '예요. "맛있어요"는') + " " +
+      lang("zh-CN", "好吃") + lang("ko-KR", "라고 해요. 식당에서는") + " " + lang("zh-CN", "这个菜很好吃！") +
+      lang("ko-KR", "라고 말해 보세요."),
+      note: `Without tags, 好吃 alone takes the Korean of the turn so far; 谢谢 and the full sentence read as Chinese.
+        With tags, all three are Chinese spans.` },
   ] },
 };
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const textEl = $("#text");
 let pair = "en-es";
+let languages = [];  // the turn's languages, in order of first appearance
 
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
-function key(language) { return language || "turn"; }
-function label(language) { return language ? PAIRS[pair][language] : ""; }
+// The turn's first language takes one color, the others a second, and
+// untagged text a third.
+function key(language) { return !language ? "turn" : languages.indexOf(language) <= 0 ? "l1" : "l2"; }
 function style(language) { return `background: var(--${key(language)}-soft); color: var(--${key(language)});`; }
 
 // --- pair, presets, voices ------------------------------------------------
@@ -349,39 +341,31 @@ textEl.addEventListener("input", () => {
   $("#note").textContent = "";
   clearTimeout(planTimer); planTimer = setTimeout(refreshPlan, 200);
 });
-$("#instruction").addEventListener("input", () => { clearTimeout(planTimer); planTimer = setTimeout(refreshPlan, 200); });
-
-// What every request carries: the turn, the pair's language names and the instruction.
-function turnBody() {
-  const [l1, l2] = PAIRS[pair].names;
-  return { text: textEl.value, languages: { l1, l2 }, instruction: $("#instruction").value };
-}
 
 async function refreshPlan() {
-  const res = await fetch("/api/plan", { method: "POST", body: JSON.stringify(turnBody()) });
+  const res = await fetch("/api/plan", { method: "POST", body: JSON.stringify({ text: textEl.value }) });
   const plan = await res.json();
-  for (const mode of ["one", "sentence"]) {
-    $(`#plan-${mode}`).textContent = plan[mode].map(f => f.text).join("") || " ";
-  }
-  renderFlushes($("#plan-per"), plan["per-language"]);
-  renderFlushes($("#plan-instructions"), plan.instructions);
+  languages = [...new Set(plan.spans.map(s => s.language).filter(Boolean))];
+  $("#plan-plain").textContent = plan.plain || " ";
+  renderSpans($("#plan-spans"), plan.spans, s => s.language || "untagged: detected", "");
+  renderSpans($("#plan-per"), plan.spans, s => script(s.text), "│ flush");
 }
 
-function renderFlushes(container, flushes) {
+function renderSpans(container, spans, meta, separator) {
   container.replaceChildren();
-  flushes.forEach((f, i) => {
-    if (i > 0) { const m = document.createElement("span"); m.className = "flushmark"; m.textContent = "│ flush"; container.append(m); }
+  spans.forEach((s, i) => {
+    if (i > 0 && separator) { const m = document.createElement("span"); m.className = "flushmark"; m.textContent = separator; container.append(m); }
     const el = document.createElement("div");
-    el.className = "seg"; el.style.cssText = style(f.language);
-    el.innerHTML = `<span class="meta">#${i} · ${label(f.language)} · ${script(f.text)}</span><span class="txt">${escapeHtml(f.text)}</span>`;
+    el.className = "seg"; el.style.cssText = style(s.language);
+    el.innerHTML = `<span class="meta">#${i} · ${escapeHtml(meta(s))}</span><span class="txt">${escapeHtml(s.text)}</span>`;
     container.append(el);
   });
 }
 
 // The script a flush is written in, which is what detection reads first.
 function script(text) {
-  const letters = [...text.replace(/\[[^\]]*\]/g, "")].filter(c => /\p{L}/u.test(c));
-  if (letters.some(c => /[\u3040-\u30ff]/.test(c))) return "kana";
+  const letters = [...text].filter(c => /\p{L}/u.test(c));
+  if (letters.some(c => /[぀-ヿ]/.test(c))) return "kana";
   if (letters.some(c => /\p{Script=Hangul}/u.test(c))) return "Hangul";
   if (letters.length && letters.every(c => /\p{Script=Han}/u.test(c))) return "Chinese characters";
   return "Latin letters";
@@ -417,36 +401,40 @@ function playClip(b64, blockEl) {
 }
 
 // --- results ----------------------------------------------------------------
+const UNKNOWN_TEXT = {
+  "tags": "the tagged turn", "sentence": "cut by the service at a sentence end", "no-tags": "the turn, tags stripped",
+};
+
 function renderResult(card, data, voice) {
-  const body = $(".body", card);
-  const total = data.flushes.reduce((s, f) => s + f.duration_s, 0);
+  const body = $(".body", card), n = data.syntheses.length;
+  const total = data.syntheses.reduce((s, f) => s + f.duration_s, 0);
   body.innerHTML = `
     <audio controls src="data:audio/wav;base64,${data.audio_wav}"></audio>
     <div class="timeline" role="list"></div>
     <table><colgroup><col class="n"><col><col class="t"><col class="t"></colgroup>
-      <thead><tr><th>#</th><th>Text</th><th title="After the turn's first message">First audio</th><th>Length</th></tr></thead><tbody></tbody></table>
-    <p class="status">${escapeHtml(voice)} · ${data.flushes.length} synthes${data.flushes.length === 1 ? "is" : "es"} · ${total.toFixed(1)}s of audio · ${data.elapsed_ms} ms end to end · click a block to hear it</p>`;
+      <thead><tr><th>#</th><th>Synthesis</th><th title="After the reply's first token">First audio</th><th>Length</th></tr></thead><tbody></tbody></table>
+    <p class="status">${escapeHtml(voice)} · ${n} synthes${n === 1 ? "is" : "es"} · ${total.toFixed(1)}s of audio · ${data.elapsed_ms} ms end to end · click a block to hear it</p>`;
   const timeline = $(".timeline", body), tbody = $("tbody", body), full = $("audio", body);
   const blocks = [];
-  data.flushes.forEach((f, i) => {
+  data.syntheses.forEach((f, i) => {
     const color = getComputedStyle(document.documentElement).getPropertyValue(`--${key(f.language)}`).trim();
     const block = document.createElement("button");
     block.className = "block"; block.setAttribute("role", "listitem");
     block.style.cssText = style(f.language) + `flex: ${Math.max(f.duration_s, 0.05)} 1 0;`;
-    block.title = `Play synthesis #${i}: ${f.text || "cut by the service"}`;
-    block.innerHTML = `<canvas></canvas><span class="tag">${[`#${i}`, label(f.language), `${f.duration_s.toFixed(1)}s`].filter(Boolean).join(" ")}</span>`;
+    block.title = `Play synthesis #${i}`;
+    block.innerHTML = `<canvas></canvas><span class="tag">${[`#${i}`, f.language, `${f.duration_s.toFixed(1)}s`].filter(Boolean).join(" ")}</span>`;
     block.onclick = () => playClip(f.audio_wav, block);
     timeline.append(block);
     blocks.push({ block, f, color });
 
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td class="num">${i}</td><td>${f.text ? escapeHtml(f.text) : "<i>cut by the service</i>"}</td>
-      <td class="num">${f.first_audio_ms ?? "—"} ms</td><td class="num">${f.duration_s.toFixed(2)} s</td>`;
+    tr.innerHTML = `<td class="num">${i}</td><td>${f.text ? escapeHtml(f.text) : `<i>${UNKNOWN_TEXT[card.id]}</i>`}</td>
+      <td class="num">${f.first_audio_ms} ms</td><td class="num">${f.duration_s.toFixed(2)} s</td>`;
     tbody.append(tr);
   });
   requestAnimationFrame(() => blocks.forEach(({ block, f, color }) => drawWave($("canvas", block), wavSamples(f.audio_wav), color)));
 
-  // Follow the full-turn player across flushes.
+  // Follow the full-turn player across syntheses.
   full.addEventListener("timeupdate", () => {
     let t = full.currentTime, acc = 0;
     blocks.forEach(({ block, f }) => {
@@ -458,7 +446,7 @@ function renderResult(card, data, voice) {
 }
 
 async function run(id) {
-  const card = document.getElementById(id), { mode } = CARDS[id], voice = CARDS[id].voice();
+  const card = document.getElementById(id), voice = CARDS[id]();
   if (!voice) {
     $(".body", card).innerHTML = `<p class="status">Set <b>Voice with localized prompts</b>.</p>`;
     return;
@@ -467,7 +455,7 @@ async function run(id) {
   try {
     const res = await fetch("/api/synthesize", {
       method: "POST",
-      body: JSON.stringify({ ...turnBody(), mode, voice_id: voice, model_id: $("#model").value }),
+      body: JSON.stringify({ mode: id, text: textEl.value, voice_id: voice, model_id: $("#model").value }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || res.statusText);
