@@ -7,7 +7,7 @@ Let the service split the sentences: send the LLM's tokens as they arrive to a c
 | [`sentence_boundary.py`](./sentence_boundary.py) | The base guide's client with sentence-boundary auto mode: every token sent as it arrives |
 | [Playground](../README.md#playground) | A local web page to talk to the agent, hear it, and interrupt it |
 
-`SENTENCE_BOUNDARY` is a **Preview** feature. It supports `inworld-tts-2` and `inworld-tts-2-flash`; on other models, creating the context returns `INVALID_ARGUMENT`. For the full reference, see [Synthesize Speech (WebSocket)](https://docs.inworld.ai/tts/synthesize-speech-websocket).
+`SENTENCE_BOUNDARY` is a **Preview** feature. It supports `inworld-tts-2` and `inworld-tts-2-flash`; on other models, creating the context returns `INVALID_ARGUMENT`. The docs cover it in [Stream incremental text](https://docs.inworld.ai/tts/synthesize-speech-websocket#stream-incremental-text) and [Markup and unfinished input](https://docs.inworld.ai/tts/synthesize-speech-websocket#markup-and-unfinished-input).
 
 ## Try it
 

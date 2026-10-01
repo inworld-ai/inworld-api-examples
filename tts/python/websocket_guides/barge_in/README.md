@@ -16,7 +16,7 @@ To speak one reply into a WAV file without the page, after the [setup](../README
 ## The pattern
 
 1. Open one WebSocket connection for the conversation before the user's first message (`Speaker.connect`), so its handshake never delays a reply.
-2. For each agent turn, create a context with word timestamps, delivered with `"timestampTransportStrategy": "ASYNC"` so they never hold up the audio. You don't need to wait for `contextCreated`: messages on a connection are processed in order.
+2. For each agent turn, create a context with word timestamps, delivered with `"timestampTransportStrategy": "ASYNC"` so they never hold up the audio. You don't need to wait for `contextCreated`: [messages on a connection are processed in order](https://docs.inworld.ai/tts/synthesize-speech-websocket#message-pipelining).
 3. When the LLM finishes, send the reply in one `sendText` (up to 2,000 characters) with `flushContext`, then `closeContext`. Keep receiving until `contextClosed`, which arrives after the turn's last audio.
 4. On barge-in, stop playback, close the context, drop the rest of its audio, and keep only the words the user heard in the LLM history.
 
@@ -42,7 +42,7 @@ In the playground, the page stops playback the moment you press Esc or send a me
 
 ## Keep the history to what the user heard
 
-If the agent was interrupted, the user heard only part of its reply, and the LLM should know that. With `"timestampType": "WORD"` and the `ASYNC` transport, the audio comes first and the words follow in trailing messages, before that synthesis's `flushCompleted`. Their start and end times reset at each synthesis: add the audio the turn had received before that synthesis started, which the previous `flushCompleted` marks, and every word has a time in the turn's audio. `Turn.heard(seconds)` returns the words that finished playing in the first `seconds`. The assistant message you keep ends there:
+If the agent was interrupted, the user heard only part of its reply, and the LLM should know that. With `"timestampType": "WORD"` and the [`ASYNC` transport](https://docs.inworld.ai/tts/synthesize-speech-websocket#timestamp-transport-strategy), the audio comes first and the words follow in trailing messages, before that synthesis's `flushCompleted`. Their start and end times reset at each synthesis: add the audio the turn had received before that synthesis started, which the previous `flushCompleted` marks, and every word has a time in the turn's audio. `Turn.heard(seconds)` returns the words that finished playing in the first `seconds`. The assistant message you keep ends there:
 
 ```python
 heard = await turn.heard_after_timestamps(seconds_played)   # "Sure, here's an easy one. Start by warming two tablespoons of olive oil in"

@@ -15,7 +15,7 @@ To speak one reply into a WAV file without the page, after the [setup](../README
 
 ## What changes
 
-- Create the context with `"autoMode": true`. Its default strategy, `CLIENT_SEGMENTED`, expects complete sentences or phrases: the service decides when to synthesize, and can combine text that arrives while an earlier response is streaming.
+- Create the context with `"autoMode": true` (see [Choose how text is buffered](https://docs.inworld.ai/tts/synthesize-speech-websocket#choose-how-text-is-buffered)). Its default strategy, `CLIENT_SEGMENTED`, expects complete sentences or phrases: the service decides when to synthesize, and can combine text that arrives while an earlier response is streaming.
 - Send each sentence as soon as it is complete. When the reply ends, send whatever is left, then `closeContext`.
 - `flushCompleted` now marks each synthesis the service ran, not each `sendText`. `contextClosed` still marks the end of the turn's audio.
 

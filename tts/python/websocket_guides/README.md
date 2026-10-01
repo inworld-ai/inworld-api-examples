@@ -1,6 +1,6 @@
 # WebSocket Usage Guides
 
-Focused guides for the TTS bidirectional WebSocket, `wss://api.inworld.ai/tts/v1/voice:streamBidirectional`. For a first working client, start with [`../example_websocket.py`](../example_websocket.py) or [`../example_tts_low_latency_ws.py`](../example_tts_low_latency_ws.py). For the full reference, see [Synthesize Speech (WebSocket)](https://docs.inworld.ai/tts/synthesize-speech-websocket).
+Focused guides for the TTS bidirectional WebSocket, `wss://api.inworld.ai/tts/v1/voice:streamBidirectional`. For a first working client, start with [`../example_websocket.py`](../example_websocket.py) or [`../example_tts_low_latency_ws.py`](../example_tts_low_latency_ws.py). The docs describe the same options in [Synthesize Speech (WebSocket)](https://docs.inworld.ai/tts/synthesize-speech-websocket#choose-how-text-is-buffered), and every message in the [API reference](https://docs.inworld.ai/api-reference/ttsAPI/texttospeech/synthesize-speech-websocket).
 
 Read them in order; each builds on the one before and changes only how an agent's reply is sent.
 
