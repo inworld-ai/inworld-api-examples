@@ -61,9 +61,10 @@
   .user { align-self: flex-end; max-width: 80%; background: var(--accent); color: var(--on-accent); padding: 10px 14px; border-radius: 18px 18px 4px 18px; white-space: pre-wrap; }
   .agent { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
   .agent .head { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 12px; }
-  .replay { margin-left: auto; display: inline-flex; gap: 5px; align-items: center; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 2px 10px 2px 8px; font-size: 12px; color: var(--text); }
-  .replay:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
-  .replay svg { width: 10px; height: 10px; }
+  .head .pill:first-of-type { margin-left: auto; }
+  .pill { display: inline-flex; gap: 5px; align-items: center; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 2px 10px 2px 8px; font-size: 12px; color: var(--text); }
+  .pill:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+  .pill svg { width: 10px; height: 10px; }
   .badge { color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
   .status { display: inline-flex; gap: 6px; align-items: center; border-radius: 999px; padding: 1px 8px; background: var(--surface-2); color: var(--muted); }
   .status.speaking { color: var(--play); }
@@ -74,6 +75,8 @@
   .bars i:nth-child(2) { animation-delay: -0.3s; } .bars i:nth-child(3) { animation-delay: -0.6s; }
   @keyframes bar { 0%, 100% { height: 3px; } 50% { height: 10px; } }
   .text { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .text.raw { font: 12.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface-2); border-radius: 10px; padding: 10px 12px; user-select: all; }
+  .pill[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
   .text .unheard { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--stop) 60%, transparent); }
   .lang { text-decoration: underline dotted var(--tts); text-underline-offset: 4px; }
   .mk.langtag { color: var(--tts); background: color-mix(in srgb, var(--tts) 12%, transparent); }
@@ -364,7 +367,7 @@ const fmt = (s) => (s === undefined ? "–" : `${s.toFixed(2)} s`);
 function newTurn(id, guideName) {
   const el = document.createElement("article");
   el.className = "agent";
-  el.innerHTML = `<div class="head"><span class="badge"></span><span class="status"></span><button type="button" class="replay" hidden></button></div>
+  el.innerHTML = `<div class="head"><span class="badge"></span><span class="status"></span><button type="button" class="pill raw" aria-pressed="false" title="Show the reply as sent to TTS, markup included">Raw</button><button type="button" class="pill copy" title="Copy the reply as sent to TTS">Copy</button><button type="button" class="pill replay" hidden></button></div>
     <div class="text"></div><div class="cut" hidden></div><div class="chips"></div><div class="track"></div>
     <details><summary>Events</summary><ol></ol></details>`;
   el.querySelector(".badge").textContent = OPTIONS.guides[guideName].label;
@@ -372,6 +375,12 @@ function newTurn(id, guideName) {
   const t = { id, el, t0: pending.shift() ?? performance.now(), text: "", at: {}, syntheses: [], chunks: [], pcm: [], nextTime: 0, status: "thinking" };
   turns[id] = t;
   el.querySelector(".replay").onclick = () => replay(t);
+  el.querySelector(".raw").onclick = () => { t.raw = !t.raw; render(t); };
+  el.querySelector(".copy").onclick = async (e) => {
+    await navigator.clipboard.writeText(t.text);
+    e.target.textContent = "Copied";
+    setTimeout(() => { e.target.textContent = "Copy"; }, 1200);
+  };
   setActive(t);
   render(t);
   return t;
@@ -416,7 +425,11 @@ function render(t) {
   const status = t.el.querySelector(".status");
   status.className = `status ${t.status}`;
   status.innerHTML = (t.status === "speaking" ? '<span class="bars"><i></i><i></i><i></i></span>' : "") + STATUS[t.status];
-  t.el.querySelector(".text").innerHTML = renderText(t);
+  const text = t.el.querySelector(".text");
+  text.classList.toggle("raw", !!t.raw);
+  if (t.raw) text.textContent = t.text; else text.innerHTML = renderText(t);
+  t.el.querySelector(".raw").setAttribute("aria-pressed", String(!!t.raw));
+  for (const sel of [".raw", ".copy"]) t.el.querySelector(sel).hidden = !t.text;
   const replayButton = t.el.querySelector(".replay");
   replayButton.hidden = t === active || !t.pcm.length;
   replayButton.innerHTML = replaying?.turn === t

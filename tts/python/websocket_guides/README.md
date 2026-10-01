@@ -38,9 +38,10 @@ python server.py --port 8766 --model-id inworld-tts-2 --llm-model openai/gpt-4.1
 - **Mode**: how the reply is sent, one per guide: [One flush per turn](./barge_in/), [Client-side sentence segmentation](./auto_mode/), or [One token at a time](./sentence_boundary/).
 - **Reply**: a scripted reply or a live LLM.
   - *Scripted* replies stream the same tokens every run, with an LLM's timing: a first token after about a third of a second, then 60 tokens a second. They cover a short answer, a long one to interrupt, [markup](#markup-in-replies), and two language tutors: Spanish for English speakers, and Japanese for Chinese speakers.
-  - *Live LLM* streams from the Inworld Router's chat completions API with the same API key; `--llm-model` picks the model. Pick an agent, *Voice assistant* or *Spanish tutor*, and edit its system prompt in the sidebar. Both prompts ask the LLM for [markup](#markup-in-replies).
+  - *Live LLM* streams from the Inworld Router's chat completions API with the same API key; `--llm-model` picks the model. Pick an agent, *Voice assistant*, *Spanish tutor* or *Japanese tutor (for Chinese speakers)*, and edit its system prompt in the sidebar. The prompts ask the LLM for [markup](#markup-in-replies).
 - **Interrupt**: press Esc, click Interrupt, or send another message. The page stops playback at once and reports how many seconds of the turn it played. The server closes the turn's context and keeps only the words you heard in the LLM history. The reply shows what was heard, with the rest struck through.
 - **Replay** plays a reply again, or only what you heard of an interrupted one.
+- **Raw** shows a reply exactly as it was sent to TTS, markup included, and **Copy** copies that text, to paste into a request of your own.
 - **New chat** clears the LLM history.
 
 The server opens the TTS connection for the chosen mode and voice when the page loads and whenever you change either, so no reply's times include the handshake. Each reply shows when the first LLM token and the first audio arrived, how many syntheses the service ran, and a timeline of the LLM writing, TTS audio arriving and playback, with any interrupt marked. *Events* lists the same moments.
