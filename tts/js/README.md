@@ -130,6 +130,25 @@ node example_tts_low_latency_ws.js
 
 **Output:** TTFB (ms), total time (ms), and audio bytes.
 
+### 8a. Speak an LLM Reply (`example_llm_tts_pipeline.js`)
+
+Streams an [Inworld Router](https://docs.inworld.ai/router/capabilities/text-chat) chat completion into one TTS WebSocket context, in the order that gives the lowest latency: the connection is open before the turn, the reply's context is created the moment the user's turn ends (in parallel with the LLM request), the LLM runs with `reasoning_effort: "none"`, the reply goes into that one context (a flush per sentence, or every token with `--sentence-boundary`), and word timestamps use ASYNC transport. One context per reply also keeps the delivery consistent: its syntheses share the context's conversation history, which separate requests don't.
+
+It prints a timeline from the end of the user's turn with the same points in both modes. Compare modes on *first audio − first sentence complete*: the time from the first text sent is not comparable, because with `SENTENCE_BOUNDARY` the first text is the LLM's first token. See [Speaking an LLM reply](https://docs.inworld.ai/tts/best-practices/latency#speaking-an-llm-reply).
+
+**Usage:**
+```bash
+npm run llm-tts-pipeline
+# or
+node example_llm_tts_pipeline.js "What is a fun fact about the Moon?"
+node example_llm_tts_pipeline.js --sentence-boundary "..."   # the service finds the sentences
+node example_llm_tts_pipeline.js --lipsync "..."             # audio-derived visemes, where enabled
+```
+
+Options: `--llm-model <provider/model>` (default `openai/gpt-4.1-mini`), `--voice <id>` (default `Sarah`). Set `INWORLD_API_BASE_URL` to use a non-default endpoint.
+
+**Output:** `llm_tts_pipeline_output.wav` and the timeline (LLM first token, first sentence complete, first text sent to TTS, first audio received).
+
 ### 9. Voice Cloning (`example_voice_clone.js`)
 
 Clone a voice using audio samples via the Inworld Voice API. Returns voice details and validated sample info.
