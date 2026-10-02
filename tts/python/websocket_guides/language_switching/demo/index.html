@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Language Switching Demo · Inworld TTS</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --surface-2: #eef0f3;
+    --ink: #1b212b;
+    --muted: #5d6877;
+    --rule: #dde1e7;
+    --accent: #1b212b;
+    --l1: #2f6db0;
+    --l1-soft: #e3edf8;
+    --l2: #c4501a;
+    --l2-soft: #fbe9df;
+    --turn: #58636f;
+    --turn-soft: #e7eaee;
+    --err: #b3261e;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101318;
+      --surface: #181c23;
+      --surface-2: #20262e;
+      --ink: #e5e9ee;
+      --muted: #97a2b0;
+      --rule: #2b323c;
+      --accent: #e5e9ee;
+      --l1: #6ea8e8;
+      --l1-soft: #1b2a3c;
+      --l2: #f08b58;
+      --l2-soft: #3a2519;
+      --turn: #9aa5b2;
+      --turn-soft: #262c34;
+      --err: #f2877f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); }
+  main { max-width: 1180px; margin: 0 auto; padding: 32px 24px 64px; display: grid; gap: 20px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  h2 { font-size: 13px; margin: 0; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  h3 { margin: 0; font-size: 15px; }
+  p { margin: 0; }
+  code { font-family: var(--mono); font-size: 0.92em; }
+  .lede { color: var(--muted); max-width: 80ch; margin-top: 6px; }
+  .card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; align-content: start; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+  label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+  input, textarea, select {
+    font: inherit; color: var(--ink); background: var(--surface-2); border: 1px solid var(--rule);
+    border-radius: 7px; padding: 8px 10px;
+  }
+  textarea { width: 100%; min-height: 110px; resize: vertical; font-family: var(--mono); font-size: 13.5px; line-height: 1.55; }
+  input { width: 180px; }
+  button { font: inherit; cursor: pointer; border-radius: 7px; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--l1); outline-offset: 2px; }
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; }
+  .preset { background: var(--surface-2); border: 1px solid var(--rule); color: var(--ink); padding: 6px 12px; font-size: 13px; }
+  .preset:hover { border-color: var(--muted); }
+  .preset[aria-pressed="true"] { border-color: var(--ink); }
+  .go { background: var(--accent); color: var(--bg); border: 0; padding: 10px 18px; font-weight: 600; margin-left: auto; }
+  .go:disabled { opacity: 0.5; cursor: progress; }
+  .note { font-size: 14px; background: var(--surface-2); border-radius: 7px; padding: 10px 12px; }
+  .note b { font-weight: 600; }
+
+  details.card { gap: 0; }
+  details.card[open] { gap: 14px; }
+  summary { cursor: pointer; font-weight: 600; }
+  .explain { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .explain > div { display: grid; gap: 6px; align-content: start; font-size: 14px; }
+  .explain h4 { margin: 0; font-size: 13px; }
+  .explain ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+
+  .sends { display: grid; gap: 8px; }
+  .sends h3 { font-size: 13px; font-weight: 600; }
+  .sent { font: 13.5px/1.6 var(--mono); background: var(--surface-2); border-radius: 7px; padding: 8px 10px; overflow-wrap: anywhere; }
+  .plan { display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch; }
+  .seg { display: grid; gap: 2px; padding: 6px 10px; border-radius: 7px; max-width: 100%; }
+  .seg .meta { font: 11px var(--mono); letter-spacing: 0.04em; opacity: 0.9; }
+  .seg .txt { font-size: 14px; overflow-wrap: anywhere; }
+  .flushmark { align-self: center; font: 10px var(--mono); color: var(--muted); letter-spacing: 0.06em; }
+
+  .results { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 20px; }
+  .result .sub { color: var(--muted); font-size: 13px; }
+  .result .body { display: grid; gap: 14px; min-width: 0; }
+  .result audio { width: 100%; }
+  .timeline { display: flex; gap: 3px; height: 74px; overflow: hidden; }
+  .block {
+    position: relative; min-width: 28px; border: 0; padding: 0; overflow: hidden; border-radius: 6px;
+    display: flex; align-items: flex-end; text-align: left;
+  }
+  .block canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .block .tag { position: relative; font: 11px var(--mono); padding: 4px 6px; white-space: nowrap; }
+  .block.active { outline: 2px solid var(--ink); outline-offset: 1px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; table-layout: fixed; }
+  col.n { width: 32px; } col.t { width: 88px; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--rule); }
+  td { padding: 8px; border-bottom: 1px solid var(--rule); vertical-align: top; overflow-wrap: anywhere; }
+  td.num { font: 12px var(--mono); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .status { color: var(--muted); font-size: 13px; }
+  .error { color: var(--err); font-size: 13px; white-space: pre-wrap; }
+  @media (max-width: 600px) {
+    main { padding: 20px 16px 48px; }
+    .results { grid-template-columns: 1fr; }
+    input { width: 100%; }
+    .row > label { flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Language switching with language tags</h1>
+    <p class="lede">
+      A tutor turn wraps every part in a language tag, <code>&lt;lang lang="es-MX"&gt;…&lt;/lang&gt;</code>, and the
+      service speaks each span in its language. The first two cards send the tagged turn, as one flush and token by
+      token. The last two strip the tags, to hear what language detection does without them.
+    </p>
+  </header>
+
+  <details class="card" open>
+    <summary>What decides what you hear</summary>
+    <div class="explain">
+      <div>
+        <h4>A tag decides its span's language</h4>
+        <p>Each span is spoken on the voice's localized prompt for its language when the voice has one, and on the
+          voice's own prompt otherwise. The span's language also sets how its numbers are read, and its timestamps.
+          Tags are flat: a span lasts until its closing tag, even across messages, and tags never nest.</p>
+      </div>
+      <div>
+        <h4>Tag every part</h4>
+        <p>Text outside every tag is left to language detection, which reads the whole of it at once. In a turn that
+          mixes languages, tag the learner's language too. Keep the switches few: each one starts a new synthesis
+          call inside the service.</p>
+      </div>
+      <div>
+        <h4>Every mode takes tags</h4>
+        <p>Sent as one flush or token by token with sentence-boundary auto mode, the tags mean the same. The service
+          holds back a tag split across tokens until it is whole.</p>
+      </div>
+      <div>
+        <h4>Without tags, detection picks one language per synthesis</h4>
+        <ul>
+          <li><b>Kana</b> reads as Japanese; <b>Hangul</b> as Korean.</li>
+          <li><b>Chinese characters</b> read as Chinese or Japanese. A word or two alone reads by a character used in
+            only one of them (谢 is Chinese), and otherwise takes the language of the turn so far.</li>
+          <li><b>Latin letters</b> go to a model, which needs a few words: a single Spanish word can read as English.</li>
+        </ul>
+      </div>
+    </div>
+  </details>
+
+  <section class="card" aria-labelledby="turn-h">
+    <h2 id="turn-h">Turn</h2>
+    <div class="row">
+      <label>Language pair <select id="pair"></select></label>
+    </div>
+    <div class="presets" id="presets"></div>
+    <p class="note" id="note"></p>
+    <textarea id="text" spellcheck="false" aria-label="Turn text"></textarea>
+    <div class="row">
+      <label>Voice with localized prompts <input id="voice"></label>
+      <label>Bilingual voice, for the no-tags card <input id="bivoice"></label>
+      <label>Model <input id="model" value="inworld-tts-2"></label>
+      <button class="go" id="go">Synthesize</button>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="plan-h">
+    <h2 id="plan-h">What gets sent</h2>
+    <div class="sends">
+      <h3>With tags · the turn as written, and the spans the service speaks</h3>
+      <div class="plan" id="plan-spans"></div>
+    </div>
+    <div class="sends">
+      <h3>No tags · one flush</h3>
+      <div class="sent" id="plan-plain"></div>
+    </div>
+    <div class="sends">
+      <h3>No tags · a flush per language</h3>
+      <div class="plan" id="plan-per"></div>
+    </div>
+  </section>
+
+  <section class="results">
+    <article class="card result" id="tags">
+      <div><h3>Tags · one flush</h3>
+        <p class="sub">The tagged turn as one flush: the service speaks each span in its tag's language.</p></div>
+      <div class="body"><p class="status">Not run yet.</p></div>
+    </article>
+    <article class="card result" id="sentence">
+      <div><h3>Tags · token by token</h3>
+        <p class="sub">The tagged turn streamed like an LLM's tokens, with sentence-boundary auto mode: the service
+          cuts at sentence ends, and a span carries across the cuts.</p></div>
+      <div class="body"><p class="status">Not run yet.</p></div>
+    </article>
+    <article class="card result" id="no-tags">
+      <div><h3>No tags · one flush</h3>
+        <p class="sub">The tags stripped: one detected language and one prompt for the whole turn. On a bilingual
+          voice, when you set one, that prompt has both accents.</p></div>
+      <div class="body"><p class="status">Not run yet.</p></div>
+    </article>
+    <article class="card result" id="per-language">
+      <div><h3>No tags · a flush per language</h3>
+        <p class="sub">The tags stripped and a flush at every switch: each flush gets its own detected language and
+          prompt.</p></div>
+      <div class="body"><p class="status">Not run yet.</p></div>
+    </article>
+  </section>
+</main>
+
+<script>
+// Each card is one of language_switching.py's modes on one voice. The no-tags
+// flush uses the bilingual voice when one is set.
+const CARDS = {
+  "tags": () => $("#voice").value.trim(),
+  "sentence": () => $("#voice").value.trim(),
+  "no-tags": () => $("#bivoice").value.trim() || $("#voice").value.trim(),
+  "per-language": () => $("#voice").value.trim(),
+};
+
+const lang = (code, text) => `<lang lang="${code}">${text}</lang>`;
+
+// A language pair sets the voice with localized prompts for both languages,
+// and which bilingual voice ID the page remembers.
+const PAIRS = {
+  "en-es": { name: "English → Spanish", voice: "Sarah", presets: [
+    { name: "Rolled r", text:
+      lang("en-US", 'Great job! "The dog runs" is') + " " + lang("es-MX", "El perro corre.") + " " +
+      lang("en-US", "Listen for the rolled r in") + " " + lang("es-MX", "perro") +
+      lang("en-US", ", and the single tap in") + " " + lang("es-MX", "pero") + lang("en-US", ', which means "but".'),
+      note: `With tags, every Spanish span is spoken on the Spanish prompt. Without them, the turn reads as English
+        as one flush. Per-language flushes reach the same prompts as the tags here, since each Spanish flush reads as
+        Spanish, at the cost of a flush at every switch.` },
+    { name: "Single words", text:
+      lang("en-US", "The word for dog is") + " " + lang("es-MX", "perro") + lang("en-US", ", and the word for but is") + " " +
+      lang("es-MX", "pero") + lang("en-US", ". The number eleven is") + " " + lang("es-MX", "once") + lang("en-US", "."),
+      note: `Without tags, <i>once</i> reads as English even in its own flush, since it is an English word too, while
+        <i>perro</i> and <i>pero</i> read as Spanish. With tags, all three are Spanish spans.` },
+    { name: "Replies", text:
+      lang("en-US", "When someone thanks you, answer") + " " + lang("es-MX", "De nada.") + " " +
+      lang("en-US", "Or, more warmly,") + " " + lang("es-MX", "¡No hay de qué, fue un placer!"),
+      note: `Without tags there is more Spanish than English here, so as one flush the turn reads as Spanish and the
+        English is spoken on the Spanish prompt. Tags give each part its own language.` },
+  ] },
+  "en-ja": { name: "English → Japanese", voice: "Sarah", presets: [
+    { name: "Thank you", text:
+      lang("en-US", 'In Japanese, "thank you very much" is') + " " + lang("ja-JP", "ありがとうございます。") + " " +
+      lang("en-US", "To get someone's attention, say") + " " + lang("ja-JP", "すみません。"),
+      note: `Without tags, the kana is enough of the turn to make all of it Japanese as one flush, English included.
+        With tags, each part keeps its language.` },
+  ] },
+  "zh-ja": { name: "Chinese → Japanese", voice: "Sarah", presets: [
+    { name: "Shared characters", text:
+      lang("zh-CN", "日语的“老师”写作") + lang("ja-JP", "先生") + lang("zh-CN", "，“学生”写作") + lang("ja-JP", "学生") +
+      lang("zh-CN", "。早上见到老师，可以说：") + lang("ja-JP", "先生、おはようございます。"),
+      note: `Chinese and Japanese share these characters. Without tags, 先生 and 学生 alone read as Chinese, and as one
+        flush the kana makes the whole turn Japanese. With tags, each is a Japanese span on the Japanese prompt.` },
+  ] },
+  "ja-zh": { name: "Japanese → Chinese", voice: "Sarah", presets: [
+    { name: "Short words", text:
+      lang("ja-JP", "中国語で「ありがとう」は") + lang("zh-CN", "谢谢") + lang("ja-JP", "、「おいしい」は") + lang("zh-CN", "好吃") +
+      lang("ja-JP", "です。レストランでは") + lang("zh-CN", "这个菜很好吃！") + lang("ja-JP", "と言ってみましょう。"),
+      note: `Without tags, 好吃 alone takes the Japanese of the turn so far, so it is spoken on the Japanese prompt.
+        谢谢 reads as Chinese because 谢 is written only in Chinese, and so does the full sentence. With tags, all three
+        are Chinese spans.` },
+  ] },
+  "ko-ja": { name: "Korean → Japanese", voice: "Sarah", presets: [
+    { name: "Greetings", text:
+      lang("ko-KR", '일본어로 "안녕하세요"는') + " " + lang("ja-JP", "こんにちは") + lang("ko-KR", "예요. 아침에는") + " " +
+      lang("ja-JP", "おはようございます") + lang("ko-KR", "라고 해요."),
+      note: `Kana reads as Japanese and Hangul as Korean, so here per-language flushes without tags reach the same
+        prompts the tags do, with a flush at every switch. As one flush without tags, the turn reads as Korean.` },
+  ] },
+  "ko-zh": { name: "Korean → Chinese", voice: "Sarah", presets: [
+    { name: "Short words", text:
+      lang("ko-KR", '중국어로 "감사합니다"는') + " " + lang("zh-CN", "谢谢") + lang("ko-KR", '예요. "맛있어요"는') + " " +
+      lang("zh-CN", "好吃") + lang("ko-KR", "라고 해요. 식당에서는") + " " + lang("zh-CN", "这个菜很好吃！") +
+      lang("ko-KR", "라고 말해 보세요."),
+      note: `Without tags, 好吃 alone takes the Korean of the turn so far; 谢谢 and the full sentence read as Chinese.
+        With tags, all three are Chinese spans.` },
+  ] },
+};
+
+const $ = (sel, el = document) => el.querySelector(sel);
+const textEl = $("#text");
+let pair = "en-es";
+let languages = [];  // the turn's languages, in order of first appearance
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+// The turn's first language takes one color, the others a second, and
+// untagged text a third.
+function key(language) { return !language ? "turn" : languages.indexOf(language) <= 0 ? "l1" : "l2"; }
+function style(language) { return `background: var(--${key(language)}-soft); color: var(--${key(language)});`; }
+
+// --- pair, presets, voices ------------------------------------------------
+for (const [id, p] of Object.entries(PAIRS)) $("#pair").append(new Option(p.name, id));
+$("#pair").onchange = () => { selectPair($("#pair").value); refreshPlan(); };
+
+function selectPair(id) {
+  pair = id;
+  const p = PAIRS[id];
+  $("#voice").value = p.voice;
+  $("#bivoice").placeholder = `your ${p.name.replace(" → ", " + ")} clone`;
+  $("#bivoice").value = loadBilingualVoice(id);
+  $("#presets").replaceChildren(...p.presets.map((preset, i) => {
+    const b = document.createElement("button");
+    b.className = "preset"; b.textContent = preset.name;
+    b.onclick = () => { applyPreset(i); refreshPlan(); };
+    return b;
+  }));
+  applyPreset(0);
+}
+function applyPreset(i) {
+  const preset = PAIRS[pair].presets[i];
+  textEl.value = preset.text;
+  $("#note").innerHTML = `<b>What to listen for.</b> ${preset.note}`;
+  [...$("#presets").children].forEach((b, j) => b.setAttribute("aria-pressed", String(i === j)));
+}
+
+// Remember one bilingual voice ID per language pair, in this browser only.
+function loadBilingualVoice(id) {
+  try { return localStorage.getItem(`bilingualVoiceId:${id}`) || ""; } catch { return ""; }
+}
+$("#bivoice").addEventListener("change", () => {
+  try { localStorage.setItem(`bilingualVoiceId:${pair}`, $("#bivoice").value.trim()); } catch {}
+});
+
+// --- what gets sent -------------------------------------------------------
+let planTimer;
+textEl.addEventListener("input", () => {
+  $("#note").textContent = "";
+  clearTimeout(planTimer); planTimer = setTimeout(refreshPlan, 200);
+});
+
+async function refreshPlan() {
+  const res = await fetch("/api/plan", { method: "POST", body: JSON.stringify({ text: textEl.value }) });
+  const plan = await res.json();
+  languages = [...new Set(plan.spans.map(s => s.language).filter(Boolean))];
+  $("#plan-plain").textContent = plan.plain || " ";
+  renderSpans($("#plan-spans"), plan.spans, s => s.language || "untagged: detected", "");
+  renderSpans($("#plan-per"), plan.spans, s => script(s.text), "│ flush");
+}
+
+function renderSpans(container, spans, meta, separator) {
+  container.replaceChildren();
+  spans.forEach((s, i) => {
+    if (i > 0 && separator) { const m = document.createElement("span"); m.className = "flushmark"; m.textContent = separator; container.append(m); }
+    const el = document.createElement("div");
+    el.className = "seg"; el.style.cssText = style(s.language);
+    el.innerHTML = `<span class="meta">#${i} · ${escapeHtml(meta(s))}</span><span class="txt">${escapeHtml(s.text)}</span>`;
+    container.append(el);
+  });
+}
+
+// The script a flush is written in, which is what detection reads first.
+function script(text) {
+  const letters = [...text].filter(c => /\p{L}/u.test(c));
+  if (letters.some(c => /[぀-ヿ]/.test(c))) return "kana";
+  if (letters.some(c => /\p{Script=Hangul}/u.test(c))) return "Hangul";
+  if (letters.length && letters.every(c => /\p{Script=Han}/u.test(c))) return "Chinese characters";
+  return "Latin letters";
+}
+
+// --- audio helpers ----------------------------------------------------------
+function b64ToBytes(b64) { const bin = atob(b64); const a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
+function wavSamples(b64) { const bytes = b64ToBytes(b64); return new Int16Array(bytes.buffer, 44, Math.max(0, (bytes.length - 44) >> 1)); }
+
+function drawWave(canvas, samples, color) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const ctx = canvas.getContext("2d"); ctx.scale(dpr, dpr);
+  ctx.fillStyle = color; ctx.globalAlpha = 0.55;
+  const per = Math.max(1, Math.floor(samples.length / w)), mid = h / 2 - 8;
+  for (let x = 0; x < w; x++) {
+    let lo = 0, hi = 0;
+    for (let i = x * per; i < Math.min(samples.length, (x + 1) * per); i++) { const v = samples[i]; if (v < lo) lo = v; if (v > hi) hi = v; }
+    const top = mid - (hi / 32768) * mid, bottom = mid - (lo / 32768) * mid;
+    ctx.fillRect(x, top, 1, Math.max(1, bottom - top));
+  }
+}
+
+let current = null;
+function playClip(b64, blockEl) {
+  if (current) { current.audio.pause(); current.block?.classList.remove("active"); }
+  const audio = new Audio(`data:audio/wav;base64,${b64}`);
+  current = { audio, block: blockEl };
+  blockEl?.classList.add("active");
+  audio.onended = () => blockEl?.classList.remove("active");
+  audio.play();
+}
+
+// --- results ----------------------------------------------------------------
+const UNKNOWN_TEXT = {
+  "tags": "the tagged turn", "sentence": "cut by the service at a sentence end", "no-tags": "the turn, tags stripped",
+};
+
+function renderResult(card, data, voice) {
+  const body = $(".body", card), n = data.syntheses.length;
+  const total = data.syntheses.reduce((s, f) => s + f.duration_s, 0);
+  body.innerHTML = `
+    <audio controls src="data:audio/wav;base64,${data.audio_wav}"></audio>
+    <div class="timeline" role="list"></div>
+    <table><colgroup><col class="n"><col><col class="t"><col class="t"></colgroup>
+      <thead><tr><th>#</th><th>Synthesis</th><th title="After the reply's first token">First audio</th><th>Length</th></tr></thead><tbody></tbody></table>
+    <p class="status">${escapeHtml(voice)} · ${n} synthes${n === 1 ? "is" : "es"} · ${total.toFixed(1)}s of audio · ${data.elapsed_ms} ms end to end · click a block to hear it</p>`;
+  const timeline = $(".timeline", body), tbody = $("tbody", body), full = $("audio", body);
+  const blocks = [];
+  data.syntheses.forEach((f, i) => {
+    const color = getComputedStyle(document.documentElement).getPropertyValue(`--${key(f.language)}`).trim();
+    const block = document.createElement("button");
+    block.className = "block"; block.setAttribute("role", "listitem");
+    block.style.cssText = style(f.language) + `flex: ${Math.max(f.duration_s, 0.05)} 1 0;`;
+    block.title = `Play synthesis #${i}`;
+    block.innerHTML = `<canvas></canvas><span class="tag">${[`#${i}`, f.language, `${f.duration_s.toFixed(1)}s`].filter(Boolean).join(" ")}</span>`;
+    block.onclick = () => playClip(f.audio_wav, block);
+    timeline.append(block);
+    blocks.push({ block, f, color });
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="num">${i}</td><td>${f.text ? escapeHtml(f.text) : `<i>${UNKNOWN_TEXT[card.id]}</i>`}</td>
+      <td class="num">${f.first_audio_ms} ms</td><td class="num">${f.duration_s.toFixed(2)} s</td>`;
+    tbody.append(tr);
+  });
+  requestAnimationFrame(() => blocks.forEach(({ block, f, color }) => drawWave($("canvas", block), wavSamples(f.audio_wav), color)));
+
+  // Follow the full-turn player across syntheses.
+  full.addEventListener("timeupdate", () => {
+    let t = full.currentTime, acc = 0;
+    blocks.forEach(({ block, f }) => {
+      block.classList.toggle("active", !full.paused && t >= acc && t < acc + f.duration_s);
+      acc += f.duration_s;
+    });
+  });
+  full.addEventListener("pause", () => blocks.forEach(({ block }) => block.classList.remove("active")));
+}
+
+async function run(id) {
+  const card = document.getElementById(id), voice = CARDS[id]();
+  if (!voice) {
+    $(".body", card).innerHTML = `<p class="status">Set <b>Voice with localized prompts</b>.</p>`;
+    return;
+  }
+  $(".body", card).innerHTML = `<p class="status">Synthesizing on ${escapeHtml(voice)}…</p>`;
+  try {
+    const res = await fetch("/api/synthesize", {
+      method: "POST",
+      body: JSON.stringify({ mode: id, text: textEl.value, voice_id: voice, model_id: $("#model").value }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.statusText);
+    renderResult(card, data, voice);
+  } catch (e) {
+    $(".body", card).innerHTML = `<p class="error">${escapeHtml(String(e.message || e))}</p>`;
+  }
+}
+
+$("#go").onclick = async () => {
+  const go = $("#go"); go.disabled = true;
+  await Promise.all(Object.keys(CARDS).map(run));
+  go.disabled = false;
+};
+
+selectPair(pair);
+refreshPlan();
+</script>
+</body>
+</html>
