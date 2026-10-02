@@ -140,7 +140,7 @@ async function* streamLlm(apiKey, model, messages) {
 
 /**
  * Speaks one reply: creates its context, streams the LLM into it, and collects the audio.
- * @returns {Promise<{pcm: Buffer, timeline: object, reply: string, visemes: number}>}
+ * @returns {Promise<{pcm: Buffer, timeline: object, reply: string, visemes: number, words: number}>}
  */
 async function speakReply(ws, apiKey, { userText, llmModel, voiceId, sentenceBoundary, lipsync }) {
     const contextId = `reply-${Date.now()}`;
@@ -149,6 +149,7 @@ async function speakReply(ws, apiKey, { userText, llmModel, voiceId, sentenceBou
     const timeline = { llmFirstToken: null, firstSentence: null, firstTextToTts: null, firstAudio: null };
     const audio = [];
     let visemes = 0;
+    let words = 0;
     let reply = '';
 
     const done = new Promise((resolve, reject) => {
@@ -162,11 +163,17 @@ async function speakReply(ws, apiKey, { userText, llmModel, voiceId, sentenceBou
                 return;
             }
             const chunk = result.audioChunk;
-            if (chunk && chunk.audioContent) {
-                timeline.firstAudio ??= since();
-                audio.push(Buffer.from(chunk.audioContent, 'base64'));
-                // Audio-derived visemes travel with their audio; absent if lip-sync is unavailable.
-                visemes += chunk.timestampInfo?.lipsyncAlignment?.visemes?.length || 0;
+            if (chunk) {
+                if (chunk.audioContent) {
+                    timeline.firstAudio ??= since();
+                    audio.push(Buffer.from(chunk.audioContent, 'base64'));
+                }
+                // Timestamps are read from every chunk, with or without audio: with ASYNC transport
+                // the word timestamps follow in later messages that carry no audio. Visemes travel
+                // with their audio, and are absent if lip-sync is unavailable.
+                const info = chunk.timestampInfo || {};
+                visemes += info.lipsyncAlignment?.visemes?.length || 0;
+                words += info.wordAlignment?.words?.length || 0;
             }
             if (result.contextClosed) {
                 ws.off('message', onMessage);
@@ -212,7 +219,7 @@ async function speakReply(ws, apiKey, { userText, llmModel, voiceId, sentenceBou
     timeline.firstSentence ??= since();
     send({ closeContext: {} }); // synthesizes what is still buffered, then closes
     await done;
-    return { pcm: Buffer.concat(audio), timeline, reply, visemes };
+    return { pcm: Buffer.concat(audio), timeline, reply, visemes, words };
 }
 
 function writeWav(path, pcm) {
@@ -256,7 +263,7 @@ async function main() {
     // 1. Connect before the turn: in an app, at session start.
     const ws = await connectTts(apiKey);
     try {
-        const { pcm, timeline, reply, visemes } = await speakReply(ws, apiKey, options);
+        const { pcm, timeline, reply, visemes, words } = await speakReply(ws, apiKey, options);
         console.log(`Reply: ${reply.trim()}\n`);
         console.log(`Mode: ${options.sentenceBoundary ? 'SENTENCE_BOUNDARY (tokens streamed)' : 'flush per sentence'}`);
         console.log('Timeline, ms from the end of the user\'s turn:');
@@ -265,6 +272,7 @@ async function main() {
         console.log(`  first text sent to TTS   ${timeline.firstTextToTts}`);
         console.log(`  first audio received     ${timeline.firstAudio}`);
         console.log(`  → audio ${timeline.firstAudio - timeline.firstSentence} ms after the first sentence was complete`);
+        console.log(`Word timestamps: ${words} tokens (ASYNC: they follow the audio)`);
         if (options.lipsync) {
             console.log(visemes ? `Lip-sync: ${visemes} viseme spans` : 'Lip-sync: no lipsyncAlignment returned (not enabled for this key/region?)');
         }
