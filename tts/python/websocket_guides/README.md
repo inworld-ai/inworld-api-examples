@@ -43,7 +43,12 @@ python server.py --port 8766 --model-id inworld-tts-2 --llm-model openai/gpt-4.1
 - **Replay** plays a reply again, or only what you heard of an interrupted one.
 - **New chat** clears the LLM history.
 
-The server opens the TTS connection for the chosen mode and voice when the page loads and whenever you change either, so no reply's times include the handshake. Each reply shows when the first LLM token and the first audio arrived, how many syntheses the service ran, and a timeline of the LLM writing, TTS audio arriving and playback, with any interrupt marked. *Events* lists the same moments.
+The server opens one TTS connection, for the chosen mode, when the page loads, so no reply's times include the handshake. Changing the mode stops the reply being spoken, closes the connection and opens another; the voice is set on each turn's context, so changing it opens nothing. Each reply shows:
+
+- **First token** and **First audio**: when the first LLM token and the first audio reached the page, counted from Send.
+- **First sentence**: when the reply's first sentence was complete, the earliest it could start to be synthesized. In *Client-side sentence segmentation* that is when it was sent. In the other modes it is where the [`auto_mode/`](./auto_mode/) splitter would cut it, which can differ from the service's own cut in *One token at a time*.
+- **Sentence to audio**: First audio counted from First sentence, to compare the modes on the same footing.
+- How many syntheses the service ran, and a timeline of the LLM writing, TTS audio arriving and playback, with the first sentence, each completed synthesis and any interrupt marked. *Events* lists the same moments.
 
 To add a guide, subclass `Speaker` from [`barge_in/whole_turn.py`](./barge_in/whole_turn.py) as the other guides do: set `CREATE` for the context settings, override `send_text(turn, token)` and, if needed, `end_turn(turn)`, and add the module to `GUIDES` in `playground/server.py`.
 

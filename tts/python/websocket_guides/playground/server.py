@@ -49,21 +49,34 @@ GUIDES = {
 
 async def conversation(browser, args, api_key: str):
     """One browser tab: one conversation, with its own history and TTS connection."""
-    speakers = {}
+    current = {"guide": None, "speaker": None}  # the chosen mode's TTS connection
     history = [{"role": "system", "content": replies.DEFAULT_SYSTEM_PROMPT}]
     turns = {}  # turn id -> {"turn", "speaker", "text": the reply so far}
     trimming = set()  # interrupted turns still waiting for their timestamps
 
+    tasks = set()
+
+    def keep(task):
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
+
     async def send(message: dict):
         await browser.send(json.dumps(message))
 
+    async def close_after_trimming(speaker):
+        for task in list(trimming):
+            await task  # an interrupted turn's timestamps arrive on this connection
+        await speaker.close()
+
     def speaker_for(request: dict):
-        """One connection per mode and voice, kept open for the conversation."""
+        """One connection, for the chosen mode. Changing the mode closes it
+        and opens another; the voice is set on each turn's context."""
         guide = request.get("guide") or next(iter(GUIDES))
-        voice_id = request.get("voice_id") or "Sarah"
-        if (guide, voice_id) not in speakers:
-            speakers[guide, voice_id] = GUIDES[guide][2].Speaker(api_key, voice_id, args.model_id, args.tts_url)
-        return guide, speakers[guide, voice_id]
+        if guide != current["guide"]:
+            if current["speaker"] is not None:
+                keep(asyncio.create_task(close_after_trimming(current["speaker"])))
+            current.update(guide=guide, speaker=GUIDES[guide][2].Speaker(api_key, model_id=args.model_id, url=args.tts_url))
+        return guide, current["speaker"]
 
     async def connect(request: dict):
         try:
@@ -83,6 +96,7 @@ async def conversation(browser, args, api_key: str):
         reply = (replies.live(list(history), api_key, args.llm_model) if source == "live"
                  else replies.scripted(source))
 
+        speaker.voice_id = request.get("voice_id") or "Sarah"
         try:
             turn = await speaker.start_turn()
         except Exception as e:
@@ -102,6 +116,8 @@ async def conversation(browser, args, api_key: str):
                 elif kind == "synthesis":
                     await event("synthesis", count=value, audio_seconds=round(turn.audio_seconds, 2))
                 elif kind == "error":
+                    if turn.interrupted:
+                        break  # its connection closed after a change of mode
                     turn.interrupted = True  # stops the reply loop below
                     await send({"type": "error", "turn": turn.context_id, "message": value})
                     break
@@ -111,6 +127,7 @@ async def conversation(browser, args, api_key: str):
 
         forwarder = asyncio.create_task(forward_events())
         failed = False
+        first_sentence = False  # complete yet?
         try:
             async for token in reply:
                 if turn.interrupted:
@@ -118,7 +135,14 @@ async def conversation(browser, args, api_key: str):
                 record["text"] += token
                 await send({"type": "token", "turn": turn.context_id, "text": token})
                 await speaker.send_text(turn, token)
+                # The earliest any mode could start speaking: when the reply's
+                # first sentence is complete, by the client-side splitter.
+                if not first_sentence and client_segmented.split_sentences(record["text"])[0]:
+                    first_sentence = True
+                    await event("first_sentence")
             if not turn.interrupted:
+                if not first_sentence:
+                    await event("first_sentence")  # a one-sentence reply
                 await event("llm_done")
         except Exception as e:
             failed = True
@@ -146,15 +170,12 @@ async def conversation(browser, args, api_key: str):
         remember(record, heard)
         await send({"type": "heard", "turn": record["turn"].context_id, "text": heard})
 
-    tasks = set()
     async for raw in browser:
         request = json.loads(raw)
         if request["type"] in ("connect", "say"):
-            # The page asks to connect when it loads and whenever the mode or
-            # voice changes, so no reply waits for a handshake.
-            task = asyncio.create_task(connect(request) if request["type"] == "connect" else speak(request))
-            tasks.add(task)
-            task.add_done_callback(tasks.discard)
+            # The page asks to connect when it loads and whenever the mode
+            # changes, so no reply waits for a handshake.
+            keep(asyncio.create_task(connect(request) if request["type"] == "connect" else speak(request)))
         elif request["type"] == "interrupt":
             # The page has already stopped playback; it reports how much of
             # the turn's audio was heard.
@@ -171,8 +192,8 @@ async def conversation(browser, args, api_key: str):
         elif request["type"] == "reset":
             del history[1:]
             turns.clear()
-    for speaker in speakers.values():
-        await speaker.close()
+    if current["speaker"] is not None:
+        await current["speaker"].close()
 
 
 def page_handler(options: dict):
