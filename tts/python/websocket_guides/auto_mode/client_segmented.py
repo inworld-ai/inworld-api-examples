@@ -31,8 +31,8 @@ import whole_turn  # noqa: E402
 # A sentence ends at ".", "!" or "?" followed by whitespace, as in most
 # languages written in Latin or Cyrillic script. Chinese and Japanese "。！？",
 # Arabic "؟" and Devanagari "।" "॥" need no space after them, so the sentence
-# ends once the next character arrives. Closing quotes, brackets and tags go
-# with the sentence they close.
+# ends once the next character arrives. Closing quotes, brackets and tags such
+# as </lang> go with the sentence they close.
 CLOSERS = r"(?:[\"')」』）]|</\w+>)*"
 SENTENCE_END = re.compile(rf"[.!?]+{CLOSERS}\s+|[。！？؟।॥]+{CLOSERS}\s*(?=\S)(?![\"')」』）]|</)")
 # English words whose period doesn't end a sentence.
