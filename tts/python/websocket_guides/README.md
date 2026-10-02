@@ -37,7 +37,7 @@ python server.py --port 8766 --model-id inworld-tts-2 --llm-model openai/gpt-4.1
 - **Voice**: any voice ID.
 - **Mode**: how the reply is sent, one per guide: [One flush per turn](./barge_in/), [Client-side sentence segmentation](./auto_mode/), or [One token at a time](./sentence_boundary/).
 - **Reply**: a scripted reply or a live LLM.
-  - *Scripted* replies stream the same tokens every run, with an LLM's timing: a first token after about a third of a second, then 60 tokens a second. They cover a short answer, a long one to interrupt, and [markup](#markup-in-replies).
+  - *Scripted* replies stream the same tokens every run, with an LLM's timing: a first token after about a third of a second, then 60 tokens a second. They cover a short answer, a long one to interrupt, and [markup](#markup-in-replies). The reply text is shown under the menu: edit it, or pick *Your own script*, to speak any text you write with the same timing. The page keeps your script in the browser.
   - *Live LLM* streams from the Inworld Router's chat completions API with the same API key; `--llm-model` picks the model. Edit the system prompt in the sidebar; the default asks the LLM for [markup](#markup-in-replies).
 - **Interrupt**: press Esc, click Interrupt, or send another message. The page stops playback at once and reports how many seconds of the turn it played. The server closes the turn's context and keeps only the words you heard in the LLM history. The reply shows what was heard, with the rest struck through.
 - **Replay** plays a reply again, or only what you heard of an interrupted one.

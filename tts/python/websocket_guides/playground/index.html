@@ -144,7 +144,11 @@
           <label for="script">Reply</label>
           <select id="script"></select>
         </div>
-        <p class="hint">The same tokens every run, with an LLM's timing.</p>
+        <div class="field">
+          <label for="script-text">Reply text</label>
+          <textarea id="script-text" spellcheck="false"></textarea>
+        </div>
+        <p class="hint">The same tokens every run, with an LLM's timing. Edit the text to script your own reply.</p>
       </div>
     </section>
     <button type="button" class="ghost" id="new-chat">New chat</button>
@@ -194,6 +198,11 @@ for (const [name, g] of Object.entries(OPTIONS.guides)) {
   $("guides").append(card);
 }
 for (const [name, s] of Object.entries(OPTIONS.scripts)) $("script").add(new Option(s.label, name));
+// Your own script: any reply text you write, kept in this browser.
+const OWN = "own";
+$("script").add(new Option("Your own script", OWN));
+OPTIONS.scripts[OWN] = { prompt: "Say my script.", get reply() { return store.get("script-text") || ""; } };
+if (OPTIONS.scripts[store.get("script")]) $("script").value = store.get("script");
 $("llm-model").textContent = `Streams from ${OPTIONS.llm_model} through the Inworld Router.`;
 const guide = () => document.querySelector('input[name="guide"]:checked').value;
 let source = store.get("source") || "scripted";
@@ -208,10 +217,20 @@ function setSource(value) {
   $("live-settings").hidden = value !== "live";
   $("scripted-settings").hidden = value !== "scripted";
   $("text").value = value === "live" ? OPTIONS.live_suggestion : OPTIONS.scripts[$("script").value].prompt;
+  $("script-text").value = OPTIONS.scripts[$("script").value].reply;
   autosize();
 }
 document.querySelectorAll("[data-source]").forEach((b) => b.onclick = () => setSource(b.dataset.source));
-$("script").onchange = () => setSource("scripted");
+$("script").onchange = () => { store.set("script", $("script").value); setSource("scripted"); };
+// Editing a reply makes it your own script.
+$("script-text").oninput = () => {
+  store.set("script-text", $("script-text").value);
+  if ($("script").value !== OWN) {
+    $("script").value = OWN;
+    store.set("script", OWN);
+    $("text").value = OPTIONS.scripts[OWN].prompt;
+  }
+};
 $("reset-prompt").onclick = () => { $("prompt").value = OPTIONS.system_prompt; store.set("prompt", ""); };
 $("prompt").oninput = () => store.set("prompt", $("prompt").value);
 // Open the TTS connection for the chosen mode before the first message.
@@ -243,6 +262,7 @@ $("form").onsubmit = (e) => {
   e.preventDefault();
   const text = $("text").value.trim();
   if (!text || ws.readyState !== WebSocket.OPEN) return;
+  if (source === "scripted" && !$("script-text").value.trim()) { $("script-text").focus(); return; }
   audio ??= new AudioContext({ sampleRate: RATE });
   interrupt(); // a new message barges in
   $("empty").hidden = true;
@@ -251,7 +271,7 @@ $("form").onsubmit = (e) => {
   bubble.textContent = text;
   $("thread").append(bubble);
   pending.push(performance.now());
-  send({ type: "say", text, reply: source === "live" ? "live" : $("script").value, guide: guide(),
+  send({ type: "say", text, reply: source === "live" ? "live" : "scripted", reply_text: $("script-text").value, guide: guide(),
          voice_id: $("voice").value, system_prompt: $("prompt").value });
   if (source === "live") $("text").value = "";
   autosize();

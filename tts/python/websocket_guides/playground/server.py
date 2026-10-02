@@ -94,7 +94,7 @@ async def conversation(browser, args, api_key: str):
         history.append({"role": "user", "content": request.get("text", "")})
         source = request.get("reply")
         reply = (replies.live(list(history), api_key, args.llm_model) if source == "live"
-                 else replies.scripted(source))
+                 else replies.scripted(request.get("reply_text", "")))
 
         speaker.voice_id = request.get("voice_id") or "Sarah"
         try:
@@ -227,7 +227,8 @@ async def main():
 
     options = {
         "guides": {name: {"label": label, "summary": summary} for name, (label, summary, _) in GUIDES.items()},
-        "scripts": {name: {"label": s["label"], "prompt": s["prompt"]} for name, s in replies.SCRIPTS.items()},
+        "scripts": {name: {"label": s["label"], "prompt": s["prompt"], "reply": s["reply"]}
+                    for name, s in replies.SCRIPTS.items()},
         "llm_model": args.llm_model,
         "system_prompt": replies.DEFAULT_SYSTEM_PROMPT,
         "live_suggestion": replies.LIVE_PROMPT_SUGGESTION,
