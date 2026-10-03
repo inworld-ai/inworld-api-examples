@@ -29,21 +29,21 @@ from websockets.datastructures import Headers
 from websockets.http11 import Response
 
 HERE = Path(__file__).resolve().parent
-for guide_dir in ("barge_in", "auto_mode", "sentence_boundary"):
+for guide_dir in ("one_flush_per_turn", "client_segmentation", "one_token_at_a_time"):
     sys.path.insert(0, str(HERE.parent / guide_dir))
 
-import client_segmented  # noqa: E402
+import client_segmentation  # noqa: E402
+import one_flush_per_turn  # noqa: E402
+import one_token_at_a_time  # noqa: E402
 import replies  # noqa: E402
-import sentence_boundary  # noqa: E402
-import whole_turn  # noqa: E402
 
 # Each guide's Speaker is one way to send a reply; the page offers them as modes.
 GUIDES = {
-    "whole_turn": ("One flush per turn", "Send the whole reply once the LLM finishes.", whole_turn),
-    "client_segmented": ("Client-side sentence segmentation",
-                         "Send each sentence as soon as the LLM completes it.", client_segmented),
-    "sentence_boundary": ("One token at a time", "Send every token as it arrives; the service finds the sentences. Preview.",
-                          sentence_boundary),
+    "one_flush_per_turn": ("One flush per turn", "Send the whole reply once the LLM finishes.", one_flush_per_turn),
+    "client_segmentation": ("Client-side sentence segmentation",
+                            "Send each sentence as soon as the LLM completes it.", client_segmentation),
+    "one_token_at_a_time": ("One token at a time", "Send every token as it arrives; the service finds the sentences. Preview.",
+                            one_token_at_a_time),
 }
 
 
@@ -137,7 +137,7 @@ async def conversation(browser, args, api_key: str):
                 await speaker.send_text(turn, token)
                 # The earliest any mode could start speaking: when the reply's
                 # first sentence is complete, by the client-side splitter.
-                if not first_sentence and client_segmented.split_sentences(record["text"])[0]:
+                if not first_sentence and client_segmentation.split_sentences(record["text"])[0]:
                     first_sentence = True
                     await event("first_sentence")
             if not turn.interrupted:
@@ -217,7 +217,7 @@ async def main():
     parser.add_argument("--model-id", default="inworld-tts-2", help="TTS model (default: inworld-tts-2)")
     parser.add_argument("--llm-model", default=replies.DEFAULT_LLM_MODEL,
                         help=f"LLM for live replies, through the Inworld Router (default: {replies.DEFAULT_LLM_MODEL})")
-    parser.add_argument("--tts-url", default=whole_turn.WEBSOCKET_URL, help="TTS WebSocket endpoint")
+    parser.add_argument("--tts-url", default=one_flush_per_turn.WEBSOCKET_URL, help="TTS WebSocket endpoint")
     args = parser.parse_args()
 
     api_key = os.getenv("INWORLD_API_KEY")

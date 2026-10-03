@@ -1,17 +1,17 @@
-# Barge-In
+# One Flush per Turn
 
-The base guide: speak an agent's replies over the TTS WebSocket, and let the user interrupt. Each reply goes out whole, with auto mode off, so this guide is only about the conversation: one context per turn, barge-in, and keeping the LLM history to what the user heard. The next guides change only how a reply is sent.
+The base guide: speak an agent's replies over the TTS WebSocket, and let the user interrupt (barge-in). Each reply goes out whole, with auto mode off, so this guide is only about the conversation: one context per turn, barge-in, and keeping the LLM history to what the user heard. The next guides change only how a reply is sent.
 
 | File | What it shows |
 |---|---|
-| [`whole_turn.py`](./whole_turn.py) | The client: one context per turn, the whole reply in one message, barge-in, and word timestamps for the LLM history |
+| [`one_flush_per_turn.py`](./one_flush_per_turn.py) | The client: one context per turn, the whole reply in one message, barge-in, and word timestamps for the LLM history |
 | [Playground](../README.md#playground) | A local web page to talk to the agent, hear it, and interrupt it |
 
 ## Try it
 
 Run the [playground](../README.md#playground) and choose the mode *One flush per turn*. Send a message to a live LLM or pick a scripted reply, then press Esc, or send another message, to interrupt. The reply shows what you heard, which is what the LLM history keeps.
 
-To speak one reply into a WAV file without the page, after the [setup](../README.md#setup): `python whole_turn.py`.
+To speak one reply into a WAV file without the page, after the [setup](../README.md#setup): `python one_flush_per_turn.py`.
 
 ## The pattern
 
@@ -29,7 +29,7 @@ To speak one reply into a WAV file without the page, after the [setup](../README
 {"contextId": "turn-1", "closeContext": {}}
 ```
 
-Waiting for the whole reply means nothing is spoken until the LLM has finished; the playground's log shows the gap. [`../auto_mode/`](../auto_mode/) starts speaking while the LLM is still writing.
+Waiting for the whole reply means nothing is spoken until the LLM has finished; the playground's log shows the gap. [`../client_segmentation/`](../client_segmentation/) starts speaking while the LLM is still writing.
 
 ## Barge-in
 

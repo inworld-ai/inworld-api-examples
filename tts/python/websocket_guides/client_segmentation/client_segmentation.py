@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
 """
-Speak an agent's replies sentence by sentence with auto mode.
+Speak an agent's replies sentence by sentence, cut on the client.
 
 Everything else, including barge-in and the LLM history, is the base guide's
-(../barge_in/whole_turn.py). Two things change:
+(../one_flush_per_turn/one_flush_per_turn.py). Two things change:
 
-- The context is created with `autoMode: true`. Its default strategy,
-  CLIENT_SEGMENTED, expects complete sentences or phrases and decides when to
-  synthesize them.
 - The client cuts the LLM's tokens into sentences as they arrive and sends each
-  one as soon as it is complete, so the first sentence is spoken while the LLM
-  is still writing the rest.
+  one with a flush as soon as it is complete, so the first sentence is spoken
+  while the LLM is still writing the rest.
+- The context is created with `autoMode: true`. With its default strategy,
+  CLIENT_SEGMENTED, every `sendText` is taken as a complete sentence or phrase
+  and synthesized at once, so the flush is implied; the service also batches
+  sentences that arrive while it is busy, for smoother delivery.
 
 The splitter below is deliberately small. It knows the sentence-ending
 punctuation of widely used scripts, and English abbreviations only. To leave
-the splitting to the service, see ../sentence_boundary/sentence_boundary.py.
+the splitting to the service, see ../one_token_at_a_time/one_token_at_a_time.py.
 
-    python client_segmented.py
+    python client_segmentation.py
 """
 
 import asyncio
@@ -24,9 +25,9 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "barge_in"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "one_flush_per_turn"))
 
-import whole_turn  # noqa: E402
+import one_flush_per_turn  # noqa: E402
 
 # A sentence ends at ".", "!" or "?" followed by whitespace, as in most
 # languages written in Latin or Cyrillic script. Chinese and Japanese "。！？",
@@ -68,16 +69,18 @@ def split_sentences(text: str) -> tuple[list[str], str]:
     return sentences, text[start:]
 
 
-class Speaker(whole_turn.Speaker):
+class Speaker(one_flush_per_turn.Speaker):
     CREATE = {"autoMode": True}  # CLIENT_SEGMENTED, the default strategy
 
-    async def send_text(self, turn: whole_turn.Turn, token: str):
+    async def send_text(self, turn: one_flush_per_turn.Turn, token: str):
         """Send each sentence as soon as it is complete. The rest of the
         reply goes out when the turn ends."""
         sentences, turn.pending = split_sentences(turn.pending + token)
         for sentence in sentences:
-            await self._send_text(turn, sentence)
+            # With auto mode off, the flush is what starts the synthesis. With
+            # auto mode on, it is implied and the explicit one changes nothing.
+            await self._send_text(turn, sentence, flush=True)
 
 
 if __name__ == "__main__":
-    exit(asyncio.run(whole_turn.speak_one_reply(Speaker, "client_segmented.wav")))
+    exit(asyncio.run(one_flush_per_turn.speak_one_reply(Speaker, "client_segmentation.wav")))

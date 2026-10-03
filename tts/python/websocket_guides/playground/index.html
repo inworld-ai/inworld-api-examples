@@ -117,7 +117,7 @@
 <body>
 <div class="app" id="app">
   <aside>
-    <div class="brand">WebSocket Playground<small>Inworld TTS · barge-in and auto mode</small></div>
+    <div class="brand">WebSocket Playground<small>Inworld TTS · conversational agent</small></div>
     <section>
       <h3>Voice</h3>
       <div class="field"><input id="voice" value="Sarah" aria-label="Voice ID"></div>
@@ -436,7 +436,7 @@ function render(t) {
   // is when client-side segmentation sends it; for the other modes it marks
   // the earliest the reply could have started to be synthesized.
   const toAudio = t.at.firstSentence === undefined || t.at.firstAudio === undefined ? undefined : t.at.firstAudio - t.at.firstSentence;
-  const sentenceTitle = t.guide === "client_segmented" ? "When the first sentence was complete and sent to TTS"
+  const sentenceTitle = t.guide === "client_segmentation" ? "When the first sentence was complete and sent to TTS"
     : "When the first sentence was complete, as the client-side splitter would cut it";
   const chips = [["First token", fmt(t.at.firstToken)], ["First sentence", fmt(t.at.firstSentence), sentenceTitle],
                  ["First audio", fmt(t.at.firstAudio)],
@@ -447,7 +447,7 @@ function render(t) {
   t.el.querySelector(".chips").innerHTML = chips.map(([k, v, title]) => `<span class="chip"${title ? ` title="${esc(title)}"` : ""}>${k} <b>${v}</b></span>`).join("");
   renderTrack(t);
 
-  const events = [["firstToken", "First LLM token"], ["firstSentence", t.guide === "client_segmented" ? "First sentence complete and sent" : "First sentence complete (by the client-side splitter)"],
+  const events = [["firstToken", "First LLM token"], ["firstSentence", t.guide === "client_segmentation" ? "First sentence complete and sent" : "First sentence complete (by the client-side splitter)"],
                   ["llmDone", "LLM done"], ["firstAudio", "First audio"],
                   ["playStart", "Playback starts"], ["closed", "contextClosed: all audio received"],
                   ["interrupt", "Interrupted"], ["playEnd", "Playback ends"]]

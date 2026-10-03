@@ -15,12 +15,12 @@ Speak an agent's replies over the TTS WebSocket, with barge-in.
   in the LLM's history can end there.
 
 The other guides reuse this class and change only how the reply is sent:
-../auto_mode/client_segmented.py and ../sentence_boundary/sentence_boundary.py.
+../client_segmentation/client_segmentation.py and ../one_token_at_a_time/one_token_at_a_time.py.
 
 Run it through the playground (see ../README.md), or on its own to speak
 one reply into a WAV file:
 
-    python whole_turn.py
+    python one_flush_per_turn.py
 """
 
 import asyncio
@@ -291,4 +291,4 @@ async def speak_one_reply(speaker_class, output_file: str):
 
 
 if __name__ == "__main__":
-    exit(asyncio.run(speak_one_reply(Speaker, "whole_turn.wav")))
+    exit(asyncio.run(speak_one_reply(Speaker, "one_flush_per_turn.wav")))

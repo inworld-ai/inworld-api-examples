@@ -1,10 +1,10 @@
-# Sentence Boundary
+# One Token at a Time
 
-Let the service split the sentences: send the LLM's tokens as they arrive to a context with `autoModeStrategy: "SENTENCE_BOUNDARY"`. Everything else works as in [`../auto_mode/`](../auto_mode/) and [`../barge_in/`](../barge_in/).
+Let the service split the sentences: send the LLM's tokens as they arrive to a context with `autoModeStrategy: "SENTENCE_BOUNDARY"`. Everything else works as in [`../client_segmentation/`](../client_segmentation/) and [`../one_flush_per_turn/`](../one_flush_per_turn/).
 
 | File | What it shows |
 |---|---|
-| [`sentence_boundary.py`](./sentence_boundary.py) | The base guide's client with sentence-boundary auto mode: every token sent as it arrives |
+| [`one_token_at_a_time.py`](./one_token_at_a_time.py) | The base guide's client with sentence-boundary auto mode: every token sent as it arrives |
 | [Playground](../README.md#playground) | A local web page to talk to the agent, hear it, and interrupt it |
 
 `SENTENCE_BOUNDARY` is a **Preview** feature. It supports `inworld-tts-2` and `inworld-tts-2-flash`; on other models, creating the context returns `INVALID_ARGUMENT`. The docs cover it in [Stream incremental text](https://docs.inworld.ai/tts/synthesize-speech-websocket#stream-incremental-text) and [Markup and unfinished input](https://docs.inworld.ai/tts/synthesize-speech-websocket#markup-and-unfinished-input).
@@ -13,7 +13,7 @@ Let the service split the sentences: send the LLM's tokens as they arrive to a c
 
 Run the [playground](../README.md#playground) and choose the mode *One token at a time*.
 
-To speak one reply into a WAV file without the page, after the [setup](../README.md#setup): `python sentence_boundary.py`.
+To speak one reply into a WAV file without the page, after the [setup](../README.md#setup): `python one_token_at_a_time.py`.
 
 ## What changes
 
