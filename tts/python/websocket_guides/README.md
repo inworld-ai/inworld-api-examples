@@ -6,9 +6,9 @@ Read them in order; each builds on the one before and changes only how an agent'
 
 | Guide | What it covers |
 |---|---|
-| 1. [`one_flush_per_turn/`](./one_flush_per_turn/) | The base: one context per agent turn, the whole reply sent at once, barge-in, and keeping the LLM history to what the user heard |
+| 1. [`base/`](./base/) | One context per agent turn, the whole reply sent at once, barge-in, and keeping the LLM history to what the user heard |
 | 2. [`client_segmentation/`](./client_segmentation/) | Start speaking while the LLM writes: the client sends each sentence as soon as it's complete, and auto mode synthesizes it at once, batching sentences that arrive while it's busy |
-| 3. [`one_token_at_a_time/`](./one_token_at_a_time/) | Send the LLM's tokens as they arrive and let the service find the sentences (Preview) |
+| 3. [`streaming_tokens/`](./streaming_tokens/) | Send the LLM's tokens as they arrive and let the service find the sentences (Preview) |
 | [Playground](#playground) | A local web page to try every guide: type to the agent, hear it, interrupt it |
 
 ## Setup
@@ -35,7 +35,7 @@ python server.py --port 8766 --model-id inworld-tts-2 --llm-model openai/gpt-4.1
 ```
 
 - **Voice**: any voice ID.
-- **Mode**: how the reply is sent, one per guide: [One flush per turn](./one_flush_per_turn/), [Client-side sentence segmentation](./client_segmentation/), or [One token at a time](./one_token_at_a_time/).
+- **Mode**: how the reply is sent, one per guide: [Base](./base/), [Client-side sentence segmentation](./client_segmentation/), or [Streaming tokens](./streaming_tokens/).
 - **Reply**: a scripted reply or a live LLM.
   - *Scripted* replies stream the same tokens every run, with an LLM's timing: a first token after about a third of a second, then 60 tokens a second. They cover a short answer, a long one to interrupt, and [markup](#markup-in-replies). The reply text is shown under the menu: edit it, or pick *Your own script*, to speak any text you write with the same timing. The page keeps your script in the browser.
   - *Live LLM* streams from the Inworld Router's chat completions API with the same API key; `--llm-model` picks the model. Edit the system prompt in the sidebar; the default asks the LLM for [markup](#markup-in-replies).
@@ -46,11 +46,11 @@ python server.py --port 8766 --model-id inworld-tts-2 --llm-model openai/gpt-4.1
 The server opens one TTS connection, for the chosen mode, when the page loads, so no reply's times include the handshake. Changing the mode stops the reply being spoken, closes the connection and opens another; the voice is set on each turn's context, so changing it opens nothing. Each reply shows:
 
 - **First token** and **First audio**: when the first LLM token and the first audio reached the page, counted from Send.
-- **First sentence**: when the reply's first sentence was complete, the earliest it could start to be synthesized. In *Client-side sentence segmentation* that is when it was sent. In the other modes it is where the [`client_segmentation/`](./client_segmentation/) splitter would cut it, which can differ from the service's own cut in *One token at a time*.
+- **First sentence**: when the reply's first sentence was complete, the earliest it could start to be synthesized. In *Client-side sentence segmentation* that is when it was sent. In the other modes it is where the [`client_segmentation/`](./client_segmentation/) splitter would cut it, which can differ from the service's own cut in *Streaming tokens*.
 - **Sentence to audio**: First audio counted from First sentence, to compare the modes on the same footing.
 - How many syntheses the service ran, and a timeline of the LLM writing, TTS audio arriving and playback, with the first sentence, each completed synthesis and any interrupt marked. *Events* lists the same moments.
 
-To add a guide, subclass `Speaker` from [`one_flush_per_turn/one_flush_per_turn.py`](./one_flush_per_turn/one_flush_per_turn.py) as the other guides do: set `CREATE` for the context settings, override `send_text(turn, token)` and, if needed, `end_turn(turn)`, and add the module to `GUIDES` in `playground/server.py`.
+To add a guide, subclass `Speaker` from [`base/base.py`](./base/base.py) as the other guides do: set `CREATE` for the context settings, override `send_text(turn, token)` and, if needed, `end_turn(turn)`, and add the module to `GUIDES` in `playground/server.py`.
 
 ## Markup in replies
 
@@ -60,9 +60,9 @@ An LLM can direct the voice with markup in its reply, and every mode passes it t
 - `<verbatim>KX7Q2</verbatim>` to read a code character by character.
 What each mode needs for markup:
 
-- **One flush per turn**: nothing; the reply goes out whole.
+- **Base**: nothing; the reply goes out whole.
 - **Client-side sentence segmentation**: cut at sentence ends as usual, never inside a tag. The splitter in [`client_segmentation/`](./client_segmentation/) holds back an unfinished tag.
-- **One token at a time**: nothing; the service holds a tag split across tokens until it closes.
+- **Streaming tokens**: nothing; the service holds a tag split across tokens until it closes.
 
 When the user interrupts, the LLM history keeps the markup the user heard along with the words.
 

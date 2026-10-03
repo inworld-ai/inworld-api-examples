@@ -1,6 +1,6 @@
 # Client-Side Sentence Segmentation
 
-Start speaking before the LLM has finished: cut its tokens into sentences on the client, and send each one as soon as it is complete. Barge-in and the LLM history work as in [`../one_flush_per_turn/`](../one_flush_per_turn/).
+Start speaking before the LLM has finished: cut its tokens into sentences on the client, and send each one as soon as it is complete. Barge-in and the LLM history work as in [`../base/`](../base/).
 
 | File | What it shows |
 |---|---|
@@ -9,7 +9,7 @@ Start speaking before the LLM has finished: cut its tokens into sentences on the
 
 ## Try it
 
-Run the [playground](../README.md#playground), choose the mode *Client-side sentence segmentation*, and compare its first-audio time with *One flush per turn*.
+Run the [playground](../README.md#playground), choose the mode *Client-side sentence segmentation*, and compare its first-audio time with *Base*.
 
 To speak one reply into a WAV file without the page, after the [setup](../README.md#setup): `python client_segmentation.py`.
 
@@ -36,4 +36,4 @@ Send sentences, not tokens: each `sendText` starts a synthesis, so tokens would 
 
 `split_sentences` in [`client_segmentation.py`](./client_segmentation.py) is the simplest splitter that works across widely used languages. A sentence ends at `.`, `!` or `?` followed by whitespace, as in languages written in Latin or Cyrillic script, or right after Chinese and Japanese `。！？`, Arabic `؟` or Devanagari `।` `॥`, which need no space after them. It doesn't end at an ellipsis, after a common English abbreviation (*Dr.*, *e.g.*) or an initial (*J. R.*), or inside markup: `[say warmly]`, `<break time="500ms"/>` and `<verbatim>AB. 12</verbatim>` stay whole, and an unfinished tag holds back the text after it. Closing quotes, brackets and tags stay with the sentence they close. A sentence that ends in `.`, `!` or `?` waits for the whitespace after it, so the reply's last one goes out when the reply ends.
 
-It has no abbreviations for other languages, and it ends a sentence after a quoted one, as in `「はい。」と言った` or `"Really?" she asked`. For a splitter that handles those, leave the splitting to the service: see [`../one_token_at_a_time/`](../one_token_at_a_time/).
+It has no abbreviations for other languages, and it ends a sentence after a quoted one, as in `「はい。」と言った` or `"Really?" she asked`. For a splitter that handles those, leave the splitting to the service: see [`../streaming_tokens/`](../streaming_tokens/).

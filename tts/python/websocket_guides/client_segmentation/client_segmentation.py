@@ -3,7 +3,7 @@
 Speak an agent's replies sentence by sentence, cut on the client.
 
 Everything else, including barge-in and the LLM history, is the base guide's
-(../one_flush_per_turn/one_flush_per_turn.py). Two things change:
+(../base/base.py). Two things change:
 
 - The client cuts the LLM's tokens into sentences as they arrive and sends each
   one with a flush as soon as it is complete, so the first sentence is spoken
@@ -15,7 +15,7 @@ Everything else, including barge-in and the LLM history, is the base guide's
 
 The splitter below is deliberately small. It knows the sentence-ending
 punctuation of widely used scripts, and English abbreviations only. To leave
-the splitting to the service, see ../one_token_at_a_time/one_token_at_a_time.py.
+the splitting to the service, see ../streaming_tokens/streaming_tokens.py.
 
     python client_segmentation.py
 """
@@ -25,9 +25,9 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "one_flush_per_turn"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "base"))
 
-import one_flush_per_turn  # noqa: E402
+import base  # noqa: E402
 
 # A sentence ends at ".", "!" or "?" followed by whitespace, as in most
 # languages written in Latin or Cyrillic script. Chinese and Japanese "。！？",
@@ -69,10 +69,10 @@ def split_sentences(text: str) -> tuple[list[str], str]:
     return sentences, text[start:]
 
 
-class Speaker(one_flush_per_turn.Speaker):
+class Speaker(base.Speaker):
     CREATE = {"autoMode": True}  # CLIENT_SEGMENTED, the default strategy
 
-    async def send_text(self, turn: one_flush_per_turn.Turn, token: str):
+    async def send_text(self, turn: base.Turn, token: str):
         """Send each sentence as soon as it is complete. The rest of the
         reply goes out when the turn ends."""
         sentences, turn.pending = split_sentences(turn.pending + token)
@@ -83,4 +83,4 @@ class Speaker(one_flush_per_turn.Speaker):
 
 
 if __name__ == "__main__":
-    exit(asyncio.run(one_flush_per_turn.speak_one_reply(Speaker, "client_segmentation.wav")))
+    exit(asyncio.run(base.speak_one_reply(Speaker, "client_segmentation.wav")))

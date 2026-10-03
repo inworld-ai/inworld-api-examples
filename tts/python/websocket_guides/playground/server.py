@@ -29,21 +29,21 @@ from websockets.datastructures import Headers
 from websockets.http11 import Response
 
 HERE = Path(__file__).resolve().parent
-for guide_dir in ("one_flush_per_turn", "client_segmentation", "one_token_at_a_time"):
+for guide_dir in ("base", "client_segmentation", "streaming_tokens"):
     sys.path.insert(0, str(HERE.parent / guide_dir))
 
+import base  # noqa: E402
 import client_segmentation  # noqa: E402
-import one_flush_per_turn  # noqa: E402
-import one_token_at_a_time  # noqa: E402
 import replies  # noqa: E402
+import streaming_tokens  # noqa: E402
 
 # Each guide's Speaker is one way to send a reply; the page offers them as modes.
 GUIDES = {
-    "one_flush_per_turn": ("One flush per turn", "Send the whole reply once the LLM finishes.", one_flush_per_turn),
+    "base": ("Base", "Send the whole reply once the LLM finishes.", base),
     "client_segmentation": ("Client-side sentence segmentation",
                             "Send each sentence as soon as the LLM completes it.", client_segmentation),
-    "one_token_at_a_time": ("One token at a time", "Send every token as it arrives; the service finds the sentences. Preview.",
-                            one_token_at_a_time),
+    "streaming_tokens": ("Streaming tokens", "Send every token as it arrives; the service finds the sentences. Preview.",
+                         streaming_tokens),
 }
 
 
@@ -217,7 +217,7 @@ async def main():
     parser.add_argument("--model-id", default="inworld-tts-2", help="TTS model (default: inworld-tts-2)")
     parser.add_argument("--llm-model", default=replies.DEFAULT_LLM_MODEL,
                         help=f"LLM for live replies, through the Inworld Router (default: {replies.DEFAULT_LLM_MODEL})")
-    parser.add_argument("--tts-url", default=one_flush_per_turn.WEBSOCKET_URL, help="TTS WebSocket endpoint")
+    parser.add_argument("--tts-url", default=base.WEBSOCKET_URL, help="TTS WebSocket endpoint")
     args = parser.parse_args()
 
     api_key = os.getenv("INWORLD_API_KEY")

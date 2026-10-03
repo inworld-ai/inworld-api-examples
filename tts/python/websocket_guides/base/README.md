@@ -1,17 +1,17 @@
-# One Flush per Turn
+# Base
 
 The base guide: speak an agent's replies over the TTS WebSocket, and let the user interrupt (barge-in). Each reply goes out whole, with auto mode off, so this guide is only about the conversation: one context per turn, barge-in, and keeping the LLM history to what the user heard. The next guides change only how a reply is sent.
 
 | File | What it shows |
 |---|---|
-| [`one_flush_per_turn.py`](./one_flush_per_turn.py) | The client: one context per turn, the whole reply in one message, barge-in, and word timestamps for the LLM history |
+| [`base.py`](./base.py) | The client: one context per turn, the whole reply in one message, barge-in, and word timestamps for the LLM history |
 | [Playground](../README.md#playground) | A local web page to talk to the agent, hear it, and interrupt it |
 
 ## Try it
 
-Run the [playground](../README.md#playground) and choose the mode *One flush per turn*. Send a message to a live LLM or pick a scripted reply, then press Esc, or send another message, to interrupt. The reply shows what you heard, which is what the LLM history keeps.
+Run the [playground](../README.md#playground) and choose the mode *Base*. Send a message to a live LLM or pick a scripted reply, then press Esc, or send another message, to interrupt. The reply shows what you heard, which is what the LLM history keeps.
 
-To speak one reply into a WAV file without the page, after the [setup](../README.md#setup): `python one_flush_per_turn.py`.
+To speak one reply into a WAV file without the page, after the [setup](../README.md#setup): `python base.py`.
 
 ## The pattern
 
