@@ -29,41 +29,54 @@ from websockets.datastructures import Headers
 from websockets.http11 import Response
 
 HERE = Path(__file__).resolve().parent
-for guide_dir in ("barge_in", "auto_mode", "sentence_boundary"):
+for guide_dir in ("base", "client_segmentation", "streaming_tokens"):
     sys.path.insert(0, str(HERE.parent / guide_dir))
 
-import client_segmented  # noqa: E402
+import base  # noqa: E402
+import client_segmentation  # noqa: E402
 import replies  # noqa: E402
-import sentence_boundary  # noqa: E402
-import whole_turn  # noqa: E402
+import streaming_tokens  # noqa: E402
 
 # Each guide's Speaker is one way to send a reply; the page offers them as modes.
 GUIDES = {
-    "whole_turn": ("One flush per turn", "Send the whole reply once the LLM finishes.", whole_turn),
-    "client_segmented": ("Client-side sentence segmentation",
-                         "Send each sentence as soon as the LLM completes it.", client_segmented),
-    "sentence_boundary": ("One token at a time", "Send every token as it arrives; the service finds the sentences. Preview.",
-                          sentence_boundary),
+    "base": ("Base", "Send the whole reply once the LLM finishes.", base),
+    "client_segmentation": ("Client-side sentence segmentation",
+                            "Send each sentence as soon as the LLM completes it.", client_segmentation),
+    "streaming_tokens": ("Streaming tokens", "Send every token as it arrives; the service finds the sentences. Preview.",
+                         streaming_tokens),
 }
 
 
 async def conversation(browser, args, api_key: str):
     """One browser tab: one conversation, with its own history and TTS connection."""
-    speakers = {}
+    current = {"guide": None, "speaker": None}  # the chosen mode's TTS connection
     history = [{"role": "system", "content": replies.DEFAULT_SYSTEM_PROMPT}]
     turns = {}  # turn id -> {"turn", "speaker", "text": the reply so far}
     trimming = set()  # interrupted turns still waiting for their timestamps
 
+    tasks = set()
+
+    def keep(task):
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
+
     async def send(message: dict):
         await browser.send(json.dumps(message))
 
+    async def close_after_trimming(speaker):
+        for task in list(trimming):
+            await task  # an interrupted turn's timestamps arrive on this connection
+        await speaker.close()
+
     def speaker_for(request: dict):
-        """One connection per mode and voice, kept open for the conversation."""
+        """One connection, for the chosen mode. Changing the mode closes it
+        and opens another; the voice is set on each turn's context."""
         guide = request.get("guide") or next(iter(GUIDES))
-        voice_id = request.get("voice_id") or "Sarah"
-        if (guide, voice_id) not in speakers:
-            speakers[guide, voice_id] = GUIDES[guide][2].Speaker(api_key, voice_id, args.model_id, args.tts_url)
-        return guide, speakers[guide, voice_id]
+        if guide != current["guide"]:
+            if current["speaker"] is not None:
+                keep(asyncio.create_task(close_after_trimming(current["speaker"])))
+            current.update(guide=guide, speaker=GUIDES[guide][2].Speaker(api_key, model_id=args.model_id, url=args.tts_url))
+        return guide, current["speaker"]
 
     async def connect(request: dict):
         try:
@@ -81,10 +94,10 @@ async def conversation(browser, args, api_key: str):
         history.append({"role": "user", "content": request.get("text", "")})
         source = request.get("reply")
         reply = (replies.live(list(history), api_key, args.llm_model) if source == "live"
-                 else replies.scripted(source))
+                 else replies.scripted(request.get("reply_text", "")))
 
         try:
-            turn = await speaker.start_turn()
+            turn = await speaker.start_turn(request.get("voice_id") or "Sarah")
         except Exception as e:
             await send({"type": "error", "message": f"could not open a TTS context: {e}"})
             return
@@ -102,6 +115,8 @@ async def conversation(browser, args, api_key: str):
                 elif kind == "synthesis":
                     await event("synthesis", count=value, audio_seconds=round(turn.audio_seconds, 2))
                 elif kind == "error":
+                    if turn.interrupted:
+                        break  # its connection closed after a change of mode
                     turn.interrupted = True  # stops the reply loop below
                     await send({"type": "error", "turn": turn.context_id, "message": value})
                     break
@@ -111,14 +126,23 @@ async def conversation(browser, args, api_key: str):
 
         forwarder = asyncio.create_task(forward_events())
         failed = False
+        first_sentence = False  # complete yet?
         try:
             async for token in reply:
                 if turn.interrupted:
                     break
                 record["text"] += token
                 await send({"type": "token", "turn": turn.context_id, "text": token})
+                # The earliest any mode could start speaking: when the reply's
+                # first sentence is complete, by the client-side splitter.
+                # Reported before the text goes to TTS, so it precedes the audio.
+                if not first_sentence and client_segmentation.split_sentences(record["text"])[0]:
+                    first_sentence = True
+                    await event("first_sentence")
                 await speaker.send_text(turn, token)
             if not turn.interrupted:
+                if not first_sentence:
+                    await event("first_sentence")  # a one-sentence reply
                 await event("llm_done")
         except Exception as e:
             failed = True
@@ -146,15 +170,12 @@ async def conversation(browser, args, api_key: str):
         remember(record, heard)
         await send({"type": "heard", "turn": record["turn"].context_id, "text": heard})
 
-    tasks = set()
     async for raw in browser:
         request = json.loads(raw)
         if request["type"] in ("connect", "say"):
-            # The page asks to connect when it loads and whenever the mode or
-            # voice changes, so no reply waits for a handshake.
-            task = asyncio.create_task(connect(request) if request["type"] == "connect" else speak(request))
-            tasks.add(task)
-            task.add_done_callback(tasks.discard)
+            # The page asks to connect when it loads and whenever the mode
+            # changes, so no reply waits for a handshake.
+            keep(asyncio.create_task(connect(request) if request["type"] == "connect" else speak(request)))
         elif request["type"] == "interrupt":
             # The page has already stopped playback; it reports how much of
             # the turn's audio was heard.
@@ -171,8 +192,8 @@ async def conversation(browser, args, api_key: str):
         elif request["type"] == "reset":
             del history[1:]
             turns.clear()
-    for speaker in speakers.values():
-        await speaker.close()
+    if current["speaker"] is not None:
+        await current["speaker"].close()
 
 
 def page_handler(options: dict):
@@ -196,7 +217,7 @@ async def main():
     parser.add_argument("--model-id", default="inworld-tts-2", help="TTS model (default: inworld-tts-2)")
     parser.add_argument("--llm-model", default=replies.DEFAULT_LLM_MODEL,
                         help=f"LLM for live replies, through the Inworld Router (default: {replies.DEFAULT_LLM_MODEL})")
-    parser.add_argument("--tts-url", default=whole_turn.WEBSOCKET_URL, help="TTS WebSocket endpoint")
+    parser.add_argument("--tts-url", default=base.WEBSOCKET_URL, help="TTS WebSocket endpoint")
     args = parser.parse_args()
 
     api_key = os.getenv("INWORLD_API_KEY")
@@ -206,7 +227,8 @@ async def main():
 
     options = {
         "guides": {name: {"label": label, "summary": summary} for name, (label, summary, _) in GUIDES.items()},
-        "scripts": {name: {"label": s["label"], "prompt": s["prompt"]} for name, s in replies.SCRIPTS.items()},
+        "scripts": {name: {"label": s["label"], "prompt": s["prompt"], "reply": s["reply"]}
+                    for name, s in replies.SCRIPTS.items()},
         "llm_model": args.llm_model,
         "system_prompt": replies.DEFAULT_SYSTEM_PROMPT,
         "live_suggestion": replies.LIVE_PROMPT_SUGGESTION,
