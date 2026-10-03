@@ -96,9 +96,8 @@ async def conversation(browser, args, api_key: str):
         reply = (replies.live(list(history), api_key, args.llm_model) if source == "live"
                  else replies.scripted(request.get("reply_text", "")))
 
-        speaker.voice_id = request.get("voice_id") or "Sarah"
         try:
-            turn = await speaker.start_turn()
+            turn = await speaker.start_turn(request.get("voice_id") or "Sarah")
         except Exception as e:
             await send({"type": "error", "message": f"could not open a TTS context: {e}"})
             return
@@ -134,12 +133,13 @@ async def conversation(browser, args, api_key: str):
                     break
                 record["text"] += token
                 await send({"type": "token", "turn": turn.context_id, "text": token})
-                await speaker.send_text(turn, token)
                 # The earliest any mode could start speaking: when the reply's
                 # first sentence is complete, by the client-side splitter.
+                # Reported before the text goes to TTS, so it precedes the audio.
                 if not first_sentence and client_segmentation.split_sentences(record["text"])[0]:
                     first_sentence = True
                     await event("first_sentence")
+                await speaker.send_text(turn, token)
             if not turn.interrupted:
                 if not first_sentence:
                     await event("first_sentence")  # a one-sentence reply

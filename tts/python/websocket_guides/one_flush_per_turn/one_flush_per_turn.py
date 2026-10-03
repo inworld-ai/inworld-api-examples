@@ -126,14 +126,16 @@ class Speaker:
                     self.url, additional_headers={"Authorization": f"Basic {self.api_key}"}, max_size=None)
                 self._reader = asyncio.create_task(self._read())
 
-    async def start_turn(self) -> Turn:
-        """Open a context for the next agent turn."""
+    async def start_turn(self, voice_id: str | None = None) -> Turn:
+        """Open a context for the next agent turn, in voice_id or the
+        speaker's voice."""
+        voice_id = voice_id or self.voice_id
         await self.connect()  # returns at once when already connected
         turn = Turn(f"turn-{uuid.uuid4().hex[:12]}")  # unique across connections
         self._turns[turn.context_id] = turn
         # No need to wait for contextCreated: the service handles messages in order.
         await self._send(turn, {"create": {
-            "voiceId": self.voice_id,
+            "voiceId": voice_id,
             "modelId": self.model_id,
             "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": SAMPLE_RATE_HZ},
             "timestampType": "WORD",
