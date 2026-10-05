@@ -11,9 +11,9 @@ The service speaks each span in its language, on the voice's localized prompt
 for that language when it has one, and the context's history carries the
 delivery across the switches. Tags pass through every guide's mode unchanged,
 so this guide has no WebSocket client of its own. It speaks a tagged turn
-through the base guide's speaker (../barge_in/whole_turn.py), which sends the
-reply as one flush, or the sentence-boundary one
-(../sentence_boundary/sentence_boundary.py), which sends it token by token.
+through the base guide's speaker (../base/base.py), which sends the reply as
+one flush, or the streaming-tokens one (../streaming_tokens/streaming_tokens.py),
+which sends it token by token with sentence-boundary auto mode.
 
 For comparison, it also sends the turn the two ways a client could before the
 tags: with the tags stripped, so the service detects one language for the whole
@@ -36,11 +36,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 GUIDES = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(GUIDES / "barge_in"))
-sys.path.insert(0, str(GUIDES / "sentence_boundary"))
+sys.path.insert(0, str(GUIDES / "base"))
+sys.path.insert(0, str(GUIDES / "streaming_tokens"))
 
-import sentence_boundary  # noqa: E402
-import whole_turn  # noqa: E402
+import base  # noqa: E402
+import streaming_tokens  # noqa: E402
 
 DEFAULT_TEXT = (
     '<lang lang="en-US">Great job! "The dog runs" is</lang> <lang lang="es-MX">El perro corre.</lang> '
@@ -82,20 +82,20 @@ def split_spans(text: str) -> list[tuple[str, str]]:
     return [(lang, " ".join(piece.split())) for lang, piece in spans if speakable(piece)]
 
 
-class NoTags(whole_turn.Speaker):
+class NoTags(base.Speaker):
     """Before language tags: the whole turn as one flush, tags stripped. The
     service detects one language for all of it."""
 
-    async def end_turn(self, turn: whole_turn.Turn):
+    async def end_turn(self, turn: base.Turn):
         turn.pending = strip_tags(turn.pending)
         await super().end_turn(turn)
 
 
-class PerLanguageFlushes(whole_turn.Speaker):
+class PerLanguageFlushes(base.Speaker):
     """Before language tags: tags stripped, and a flush at every switch. The
     service detects the language of each flush on its own."""
 
-    async def end_turn(self, turn: whole_turn.Turn):
+    async def end_turn(self, turn: base.Turn):
         if turn.closing:
             return
         for _, text in split_spans(turn.pending):
@@ -105,8 +105,8 @@ class PerLanguageFlushes(whole_turn.Speaker):
 
 
 MODES = {
-    "tags": whole_turn.Speaker,  # the tagged turn as one flush
-    "sentence": sentence_boundary.Speaker,  # the tagged turn token by token
+    "tags": base.Speaker,  # the tagged turn as one flush
+    "sentence": streaming_tokens.Speaker,  # the tagged turn token by token
     "no-tags": NoTags,
     "per-language": PerLanguageFlushes,
 }
@@ -120,7 +120,7 @@ class Synthesis:
 
 
 async def speak(mode: str, text: str, api_key: str, voice_id: str, model_id: str = "inworld-tts-2",
-                url: str = whole_turn.WEBSOCKET_URL) -> list[Synthesis]:
+                url: str = base.WEBSOCKET_URL) -> list[Synthesis]:
     """Stream text through the mode's speaker, the way an LLM's tokens arrive,
     and return the audio of each synthesis the service ran."""
     speaker = MODES[mode](api_key, voice_id, model_id, url)
@@ -180,12 +180,12 @@ async def main():
         print(f"Synthesis failed: {e}")
         return 1
     for i, s in enumerate(syntheses):
-        print(f"synthesis {i}: {len(s.pcm) / 2 / whole_turn.SAMPLE_RATE_HZ:.2f}s, "
+        print(f"synthesis {i}: {len(s.pcm) / 2 / base.SAMPLE_RATE_HZ:.2f}s, "
               f"first audio after {s.first_audio_s * 1000:.0f} ms")
     with wave.open(args.output_file, "wb") as f:
         f.setnchannels(1)
         f.setsampwidth(2)
-        f.setframerate(whole_turn.SAMPLE_RATE_HZ)
+        f.setframerate(base.SAMPLE_RATE_HZ)
         f.writeframes(b"".join(s.pcm for s in syntheses))
     print(f"Wrote {args.output_file}")
     return 0

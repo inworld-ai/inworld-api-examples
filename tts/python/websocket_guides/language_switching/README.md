@@ -11,7 +11,7 @@ Speak a turn that mixes languages, the way a language tutor talks: the learner's
 | [`language_switching.py`](./language_switching.py) | Speaks a tagged turn through the other guides' speakers, and the same turn without tags for comparison |
 | [`demo/`](./demo/) | A local web page that plays a turn with tags and without, side by side |
 
-Tags pass through every mode unchanged, so this guide has no WebSocket client of its own: it reuses [`../barge_in/whole_turn.py`](../barge_in/whole_turn.py) and [`../sentence_boundary/sentence_boundary.py`](../sentence_boundary/sentence_boundary.py). Set up as in the [guides' README](../README.md#setup), and run the commands below from this folder.
+Tags pass through every mode unchanged, so this guide has no WebSocket client of its own: it reuses [`../base/base.py`](../base/base.py) and [`../streaming_tokens/streaming_tokens.py`](../streaming_tokens/streaming_tokens.py). Set up as in the [guides' README](../README.md#setup), and run the commands below from this folder.
 
 ## Language tags
 

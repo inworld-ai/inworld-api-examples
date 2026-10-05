@@ -33,7 +33,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 
 import language_switching as ls  # noqa: E402
-from whole_turn import SAMPLE_RATE_HZ, WEBSOCKET_URL  # noqa: E402
+from base import SAMPLE_RATE_HZ, WEBSOCKET_URL  # noqa: E402
 
 SYNTHESIS_TIMEOUT_S = 90
 

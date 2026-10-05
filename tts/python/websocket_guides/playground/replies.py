@@ -60,10 +60,10 @@ SCRIPTS = {
 TOKEN_RE = re.compile(r"\s*\S{1,4}")  # pieces the size of LLM tokens
 
 
-async def scripted(name: str):
-    """Yield a script's reply as LLM tokens, with an LLM's timing."""
+async def scripted(reply: str):
+    """Yield a scripted reply as LLM tokens, with an LLM's timing."""
     await asyncio.sleep(FIRST_TOKEN_DELAY_S)
-    for token in TOKEN_RE.findall(SCRIPTS[name]["reply"]):
+    for token in TOKEN_RE.findall(reply):
         yield token
         await asyncio.sleep(1 / TOKENS_PER_SECOND)
 
