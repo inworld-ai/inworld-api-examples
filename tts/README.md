@@ -29,7 +29,7 @@ For real-time use cases, minimizing latency is critical. Inworld offers three wa
 
 In general: **WebSocket** has the lowest time-to-first-byte (TTFB), **HTTP streaming** is next, and **non-streaming HTTP** is highest latency but good to get started. For more on latency and best practices, see [Generating speech – Latency](https://docs.inworld.ai/docs/tts/best-practices/generating-speech#latency).
 
-For speaking an LLM's replies over the WebSocket, with barge-in and auto mode, see the Python [WebSocket usage guides](python/websocket_guides/).
+For a conversational agent that speaks an LLM's replies over the WebSocket, with barge-in, see the Python [WebSocket guides for conversational agents](python/websocket_guides/).
 
 ## **[TTS Latency Comparison](js/tts_latency_comparison/)**
 

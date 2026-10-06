@@ -1,19 +1,19 @@
-# Sentence Boundary
+# Streaming Tokens
 
-Let the service split the sentences: send the LLM's tokens as they arrive to a context with `autoModeStrategy: "SENTENCE_BOUNDARY"`. Everything else works as in [`../auto_mode/`](../auto_mode/) and [`../barge_in/`](../barge_in/).
+Let the service split the sentences: send the LLM's tokens as they arrive to a context with `autoModeStrategy: "SENTENCE_BOUNDARY"`. Everything else works as in [`../client_segmentation/`](../client_segmentation/) and [`../base/`](../base/).
 
 | File | What it shows |
 |---|---|
-| [`sentence_boundary.py`](./sentence_boundary.py) | The base guide's client with sentence-boundary auto mode: every token sent as it arrives |
+| [`streaming_tokens.py`](./streaming_tokens.py) | The base guide's client with sentence-boundary auto mode: every token sent as it arrives |
 | [Playground](../README.md#playground) | A local web page to talk to the agent, hear it, and interrupt it |
 
 `SENTENCE_BOUNDARY` is a **Preview** feature. It supports `inworld-tts-2` and `inworld-tts-2-flash`; on other models, creating the context returns `INVALID_ARGUMENT`. The docs cover it in [Stream incremental text](https://docs.inworld.ai/tts/synthesize-speech-websocket#stream-incremental-text) and [Markup and unfinished input](https://docs.inworld.ai/tts/synthesize-speech-websocket#markup-and-unfinished-input).
 
 ## Try it
 
-Run the [playground](../README.md#playground) and choose the mode *One token at a time*.
+Run the [playground](../README.md#playground) and choose the mode *Streaming tokens*.
 
-To speak one reply into a WAV file without the page, after the [setup](../README.md#setup): `python sentence_boundary.py`.
+To speak one reply into a WAV file without the page, after the [setup](../README.md#setup): `python streaming_tokens.py`.
 
 ## What changes
 
