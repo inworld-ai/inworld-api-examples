@@ -230,8 +230,7 @@ async def main():
         "scripts": {name: {"label": s["label"], "prompt": s["prompt"], "reply": s["reply"]}
                     for name, s in replies.SCRIPTS.items()},
         "llm_model": args.llm_model,
-        "system_prompt": replies.DEFAULT_SYSTEM_PROMPT,
-        "live_suggestion": replies.LIVE_PROMPT_SUGGESTION,
+        "system_prompts": replies.SYSTEM_PROMPTS,
     }
     # Only the page itself may connect: the server spends your API key.
     origins = [f"http://localhost:{args.port}", f"http://127.0.0.1:{args.port}"]
