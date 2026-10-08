@@ -234,9 +234,9 @@ python example_voice_design_publish.py
 ---
 
 ### 12. `websocket_guides/` - WebSocket Guides for Conversational Agents
-**Purpose:** Speak a conversational agent's LLM replies over the bidirectional WebSocket: barge-in and keeping the LLM history to what the user heard, then three ways to send a reply: the base, sending the whole reply at once; client-side sentence segmentation; and streaming tokens with sentence-boundary auto mode.
+**Purpose:** Speak a conversational agent's LLM replies over the bidirectional WebSocket: barge-in and keeping the LLM history to what the user heard, then three ways to send a reply: the base, sending the whole reply at once; client-side sentence segmentation; and streaming tokens with sentence-boundary auto mode. A fourth guide switches languages within a turn with language tags.
 
-**Best for:** Voice agents that speak an LLM's output. See [its README](./websocket_guides/README.md).
+**Best for:** Voice agents that speak an LLM's output, including multilingual agents such as language tutors. See [its README](./websocket_guides/README.md).
 
 ## Configuration Options
 
