@@ -61,7 +61,9 @@ An LLM can direct the voice with markup in its reply, and every mode passes it t
 - `<verbatim>KX7Q2</verbatim>` to read a code character by character.
 - Language tags: `<lang lang="es-MX">El perro corre.</lang>` speaks the span in Spanish, on the voice's localized prompt for Spanish when it has one. This is what a language tutor needs; pick a voice with a localized prompt for each language. In a turn that mixes languages, tag every part, the learner's language too, so none of it is left to language detection: `<lang lang="en-US">"The dog runs" is</lang> <lang lang="es-MX">El perro corre.</lang>`.
 
-A span can open in one `sendText` and close in a later one: on a context, it lasts until its closing tag. What each mode needs:
+For tutoring, add `<break time="200ms" />` before switching languages to introduce a foreign word or return to its explanation. Put the break at the end of the preceding language span. The playground's **Spanish for English speakers** and **Japanese for Chinese speakers** replies include these pauses and work with all three modes. See [language tags](https://docs.inworld.ai/tts/capabilities/language-tags) and [pause controls](https://docs.inworld.ai/tts/capabilities/pause-controls) for details.
+
+Close every language span within its sentence so each client-side flush is self-contained. Streaming tokens can send a span across messages. What each mode needs:
 
 - **Base**: nothing; the reply goes out whole.
 - **Client-side sentence segmentation**: cut at sentence ends as usual, never inside a tag. The splitter in [`client_segmentation/`](./client_segmentation/) holds back an unfinished tag.
