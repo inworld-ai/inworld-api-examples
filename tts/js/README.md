@@ -175,6 +175,8 @@ const config = {
 
 You can modify these values in each example file to test different voices, models, or text content.
 
+`example_websocket.js` requests `PCM` at 24,000 Hz and uses `autoModeStrategy: 'SENTENCE_BOUNDARY'` to segment incremental text on the server. Its WAV writer also uses 24,000 Hz; update both the request and WAV header if you change the sample rate.
+
 ### `inworld-tts-2`-only options
 
 - [`deliveryMode`](https://docs.inworld.ai/api-reference/ttsAPI/texttospeech/synthesize-speech-stream#body-delivery-mode) — `STABLE`, `BALANCED` (default), or `CREATIVE` to trade off consistency vs. expressiveness.
@@ -194,6 +196,7 @@ You can modify these values in each example file to test different voices, model
 ## Audio Output
 
 - **Streaming examples** (`example_tts_stream.js`, `example_tts_stream_timestamps.js`): Output **MP3** (as configured by `audio_encoding: 'MP3'`).
+- **WebSocket example** (`example_websocket.js`): Receives raw signed 16-bit little-endian PCM at **24,000 Hz**, mono, and adds a WAV header when saving **`synthesis_websocket_output.wav`**.
 - **Other examples:** Generate WAV with:
   - **Format:** WAV (RIFF)
   - **Encoding:** LINEAR16 (PCM)
