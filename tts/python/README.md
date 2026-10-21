@@ -244,7 +244,7 @@ All examples support the following configuration through code modification:
 
 - **Voice ID:** Choose from available voices. Examples rotate across `Sarah`, `Jason`, `Clive`, `Dennis`, and `Hana`.
 - **Model ID:** TTS model to use (default: `inworld-tts-2`; `inworld-tts-1.5-max` and `inworld-tts-1.5-mini` are still supported)
-- **Audio Format:** LINEAR16, 48kHz for non-streaming; streaming examples (`example_tts_stream.py`, `example_tts_stream_timestamps.py`) use MP3
+- **Audio Format:** LINEAR16, 48kHz for non-streaming; streaming examples (`example_tts_stream.py`, `example_tts_stream_timestamps.py`) use MP3. `example_websocket.py` receives raw PCM16 little-endian at 24kHz, mono, and adds a WAV header when saving `synthesis_websocket_output.wav`.
 - **Output File:** Customize output filename and location
 - **Delivery Mode** *(`inworld-tts-2` only)*: `STABLE`, `BALANCED` (default), or `CREATIVE` — see [docs](https://docs.inworld.ai/api-reference/ttsAPI/texttospeech/synthesize-speech-stream#body-delivery-mode).
 - **Language** *(`inworld-tts-2` only)*: BCP-47 tag such as `en-US`, `fr-FR`, `ja-JP` — see [docs](https://docs.inworld.ai/api-reference/ttsAPI/texttospeech/synthesize-speech-stream#body-language).
