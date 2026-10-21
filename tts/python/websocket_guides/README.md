@@ -4,7 +4,7 @@ How to speak a typical conversational agent's replies over the TTS bidirectional
 
 Read them in order; each builds on the one before and changes only how an agent's reply is sent. Each guide is one of the playground's modes.
 
-All three modes pass `previous_texts` to `Speaker.start_turn`, which sends them as `synthesisContext.previousRequests` in the context's `create` message. The standalone scripts seed a sample assistant reply followed by a user message. The playground seeds the last assistant reply from its history, ending at the words the user heard if interrupted, followed by the current user message. The first turn and a new chat seed only the current user message. See [Conversation context](https://docs.inworld.ai/tts/synthesize-speech-websocket#conversation-context).
+All three modes pass `previous_texts` to `Speaker.start_turn`, which sends them as `synthesisContext.previousRequests` in the context's `create` message. The standalone scripts seed a sample assistant reply followed by a user message. The playground seeds the last assistant reply from its history, ending at the words the user heard if interrupted, followed by the current user message. When there is no assistant reply yet, including after a new chat, it uses the editable **Conversation context** instead, if provided, followed by the current user message. See [Conversation context](https://docs.inworld.ai/tts/synthesize-speech-websocket#conversation-context).
 
 | Guide | What it covers |
 |---|---|
@@ -45,6 +45,7 @@ python server.py --port 8766 --model-id inworld-tts-2 --llm-model openai/gpt-4.1
 - **Replay** plays a reply again, or only what you heard of an interrupted one.
 - **Raw** shows a reply exactly as it was sent to TTS, markup included, and **Copy** copies that text, to paste into a request of your own.
 - **New chat** clears the LLM history.
+- **Conversation context**: editable text below the LLM prompt, available for scripted and live replies in every mode. It seeds TTS on the first turn, without adding a message to the LLM history. The default is `This is an English conversation.`; for Spanish, try `Esta es una conversación en español.`. The browser remembers edits separately for each script or agent, including an empty value. Language-learning presets leave it empty because they use explicit language tags. If you add context for a tutor, write it in the language used to teach, such as English for the Spanish tutor or Chinese for the Japanese tutor.
 
 The server opens one TTS connection, for the chosen mode, when the page loads, so no reply's times include the handshake. Changing the mode stops the reply being spoken, closes the connection and opens another; the voice is set on each turn's context, so changing it opens nothing. Each reply shows:
 

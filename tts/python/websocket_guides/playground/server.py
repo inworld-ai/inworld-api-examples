@@ -101,6 +101,8 @@ async def conversation(browser, args, api_key: str):
             # Keep conversation order: the last heard reply, then the current user message.
             previous_texts = next(
                 ([message["content"]] for message in reversed(history) if message["role"] == "assistant"), [])
+            if not previous_texts and (context := request.get("conversation_context", "").strip()):
+                previous_texts.append(context)
             if history[-1]["content"]:
                 previous_texts.append(history[-1]["content"])
             turn = await speaker.start_turn(request.get("voice_id") or "Sarah", previous_texts=previous_texts)
@@ -235,8 +237,7 @@ async def main():
 
     options = {
         "guides": {name: {"label": label, "summary": summary} for name, (label, summary, _) in GUIDES.items()},
-        "scripts": {name: {"label": s["label"], "prompt": s["prompt"], "reply": s["reply"]}
-                    for name, s in replies.SCRIPTS.items()},
+        "scripts": replies.SCRIPTS,
         "llm_model": args.llm_model,
         "system_prompts": replies.SYSTEM_PROMPTS,
     }

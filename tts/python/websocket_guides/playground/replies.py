@@ -36,8 +36,10 @@ SYSTEM_PROMPTS = {
     "assistant": {"label": "Voice assistant", "prompt": ASSISTANT_PROMPT,
                   "suggestion": "Give me a booking reference, then tell me how to wish someone a good meal in Italian."},
     "tutor": {"label": "Spanish tutor", "prompt": TUTOR_PROMPT,
+              "conversation_context": "",
               "suggestion": "How do I order a coffee in Spanish?"},
     "tutor_ja": {"label": "Japanese tutor (for Chinese speakers)", "prompt": TUTOR_JA_PROMPT,
+                 "conversation_context": "",
                  "suggestion": "「我想去东京」用日语怎么说？"},
 }
 DEFAULT_SYSTEM_PROMPT = ASSISTANT_PROMPT
@@ -72,6 +74,7 @@ SCRIPTS = {
     },
     "tutor_es": {
         "label": "Spanish for English speakers",
+        "conversation_context": "",
         "prompt": "How do I say \"the dog runs\" in Spanish?",
         "reply": "<lang lang=\"en-US\">Great question! \"The dog runs\" is</lang> "
                  "<lang lang=\"es-MX\">El perro corre.</lang> "
@@ -82,6 +85,7 @@ SCRIPTS = {
     },
     "tutor_ja": {
         "label": "Japanese for Chinese speakers",
+        "conversation_context": "",
         "prompt": "「日本大学」用日语怎么读？",
         "reply": "<lang lang=\"zh-CN\">「日本大学」用日语读作</lang><lang lang=\"ja-JP\">日本大学。</lang>"
                  "<lang lang=\"zh-CN\">同样的汉字，日语的读法和中文不一样：「日本」读作</lang>"

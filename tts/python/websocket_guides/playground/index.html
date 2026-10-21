@@ -148,6 +148,11 @@
         </div>
         <p class="hint" id="llm-model"></p>
       </div>
+      <div class="field">
+        <label for="conversation-context">Conversation context</label>
+        <textarea id="conversation-context" spellcheck="false" placeholder="For example: Esta es una conversación en español."></textarea>
+        <p class="hint">Helps TTS interpret the first reply. Later replies use the last heard assistant reply and your message. Leave empty when language tags provide the context.</p>
+      </div>
       <div id="scripted-settings">
         <div class="field">
           <label for="script">Reply</label>
@@ -222,6 +227,13 @@ if (OPTIONS.system_prompts[store.get("preset")]) $("preset").value = store.get("
 $("prompt").value = store.get("prompt") || preset().prompt;
 $("voice").value = store.get("voice") || "Sarah";
 
+const contextKey = () => `conversation-context:${source}:${$(source === "live" ? "preset" : "script").value}`;
+function loadConversationContext() {
+  const selection = source === "live" ? preset() : OPTIONS.scripts[$("script").value];
+  $("conversation-context").value = store.get(contextKey()) ?? selection.conversation_context ?? "This is an English conversation.";
+}
+$("conversation-context").oninput = () => store.set(contextKey(), $("conversation-context").value);
+
 function setSource(value) {
   source = value;
   store.set("source", value);
@@ -230,6 +242,7 @@ function setSource(value) {
   $("scripted-settings").hidden = value !== "scripted";
   $("text").value = value === "live" ? preset().suggestion : OPTIONS.scripts[$("script").value].prompt;
   $("script-text").value = OPTIONS.scripts[$("script").value].reply;
+  loadConversationContext();
   autosize();
 }
 document.querySelectorAll("[data-source]").forEach((b) => b.onclick = () => setSource(b.dataset.source));
@@ -240,6 +253,7 @@ $("script-text").oninput = () => {
   if ($("script").value !== OWN) {
     $("script").value = OWN;
     store.set("script", OWN);
+    loadConversationContext();
     $("text").value = OPTIONS.scripts[OWN].prompt;
   }
 };
@@ -290,7 +304,8 @@ $("form").onsubmit = (e) => {
   $("thread").append(bubble);
   pending.push(performance.now());
   send({ type: "say", text, reply: source === "live" ? "live" : "scripted", reply_text: $("script-text").value, guide: guide(),
-         voice_id: $("voice").value, system_prompt: $("prompt").value });
+         voice_id: $("voice").value, system_prompt: $("prompt").value,
+         conversation_context: $("conversation-context").value });
   if (source === "live") $("text").value = "";
   autosize();
   scrollDown();
