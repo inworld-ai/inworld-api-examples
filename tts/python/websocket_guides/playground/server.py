@@ -97,9 +97,11 @@ async def conversation(browser, args, api_key: str):
                  else replies.scripted(request.get("reply_text", "")))
 
         try:
-            # Use the last assistant reply, trimmed to what the user heard.
+            # Keep conversation order: the last heard reply, then the current user message.
             previous_texts = next(
                 ([message["content"]] for message in reversed(history) if message["role"] == "assistant"), [])
+            if history[-1]["content"]:
+                previous_texts.append(history[-1]["content"])
             turn = await speaker.start_turn(request.get("voice_id") or "Sarah", previous_texts=previous_texts)
         except Exception as e:
             await send({"type": "error", "message": f"could not open a TTS context: {e}"})

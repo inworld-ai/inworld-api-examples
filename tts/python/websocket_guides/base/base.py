@@ -129,7 +129,7 @@ class Speaker:
     async def start_turn(self, voice_id: str | None = None,
                          previous_texts: list[str] | None = None) -> Turn:
         """Open a context for the next agent turn, in voice_id or the
-        speaker's voice. Seed it with earlier spoken replies, when available."""
+        speaker's voice. Seed it with earlier conversation text, in order."""
         voice_id = voice_id or self.voice_id
         await self.connect()  # returns at once when already connected
         turn = Turn(f"turn-{uuid.uuid4().hex[:12]}")  # unique across connections
@@ -260,7 +260,10 @@ async def speak_one_reply(speaker_class, output_file: str):
 
     speaker = speaker_class(api_key)
     await speaker.connect()
-    previous_texts = ["Let me check the details of your flight to Chicago."]
+    previous_texts = [
+        "Let me check the details of your flight to Chicago.",
+        "What time does it leave, and when should I be at the gate?",
+    ]
     turn = await speaker.start_turn(previous_texts=previous_texts)
 
     async def stream_llm():
