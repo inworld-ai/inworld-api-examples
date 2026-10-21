@@ -126,9 +126,10 @@ class Speaker:
                     self.url, additional_headers={"Authorization": f"Basic {self.api_key}"}, max_size=None)
                 self._reader = asyncio.create_task(self._read())
 
-    async def start_turn(self, voice_id: str | None = None) -> Turn:
+    async def start_turn(self, voice_id: str | None = None,
+                         previous_texts: list[str] | None = None) -> Turn:
         """Open a context for the next agent turn, in voice_id or the
-        speaker's voice."""
+        speaker's voice. Seed it with earlier spoken replies, when available."""
         voice_id = voice_id or self.voice_id
         await self.connect()  # returns at once when already connected
         turn = Turn(f"turn-{uuid.uuid4().hex[:12]}")  # unique across connections
@@ -137,6 +138,9 @@ class Speaker:
         await self._send(turn, {"create": {
             "voiceId": voice_id,
             "modelId": self.model_id,
+            "synthesisContext": {
+                "previousRequests": [{"text": text} for text in (previous_texts or [])],
+            },
             "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": SAMPLE_RATE_HZ},
             "timestampType": "WORD",
             # Audio first, timestamps in trailing messages: the lowest latency.
@@ -256,7 +260,8 @@ async def speak_one_reply(speaker_class, output_file: str):
 
     speaker = speaker_class(api_key)
     await speaker.connect()
-    turn = await speaker.start_turn()
+    previous_texts = ["Let me check the details of your flight to Chicago."]
+    turn = await speaker.start_turn(previous_texts=previous_texts)
 
     async def stream_llm():
         for token in tokens:

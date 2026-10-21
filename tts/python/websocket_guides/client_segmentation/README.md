@@ -22,6 +22,7 @@ To speak one reply into a WAV file without the page, after the [setup](../README
 
 ```json
 {"contextId": "turn-1", "create": {"voiceId": "Sarah", "modelId": "inworld-tts-2",
+  "synthesisContext": {"previousRequests": [{"text": "Let me check the details of your flight to Chicago."}]},
   "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": 24000},
   "timestampType": "WORD", "timestampTransportStrategy": "ASYNC",
   "autoMode": true}}

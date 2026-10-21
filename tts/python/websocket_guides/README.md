@@ -4,6 +4,8 @@ How to speak a typical conversational agent's replies over the TTS bidirectional
 
 Read them in order; each builds on the one before and changes only how an agent's reply is sent. Each guide is one of the playground's modes.
 
+All three modes pass `previous_texts` to `Speaker.start_turn`, which sends them as `synthesisContext.previousRequests` in the context's `create` message. The standalone scripts use one sample previous reply. The playground uses the last assistant reply from its history, ending at the words the user heard if interrupted; the first turn and a new chat start with no previous text. See [Conversation context](https://docs.inworld.ai/tts/synthesize-speech-websocket#conversation-context).
+
 | Guide | What it covers |
 |---|---|
 | 1. [`base/`](./base/) | One context per agent turn, the whole reply sent at once, barge-in, and keeping the LLM history to what the user heard |
@@ -83,6 +85,7 @@ Syntheses on one context run in order and share its conversation history, so the
 
 ```json
 {"contextId": "turn-1", "create": {"voiceId": "Sarah", "modelId": "inworld-tts-2",
+  "synthesisContext": {"previousRequests": [{"text": "Let me check the details of your flight to Chicago."}]},
   "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": 24000}}}
 {"contextId": "turn-1", "sendText": {"text": "Hello there. How can I help?", "flushContext": {}}}
 {"contextId": "turn-1", "closeContext": {}}

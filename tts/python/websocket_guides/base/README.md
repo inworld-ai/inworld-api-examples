@@ -16,12 +16,13 @@ To speak one reply into a WAV file without the page, after the [setup](../README
 ## The pattern
 
 1. Open one WebSocket connection for the conversation before the user's first message (`Speaker.connect`), so its handshake never delays a reply.
-2. For each agent turn, create a context with word timestamps, delivered with `"timestampTransportStrategy": "ASYNC"` so they never hold up the audio. You don't need to wait for `contextCreated`: [messages on a connection are processed in order](https://docs.inworld.ai/tts/synthesize-speech-websocket#message-pipelining).
+2. For each agent turn, pass the previous spoken reply as `previous_texts` to `Speaker.start_turn`. It seeds the new context through `synthesisContext.previousRequests`. Create the context with word timestamps, delivered with `"timestampTransportStrategy": "ASYNC"` so they never hold up the audio. You don't need to wait for `contextCreated`: [messages on a connection are processed in order](https://docs.inworld.ai/tts/synthesize-speech-websocket#message-pipelining).
 3. When the LLM finishes, send the reply in one `sendText` (up to 2,000 characters) with `flushContext`, then `closeContext`. Keep receiving until `contextClosed`, which arrives after the turn's last audio.
 4. On barge-in, stop playback, close the context, drop the rest of its audio, and keep only the words the user heard in the LLM history.
 
 ```json
 {"contextId": "turn-1", "create": {"voiceId": "Sarah", "modelId": "inworld-tts-2",
+  "synthesisContext": {"previousRequests": [{"text": "Let me check the details of your flight to Chicago."}]},
   "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": 24000},
   "timestampType": "WORD", "timestampTransportStrategy": "ASYNC"}}
 {"contextId": "turn-1", "sendText": {"text": "Your flight to Chicago leaves at 7:45 from gate B12. Boarding starts 30 minutes earlier.",
