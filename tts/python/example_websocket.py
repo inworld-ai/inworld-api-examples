@@ -11,7 +11,9 @@ import asyncio
 import base64
 import json
 import os
+import re
 import time
+import wave
 from typing import AsyncGenerator
 
 try:
@@ -42,7 +44,7 @@ async def stream_tts_with_context(
     """
     Stream TTS audio using multi-request context flow over WebSocket.
     Sends a sequence of messages (create/send_text/close_context) and yields
-    OGG_OPUS audio bytes as they arrive.
+    Raw PCM16 little-endian audio bytes at 24 kHz as they arrive.
     """
     uri = websocket_url
     headers = {"Authorization": f"Basic {api_key}"}
@@ -152,7 +154,7 @@ async def stream_tts_with_context(
 
 
 async def save_websocket_audio_to_file(audio_chunks_generator, output_file: str):
-    """Save WebSocket audio chunks to an OGG file."""
+    """Wrap the PCM16 WebSocket audio in a WAV file (24 kHz, mono)."""
     try:
         print(f"Saving audio chunks to: {output_file}")
 
@@ -163,8 +165,11 @@ async def save_websocket_audio_to_file(audio_chunks_generator, output_file: str)
             chunk_count += 1
             audio_data.extend(chunk)
 
-        with open(output_file, "wb") as f:
-            f.write(audio_data)
+        with wave.open(output_file, "wb") as f:
+            f.setnchannels(1)
+            f.setsampwidth(2)
+            f.setframerate(24000)
+            f.writeframes(audio_data)
 
         print(f"Audio saved successfully! Processed {chunk_count} chunks")
 
@@ -174,13 +179,13 @@ async def save_websocket_audio_to_file(audio_chunks_generator, output_file: str)
 
 
 async def synthesize_and_save_with_context(api_key: str, requests: list, output_file: str):
-    """Synthesize speech via WebSocket multi-request flow and save to WAV file."""
+    """Synthesize speech via WebSocket multi-request flow and save to a WAV file."""
     audio_generator = stream_tts_with_context(api_key=api_key, requests=requests)
     await save_websocket_audio_to_file(audio_generator, output_file)
 
 
 def create_websocket_requests(context_id: str, voice_id: str, model_id: str, text: str,
-                              timestamp_type: str = None, auto_mode: bool = False):
+                              timestamp_type: str = None, auto_mode: bool = True):
     """Create the sequence of WebSocket requests for synthesis."""
     create_request = {
         "context_id": context_id,
@@ -188,9 +193,8 @@ def create_websocket_requests(context_id: str, voice_id: str, model_id: str, tex
             "voice_id": voice_id,
             "model_id": model_id,
             "audio_config": {
-                "audio_encoding": "OGG_OPUS",
-                "sample_rate_hertz": 24000,
-                "bit_rate": 32000
+                "audio_encoding": "PCM",
+                "sample_rate_hertz": 24000
             },
         },
     }
@@ -203,17 +207,24 @@ def create_websocket_requests(context_id: str, voice_id: str, model_id: str, tex
 
     if auto_mode:
         create_request["create"]["autoMode"] = True
+        create_request["create"]["autoModeStrategy"] = "SENTENCE_BOUNDARY"
 
-    send_text_payload = {"text": text}
-    if not auto_mode:
-        send_text_payload["flush_context"] = {}
+    # Simulate incremental LLM output; the server detects sentence boundaries.
+    fragments = re.findall(r'\s*\S+\s*', text) if auto_mode else [text]
+    text_requests = []
+    for fragment in fragments:
+        send_text_payload = {"text": fragment}
+        if not auto_mode:
+            send_text_payload["flush_context"] = {}
+        text_requests.append({
+            "context_id": context_id,
+            "send_text": send_text_payload
+        })
 
     return [
         create_request,
-        {
-            "context_id": context_id,
-            "send_text": send_text_payload
-        },
+        *text_requests,
+        # Closing releases any remaining text, including an unfinished sentence.
         {
             "context_id": context_id,
             "close_context": {}
@@ -236,7 +247,7 @@ Examples:
   python example_websocket.py --timestamp word
   
   # WebSocket synthesis with the previous-generation streaming model
-  python example_websocket.py --model-id inworld-tts-1.5-mini --timestamp character
+  python example_websocket.py --model-id inworld-tts-1.5-mini --no-auto-mode --timestamp character
         """
     )
 
@@ -246,16 +257,16 @@ Examples:
                        help="Enable timestamp alignment: 'word' for word-level, 'character' for character-level")
     parser.add_argument("--voice-id", default="Hana",
                        help="Voice ID to use (default: Hana)")
-    parser.add_argument("--text", default="Hello, adventurer! What a beautiful day, isn't it?...",
+    parser.add_argument("--text", default="Hello, adventurer! What a beautiful day, isn't it? Let's explore together",
                        help="Text to synthesize")
-    parser.add_argument("--auto-mode", action="store_true",
+    parser.add_argument("--auto-mode", action=argparse.BooleanOptionalAction, default=True,
                        help=(
-                           "Enable auto mode: server controls flushing for optimal latency/quality balance.\n"
-                           "Manual flushing is not needed if this is enabled but full sentences/phrases\n"
-                           "are expected in each send_text request."
+                           "Use server-side sentence boundaries for incremental text (default; "
+                           "requires inworld-tts-2 or inworld-tts-2-flash). "
+                           "Use --no-auto-mode for manual flushing with older models."
                        ))
-    parser.add_argument("--output-file", default="synthesis_websocket_output.ogg",
-                       help="Output OGG file path (default: synthesis_websocket_output.ogg)")
+    parser.add_argument("--output-file", default="synthesis_websocket_output.wav",
+                       help="Output WAV file path (PCM16, 24 kHz, mono; default: synthesis_websocket_output.wav)")
     
     args = parser.parse_args()
     
@@ -268,7 +279,7 @@ Examples:
     if args.timestamp is not None:
         print(f" Timestamp: {args.timestamp}")
     if args.auto_mode:
-        print(f"  Auto mode: enabled")
+        print("  Auto mode: SENTENCE_BOUNDARY")
     print(f"Output: {args.output_file}")
     print()
     

@@ -27,7 +27,7 @@ function checkApiKey() {
 /**
  * Stream TTS audio using multi-request context flow over WebSocket.
  * Sends a sequence of messages (create/send_text/close_context) and yields
- * OGG_OPUS audio bytes as they arrive.
+ * Raw PCM16 little-endian audio bytes at 24 kHz as they arrive.
  * 
  * @param {string} apiKey - API key for authentication
  * @param {Array} requests - Array of request objects
@@ -207,7 +207,7 @@ async function* asyncIterateWebSocket(ws) {
 }
 
 /**
- * Save WebSocket audio chunks to an OGG file.
+ * Wrap the PCM16 WebSocket audio in a WAV file (24 kHz, mono).
  * @param {AsyncGenerator<Buffer>} audioChunksGenerator - Audio chunks generator
  * @param {string} outputFile - Output file path
  */
@@ -223,7 +223,23 @@ async function saveWebsocketAudioToFile(audioChunksGenerator, outputFile) {
             audioData.push(chunk);
         }
 
-        fs.writeFileSync(outputFile, Buffer.concat(audioData));
+        const pcmData = Buffer.concat(audioData);
+        // A single WAV header describes all PCM chunks in the saved file.
+        const header = Buffer.alloc(44);
+        header.write('RIFF', 0);
+        header.writeUInt32LE(36 + pcmData.length, 4);
+        header.write('WAVE', 8);
+        header.write('fmt ', 12);
+        header.writeUInt32LE(16, 16); // PCM format chunk size
+        header.writeUInt16LE(1, 20); // PCM format
+        header.writeUInt16LE(1, 22); // Mono
+        header.writeUInt32LE(24000, 24); // Sample rate
+        header.writeUInt32LE(24000 * 2, 28); // Bytes per second
+        header.writeUInt16LE(2, 32); // Bytes per sample frame
+        header.writeUInt16LE(16, 34); // Bits per sample
+        header.write('data', 36);
+        header.writeUInt32LE(pcmData.length, 40);
+        fs.writeFileSync(outputFile, Buffer.concat([header, pcmData]));
 
         console.log(`Audio saved successfully! Processed ${chunkCount} chunks`);
 
@@ -234,7 +250,7 @@ async function saveWebsocketAudioToFile(audioChunksGenerator, outputFile) {
 }
 
 /**
- * Synthesize speech via WebSocket multi-request flow and save to WAV file.
+ * Synthesize speech via WebSocket multi-request flow and save to a WAV file.
  * @param {string} apiKey - API key
  * @param {Array} requests - Request array
  * @param {string} outputFile - Output file path
@@ -258,27 +274,31 @@ async function main() {
     }
     
     // Example multi-request flow sharing a single context
-    const outputFile = 'synthesis_websocket_output.ogg';
+    const outputFile = 'synthesis_websocket_output.wav';
+    const text = "Hello, adventurer! What a beautiful day, isn't it? Let's explore together";
+    // Simulate incremental LLM output; the server detects sentence boundaries.
+    const fragments = text.match(/\s*\S+\s*/g) || [];
     const requests = [
         {
             context_id: 'ctx-1',
             create: {
                 voice_id: 'Hana',
-                model_id: 'inworld-tts-2', // newest default; supports deliveryMode and language. Use 'inworld-tts-1.5-mini' for the fastest legacy model.
+                model_id: 'inworld-tts-2', // SENTENCE_BOUNDARY supports inworld-tts-2 and inworld-tts-2-flash.
+                autoMode: true,
+                autoModeStrategy: 'SENTENCE_BOUNDARY',
                 audio_config: {
-                    audio_encoding: 'OGG_OPUS',
-                    sample_rate_hertz: 24000,
-                    bit_rate: 32000
+                    audio_encoding: 'PCM',
+                    sample_rate_hertz: 24000
                 }
             }
         },
-        {
+        ...fragments.map(fragment => ({
             context_id: 'ctx-1',
             send_text: {
-                text: "Okay so like, I'm 19 and I just started trying to do this whole online streaming thing...",
-                flush_context: {}
+                text: fragment
             }
-        },
+        })),
+        // Closing releases any remaining text, including an unfinished sentence.
         {
             context_id: 'ctx-1',
             close_context: {}
