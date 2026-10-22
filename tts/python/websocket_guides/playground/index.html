@@ -215,7 +215,7 @@ for (const [name, g] of Object.entries(OPTIONS.guides)) {
 for (const [name, s] of Object.entries(OPTIONS.scripts)) $("script").add(new Option(s.label, name));
 for (const [name, p] of Object.entries(OPTIONS.system_prompts)) $("preset").add(new Option(p.label, name));
 const preset = () => OPTIONS.system_prompts[$("preset").value];
-// Your own script: any reply text you write, kept in this browser.
+// Your own script keeps the edited reply and conversation context together.
 const OWN = "own";
 $("script").add(new Option("Your own script", OWN));
 OPTIONS.scripts[OWN] = { prompt: "Say my script.", get reply() { return store.get("script-text") || ""; } };
@@ -233,7 +233,18 @@ const defaultContext = () => (source === "live" ? preset() : OPTIONS.scripts[$("
 function loadConversationContext() {
   $("conversation-context").value = store.get(contextKey()) ?? defaultContext();
 }
-$("conversation-context").oninput = () => store.set(contextKey(), $("conversation-context").value);
+function saveOwnScript() {
+  const switching = $("script").value !== OWN;
+  $("script").value = OWN;
+  store.set("script", OWN);
+  store.set("script-text", $("script-text").value);
+  store.set(contextKey(), $("conversation-context").value);
+  if (switching) $("text").value = OPTIONS.scripts[OWN].prompt;
+}
+$("conversation-context").oninput = () => {
+  if (source === "scripted") saveOwnScript();
+  else store.set(contextKey(), $("conversation-context").value);
+};
 $("reset-context").onclick = () => {
   $("conversation-context").value = defaultContext();
   store.set(contextKey(), $("conversation-context").value);
@@ -252,16 +263,8 @@ function setSource(value) {
 }
 document.querySelectorAll("[data-source]").forEach((b) => b.onclick = () => setSource(b.dataset.source));
 $("script").onchange = () => { store.set("script", $("script").value); setSource("scripted"); };
-// Editing a reply makes it your own script.
-$("script-text").oninput = () => {
-  store.set("script-text", $("script-text").value);
-  if ($("script").value !== OWN) {
-    $("script").value = OWN;
-    store.set("script", OWN);
-    loadConversationContext();
-    $("text").value = OPTIONS.scripts[OWN].prompt;
-  }
-};
+// Editing either scripted field preserves both values as your own script.
+$("script-text").oninput = saveOwnScript;
 $("reset-prompt").onclick = () => { $("prompt").value = preset().prompt; store.set("prompt", ""); };
 $("preset").onchange = () => {
   store.set("preset", $("preset").value);
