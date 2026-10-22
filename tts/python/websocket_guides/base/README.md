@@ -5,6 +5,7 @@ The base guide: speak an agent's replies over the TTS WebSocket, and let the use
 | File | What it shows |
 |---|---|
 | [`base.py`](./base.py) | The client: one context per turn, the whole reply in one message, barge-in, and word timestamps for the LLM history |
+| [`demo.py`](./demo.py) | Standalone flight scenario and WAV output runner shared by the three guide entry points |
 | [Playground](../README.md#playground) | A local web page to talk to the agent, hear it, and interrupt it |
 
 ## Try it
