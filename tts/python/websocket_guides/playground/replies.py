@@ -34,6 +34,7 @@ Explain in Simplified Chinese, and wrap everything you write in a language tag, 
 Write Japanese as it is normally written, kanji included. The learner hears the reading, because the tag makes the voice read the kanji in Japanese, so never write a reading out in hiragana, katakana or romaji, in parentheses or otherwise."""
 SYSTEM_PROMPTS = {
     "assistant": {"label": "Voice assistant", "prompt": ASSISTANT_PROMPT,
+                  "conversation_context": "This is an English conversation.",
                   "suggestion": "Give me a booking reference, then tell me how to wish someone a good meal in Italian."},
     "tutor": {"label": "Spanish tutor", "prompt": TUTOR_PROMPT,
               "conversation_context": "",
