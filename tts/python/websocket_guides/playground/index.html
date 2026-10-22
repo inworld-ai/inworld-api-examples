@@ -46,6 +46,7 @@
   .field label { font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; align-items: baseline; }
   .field input, .field select, .field textarea { width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 8px 10px; }
   .field textarea { min-height: 220px; resize: vertical; font-size: 13px; line-height: 1.5; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  #conversation-context { min-height: 80px; }
   .link { border: 0; background: none; padding: 0; color: var(--accent); font-size: 13px; }
   .ghost { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 8px 12px; }
   .hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
@@ -159,6 +160,11 @@
         </div>
         <p class="hint">The same tokens every run, with an LLM's timing. Edit the text to script your own reply.</p>
       </div>
+      <div class="field">
+        <label for="conversation-context">Conversation context <button type="button" class="link" id="reset-context">Reset</button></label>
+        <textarea id="conversation-context" rows="3" spellcheck="false" placeholder="For example: Esta es una conversación en español."></textarea>
+        <p class="hint">Provides context for TTS on the first turn. Helps with language detection when the turn's text on its own is ambiguous</p>
+      </div>
     </section>
     <button type="button" class="ghost" id="new-chat">New chat</button>
   </aside>
@@ -209,7 +215,7 @@ for (const [name, g] of Object.entries(OPTIONS.guides)) {
 for (const [name, s] of Object.entries(OPTIONS.scripts)) $("script").add(new Option(s.label, name));
 for (const [name, p] of Object.entries(OPTIONS.system_prompts)) $("preset").add(new Option(p.label, name));
 const preset = () => OPTIONS.system_prompts[$("preset").value];
-// Your own script: any reply text you write, kept in this browser.
+// Your own script keeps the edited reply and conversation context together.
 const OWN = "own";
 $("script").add(new Option("Your own script", OWN));
 OPTIONS.scripts[OWN] = { prompt: "Say my script.", get reply() { return store.get("script-text") || ""; } };
@@ -222,6 +228,28 @@ if (OPTIONS.system_prompts[store.get("preset")]) $("preset").value = store.get("
 $("prompt").value = store.get("prompt") || preset().prompt;
 $("voice").value = store.get("voice") || "Sarah";
 
+const contextKey = () => `conversation-context:${source}:${$(source === "live" ? "preset" : "script").value}`;
+const defaultContext = () => (source === "live" ? preset() : OPTIONS.scripts[$("script").value]).conversation_context ?? "This is an English conversation.";
+function loadConversationContext() {
+  $("conversation-context").value = store.get(contextKey()) ?? defaultContext();
+}
+function saveOwnScript() {
+  const switching = $("script").value !== OWN;
+  $("script").value = OWN;
+  store.set("script", OWN);
+  store.set("script-text", $("script-text").value);
+  store.set(contextKey(), $("conversation-context").value);
+  if (switching) $("text").value = OPTIONS.scripts[OWN].prompt;
+}
+$("conversation-context").oninput = () => {
+  if (source === "scripted") saveOwnScript();
+  else store.set(contextKey(), $("conversation-context").value);
+};
+$("reset-context").onclick = () => {
+  $("conversation-context").value = defaultContext();
+  store.set(contextKey(), $("conversation-context").value);
+};
+
 function setSource(value) {
   source = value;
   store.set("source", value);
@@ -230,19 +258,13 @@ function setSource(value) {
   $("scripted-settings").hidden = value !== "scripted";
   $("text").value = value === "live" ? preset().suggestion : OPTIONS.scripts[$("script").value].prompt;
   $("script-text").value = OPTIONS.scripts[$("script").value].reply;
+  loadConversationContext();
   autosize();
 }
 document.querySelectorAll("[data-source]").forEach((b) => b.onclick = () => setSource(b.dataset.source));
 $("script").onchange = () => { store.set("script", $("script").value); setSource("scripted"); };
-// Editing a reply makes it your own script.
-$("script-text").oninput = () => {
-  store.set("script-text", $("script-text").value);
-  if ($("script").value !== OWN) {
-    $("script").value = OWN;
-    store.set("script", OWN);
-    $("text").value = OPTIONS.scripts[OWN].prompt;
-  }
-};
+// Editing either scripted field preserves both values as your own script.
+$("script-text").oninput = saveOwnScript;
 $("reset-prompt").onclick = () => { $("prompt").value = preset().prompt; store.set("prompt", ""); };
 $("preset").onchange = () => {
   store.set("preset", $("preset").value);
@@ -290,7 +312,8 @@ $("form").onsubmit = (e) => {
   $("thread").append(bubble);
   pending.push(performance.now());
   send({ type: "say", text, reply: source === "live" ? "live" : "scripted", reply_text: $("script-text").value, guide: guide(),
-         voice_id: $("voice").value, system_prompt: $("prompt").value });
+         voice_id: $("voice").value, system_prompt: $("prompt").value,
+         conversation_context: $("conversation-context").value });
   if (source === "live") $("text").value = "";
   autosize();
   scrollDown();

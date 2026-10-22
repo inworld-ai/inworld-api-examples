@@ -51,6 +51,7 @@ async def conversation(browser, args, api_key: str):
     """One browser tab: one conversation, with its own history and TTS connection."""
     current = {"guide": None, "speaker": None}  # the chosen mode's TTS connection
     history = [{"role": "system", "content": replies.DEFAULT_SYSTEM_PROMPT}]
+    chat_generation = 0
     turns = {}  # turn id -> {"turn", "speaker", "text": the reply so far}
     trimming = set()  # interrupted turns still waiting for their timestamps
 
@@ -97,11 +98,19 @@ async def conversation(browser, args, api_key: str):
                  else replies.scripted(request.get("reply_text", "")))
 
         try:
-            turn = await speaker.start_turn(request.get("voice_id") or "Sarah")
+            # Keep conversation order: the last heard reply, then the current user message.
+            previous_texts = next(
+                ([message["content"]] for message in reversed(history) if message["role"] == "assistant"), [])
+            if not previous_texts and (context := request.get("conversation_context", "").strip()):
+                previous_texts.append(context)
+            if history[-1]["content"]:
+                previous_texts.append(history[-1]["content"])
+            turn = await speaker.start_turn(request.get("voice_id") or "Sarah", previous_texts=previous_texts)
         except Exception as e:
             await send({"type": "error", "message": f"could not open a TTS context: {e}"})
             return
-        record = turns[turn.context_id] = {"turn": turn, "speaker": speaker, "text": ""}
+        record = turns[turn.context_id] = {
+            "turn": turn, "speaker": speaker, "text": "", "chat_generation": chat_generation}
         await send({"type": "turn", "turn": turn.context_id, "guide": guide})
 
         def event(name: str, **data):
@@ -160,7 +169,7 @@ async def conversation(browser, args, api_key: str):
 
     def remember(record: dict, text: str):
         """Keep the reply in the history as far as the user heard it."""
-        if text:
+        if text and record["chat_generation"] == chat_generation:
             history.append({"role": "assistant", "content": text})
 
     async def interrupted(record: dict, heard_seconds: float):
@@ -190,6 +199,7 @@ async def conversation(browser, args, api_key: str):
             if record is not None:
                 remember(record, record["text"])
         elif request["type"] == "reset":
+            chat_generation += 1
             del history[1:]
             turns.clear()
     if current["speaker"] is not None:
@@ -227,8 +237,7 @@ async def main():
 
     options = {
         "guides": {name: {"label": label, "summary": summary} for name, (label, summary, _) in GUIDES.items()},
-        "scripts": {name: {"label": s["label"], "prompt": s["prompt"], "reply": s["reply"]}
-                    for name, s in replies.SCRIPTS.items()},
+        "scripts": replies.SCRIPTS,
         "llm_model": args.llm_model,
         "system_prompts": replies.SYSTEM_PROMPTS,
     }

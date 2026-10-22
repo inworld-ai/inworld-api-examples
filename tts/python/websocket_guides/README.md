@@ -4,6 +4,8 @@ How to speak a typical conversational agent's replies over the TTS bidirectional
 
 Read them in order; each builds on the one before and changes only how an agent's reply is sent. Each guide is one of the playground's modes.
 
+All three modes pass `previous_texts` to `Speaker.start_turn`, which sends them as `synthesisContext.previousRequests` in the context's `create` message. The standalone scripts seed a sample assistant reply followed by a user message. The playground seeds the last assistant reply from its history, ending at the words the user heard if interrupted, followed by the current user message. When there is no assistant reply yet, including after a new chat, it uses the editable **Conversation context** instead, if provided, followed by the current user message. See [Conversation context](https://docs.inworld.ai/tts/synthesize-speech-websocket#conversation-context).
+
 | Guide | What it covers |
 |---|---|
 | 1. [`base/`](./base/) | One context per agent turn, the whole reply sent at once, barge-in, and keeping the LLM history to what the user heard |
@@ -37,12 +39,13 @@ python server.py --port 8766 --model-id inworld-tts-2 --llm-model openai/gpt-4.1
 - **Voice**: any voice ID.
 - **Mode**: how the reply is sent, one per guide: [Base](./base/), [Client-side sentence segmentation](./client_segmentation/), or [Streaming tokens](./streaming_tokens/).
 - **Reply**: a scripted reply or a live LLM.
-  - *Scripted* replies stream the same tokens every run, with an LLM's timing: a first token after about a third of a second, then 60 tokens a second. They cover a short answer, a long one to interrupt, [markup](#markup-in-replies), and two language tutors: Spanish for English speakers, and Japanese for Chinese speakers. The reply text is shown under the menu: edit it, or pick *Your own script*, to speak any text you write with the same timing. The page keeps your script in the browser.
+  - *Scripted* replies stream the same tokens every run, with an LLM's timing: a first token after about a third of a second, then 60 tokens a second. They cover a short answer, a long one to interrupt, [markup](#markup-in-replies), a phone number with Spanish conversation context, and two language tutors: Spanish for English speakers, and Japanese for Chinese speakers. The reply text is shown under the menu: edit it, or pick *Your own script*, to speak any text you write with the same timing. The page keeps your script in the browser.
   - *Live LLM* streams from the Inworld Router's chat completions API with the same API key; `--llm-model` picks the model. Pick an agent, *Voice assistant*, *Spanish tutor* or *Japanese tutor (for Chinese speakers)*, and edit its system prompt in the sidebar. The prompts ask the LLM for [markup](#markup-in-replies).
 - **Interrupt**: press Esc, click Interrupt, or send another message. The page stops playback at once and reports how many seconds of the turn it played. The server closes the turn's context and keeps only the words you heard in the LLM history. The reply shows what was heard, with the rest struck through.
 - **Replay** plays a reply again, or only what you heard of an interrupted one.
 - **Raw** shows a reply exactly as it was sent to TTS, markup included, and **Copy** copies that text, to paste into a request of your own.
 - **New chat** clears the LLM history.
+- **Conversation context**: a compact editable box at the bottom of the reply settings, available for scripted and live replies in every mode. Each canned reply and LLM agent has its own preset context. It seeds TTS on the first turn, without adding a message to the LLM history. Tutor contexts use the teaching language: English for the Spanish tutor and Chinese for the Japanese tutor. The browser remembers edits separately for each script or agent, including an empty value. **Reset** restores the selected preset's context.
 
 The server opens one TTS connection, for the chosen mode, when the page loads, so no reply's times include the handshake. Changing the mode stops the reply being spoken, closes the connection and opens another; the voice is set on each turn's context, so changing it opens nothing. Each reply shows:
 
@@ -83,6 +86,9 @@ Syntheses on one context run in order and share its conversation history, so the
 
 ```json
 {"contextId": "turn-1", "create": {"voiceId": "Sarah", "modelId": "inworld-tts-2",
+  "synthesisContext": {"previousRequests": [
+    {"text": "Let me check the details of your flight to Chicago."},
+    {"text": "What time does it leave, and when should I be at the gate?"}]},
   "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": 24000}}}
 {"contextId": "turn-1", "sendText": {"text": "Hello there. How can I help?", "flushContext": {}}}
 {"contextId": "turn-1", "closeContext": {}}

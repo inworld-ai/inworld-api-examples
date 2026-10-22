@@ -29,7 +29,6 @@ import json
 import os
 import re
 import uuid
-import wave
 from dataclasses import dataclass
 
 try:
@@ -126,9 +125,10 @@ class Speaker:
                     self.url, additional_headers={"Authorization": f"Basic {self.api_key}"}, max_size=None)
                 self._reader = asyncio.create_task(self._read())
 
-    async def start_turn(self, voice_id: str | None = None) -> Turn:
+    async def start_turn(self, voice_id: str | None = None,
+                         previous_texts: list[str] | None = None) -> Turn:
         """Open a context for the next agent turn, in voice_id or the
-        speaker's voice."""
+        speaker's voice. Seed it with earlier conversation text, in order."""
         voice_id = voice_id or self.voice_id
         await self.connect()  # returns at once when already connected
         turn = Turn(f"turn-{uuid.uuid4().hex[:12]}")  # unique across connections
@@ -137,6 +137,9 @@ class Speaker:
         await self._send(turn, {"create": {
             "voiceId": voice_id,
             "modelId": self.model_id,
+            "synthesisContext": {
+                "previousRequests": [{"text": text} for text in (previous_texts or [])],
+            },
             "audioConfig": {"audioEncoding": "PCM", "sampleRateHertz": SAMPLE_RATE_HZ},
             "timestampType": "WORD",
             # Audio first, timestamps in trailing messages: the lowest latency.
@@ -244,53 +247,7 @@ def strip_wav_header(audio: bytes) -> bytes:
     return b""
 
 
-async def speak_one_reply(speaker_class, output_file: str):
-    """Stream one simulated LLM reply through speaker_class into a WAV file."""
-    api_key = os.getenv("INWORLD_API_KEY")
-    if not api_key:
-        print("Error: set INWORLD_API_KEY, for example with: export INWORLD_API_KEY=your_api_key_here")
-        return 1
-    reply = ("Sure, I can help with that. Your flight to Chicago leaves at 7:45 from gate B12, "
-             "and boarding starts 30 minutes earlier. Would you like me to book a taxi?")
-    tokens = re.findall(r"\s*\S{1,4}", reply)  # pieces the size of LLM tokens
-
-    speaker = speaker_class(api_key)
-    await speaker.connect()
-    turn = await speaker.start_turn()
-
-    async def stream_llm():
-        for token in tokens:
-            await speaker.send_text(turn, token)
-            await asyncio.sleep(0.02)
-        await speaker.end_turn(turn)
-
-    pcm = bytearray()
-    sender = asyncio.create_task(stream_llm())
-    while True:
-        kind, value = await turn.events.get()
-        if kind == "audio":
-            pcm.extend(value)  # hand to your audio player here
-        elif kind == "synthesis":
-            print(f"synthesis {value} complete, {turn.audio_seconds:.1f}s of audio so far")
-        elif kind == "error":
-            print(f"error: {value}")
-            sender.cancel()
-            await speaker.close()
-            return 1
-        elif kind == "closed":
-            break
-    await sender
-    await speaker.close()
-
-    with wave.open(output_file, "wb") as f:
-        f.setnchannels(1)
-        f.setsampwidth(2)
-        f.setframerate(SAMPLE_RATE_HZ)
-        f.writeframes(pcm)
-    print(f"Wrote {len(pcm) / 2 / SAMPLE_RATE_HZ:.1f}s of audio to {output_file}")
-    print(f"Heard through the first 3 seconds: {turn.heard(3.0)!r}")
-    return 0
-
-
 if __name__ == "__main__":
+    from demo import speak_one_reply
+
     exit(asyncio.run(speak_one_reply(Speaker, "base.wav")))

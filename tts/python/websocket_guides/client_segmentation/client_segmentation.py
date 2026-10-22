@@ -83,4 +83,6 @@ class Speaker(base.Speaker):
 
 
 if __name__ == "__main__":
-    exit(asyncio.run(base.speak_one_reply(Speaker, "client_segmentation.wav")))
+    from demo import speak_one_reply
+
+    exit(asyncio.run(speak_one_reply(Speaker, "client_segmentation.wav")))

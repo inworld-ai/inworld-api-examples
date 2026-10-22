@@ -34,10 +34,13 @@ Explain in Simplified Chinese, and wrap everything you write in a language tag, 
 Write Japanese as it is normally written, kanji included. The learner hears the reading, because the tag makes the voice read the kanji in Japanese, so never write a reading out in hiragana, katakana or romaji, in parentheses or otherwise."""
 SYSTEM_PROMPTS = {
     "assistant": {"label": "Voice assistant", "prompt": ASSISTANT_PROMPT,
+                  "conversation_context": "This is an English conversation.",
                   "suggestion": "Give me a booking reference, then tell me how to wish someone a good meal in Italian."},
     "tutor": {"label": "Spanish tutor", "prompt": TUTOR_PROMPT,
+              "conversation_context": "This is an English conversation with a Spanish tutor.",
               "suggestion": "How do I order a coffee in Spanish?"},
     "tutor_ja": {"label": "Japanese tutor (for Chinese speakers)", "prompt": TUTOR_JA_PROMPT,
+                 "conversation_context": "这是一段用中文讲解日语的对话。",
                  "suggestion": "「我想去东京」用日语怎么说？"},
 }
 DEFAULT_SYSTEM_PROMPT = ASSISTANT_PROMPT
@@ -49,12 +52,14 @@ TOKENS_PER_SECOND = 60
 SCRIPTS = {
     "flight": {
         "label": "Short answer",
+        "conversation_context": "I've found your booking for tomorrow's flight to Chicago. What would you like to know?",
         "prompt": "When does my flight leave?",
         "reply": "Your flight to Chicago leaves at 7:45 from gate B12. Boarding starts 30 minutes earlier, "
                  "so try to be at the gate by 7:15. Would you like me to book a taxi to the airport?",
     },
     "recipe": {
         "label": "Long answer (try interrupting)",
+        "conversation_context": "I have canned tomatoes, an onion, and some vegetable stock, but I'm not sure what to cook.",
         "prompt": "How do I make a simple tomato soup?",
         "reply": "Sure, here's an easy one. Start by warming two tablespoons of olive oil in a large pot over "
                  "medium heat. Add one chopped onion and cook it for about eight minutes, until it's soft and "
@@ -66,12 +71,20 @@ SCRIPTS = {
     },
     "markup": {
         "label": "Steering and verbatim",
+        "conversation_context": "This is an English conversation about a travel reservation.",
         "prompt": "What's my booking reference?",
         "reply": "Welcome back! Your booking reference is <verbatim>KX7Q2</verbatim>, and you're all set "
                  "for tonight. [whisper] And a little secret: the lounge has free cookies.",
     },
+    "phone_es": {
+        "label": "Phone number (Spanish context)",
+        "conversation_context": "Esta es una conversación en español.",
+        "prompt": "¿Cuál es el número de teléfono?",
+        "reply": "202-555-0147",
+    },
     "tutor_es": {
         "label": "Spanish for English speakers",
+        "conversation_context": "Please explain the Spanish phrases in English so I can follow along.",
         "prompt": "How do I say \"the dog runs\" in Spanish?",
         "reply": "<lang lang=\"en-US\">Great question! \"The dog runs\" is</lang> "
                  "<lang lang=\"es-MX\">El perro corre.</lang> "
@@ -82,6 +95,7 @@ SCRIPTS = {
     },
     "tutor_ja": {
         "label": "Japanese for Chinese speakers",
+        "conversation_context": "这是一段用中文讲解日语的对话。",
         "prompt": "「日本大学」用日语怎么读？",
         "reply": "<lang lang=\"zh-CN\">「日本大学」用日语读作</lang><lang lang=\"ja-JP\">日本大学。</lang>"
                  "<lang lang=\"zh-CN\">同样的汉字，日语的读法和中文不一样：「日本」读作</lang>"
