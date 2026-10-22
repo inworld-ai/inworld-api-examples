@@ -46,6 +46,7 @@
   .field label { font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; align-items: baseline; }
   .field input, .field select, .field textarea { width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 8px 10px; }
   .field textarea { min-height: 220px; resize: vertical; font-size: 13px; line-height: 1.5; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  #conversation-context { min-height: 80px; }
   .link { border: 0; background: none; padding: 0; color: var(--accent); font-size: 13px; }
   .ghost { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 8px 12px; }
   .hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
@@ -148,11 +149,6 @@
         </div>
         <p class="hint" id="llm-model"></p>
       </div>
-      <div class="field">
-        <label for="conversation-context">Conversation context</label>
-        <textarea id="conversation-context" spellcheck="false" placeholder="For example: Esta es una conversación en español."></textarea>
-        <p class="hint">Helps TTS interpret the first reply. Later replies use the last heard assistant reply and your message. Leave empty when language tags provide the context.</p>
-      </div>
       <div id="scripted-settings">
         <div class="field">
           <label for="script">Reply</label>
@@ -163,6 +159,11 @@
           <textarea id="script-text" spellcheck="false"></textarea>
         </div>
         <p class="hint">The same tokens every run, with an LLM's timing. Edit the text to script your own reply.</p>
+      </div>
+      <div class="field">
+        <label for="conversation-context">Conversation context <button type="button" class="link" id="reset-context">Reset</button></label>
+        <textarea id="conversation-context" rows="3" spellcheck="false" placeholder="For example: Esta es una conversación en español."></textarea>
+        <p class="hint">Seeds TTS on the first reply. Each reply or agent has its own editable default.</p>
       </div>
     </section>
     <button type="button" class="ghost" id="new-chat">New chat</button>
@@ -228,11 +229,15 @@ $("prompt").value = store.get("prompt") || preset().prompt;
 $("voice").value = store.get("voice") || "Sarah";
 
 const contextKey = () => `conversation-context:${source}:${$(source === "live" ? "preset" : "script").value}`;
+const defaultContext = () => (source === "live" ? preset() : OPTIONS.scripts[$("script").value]).conversation_context ?? "This is an English conversation.";
 function loadConversationContext() {
-  const selection = source === "live" ? preset() : OPTIONS.scripts[$("script").value];
-  $("conversation-context").value = store.get(contextKey()) ?? selection.conversation_context ?? "This is an English conversation.";
+  $("conversation-context").value = store.get(contextKey()) ?? defaultContext();
 }
 $("conversation-context").oninput = () => store.set(contextKey(), $("conversation-context").value);
+$("reset-context").onclick = () => {
+  $("conversation-context").value = defaultContext();
+  store.set(contextKey(), $("conversation-context").value);
+};
 
 function setSource(value) {
   source = value;
