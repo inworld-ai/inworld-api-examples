@@ -35,6 +35,9 @@ inworld-api-examples/
 ├── tts-pronunciations/
 │   ├── python/
 │   └── js/
+├── tts-steering/
+│   ├── python/
+│   └── js/
 └── realtime/
     ├── python/
     ├── js/
@@ -63,6 +66,13 @@ Create a multi-entry pronunciation dictionary, then use it with TTS to compare b
 
 - **[Python](./tts-pronunciations/python/)** — Separate create and synthesis examples, plus an optional CRUD lifecycle
 - **[JavaScript](./tts-pronunciations/js/)** — Separate create and synthesis examples, plus an optional CRUD lifecycle
+
+### [Steering](./tts-steering/)
+
+Direct how the voice speaks with `[instruction]` tags: have your own LLM write them inline as it streams a reply, with no added latency, or let built-in Reasoning write them. Includes a shareable [system prompt](./tts-steering/steering_system_prompt.md) for your LLM.
+
+- **[Python](./tts-steering/python/)** — Stream LLM-written tags over the WebSocket, and built-in Reasoning
+- **[JavaScript](./tts-steering/js/)** — Stream LLM-written tags over the WebSocket, and built-in Reasoning
 
 ### [Realtime](./realtime/)
 
