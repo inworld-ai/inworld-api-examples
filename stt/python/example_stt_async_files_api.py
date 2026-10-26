@@ -1,33 +1,47 @@
 #!/usr/bin/env python3
 """
-Example script for Inworld STT asynchronous transcription, streaming the upload.
+Example script for Inworld STT asynchronous transcription of a stored file.
 
 Asynchronous transcription is for recordings too long to wait on. You hand over
 a recording, receive a job, and collect the transcript when the job finishes:
 
-    1. POST /stt/v1/transcribe:async        -> an operation naming the job
-    2. GET  /lro/v1alpha/{operation name}   -> poll until done
-    3. GET  {resultUri}                     -> the transcript document
+    1. POST /v1/files                       -> upload the recording once
+    2. POST /stt/v1/transcribe:async        -> an operation naming the job
+    3. GET  /lro/v1alpha/{operation name}   -> poll until done
+    4. GET  {resultUri}                     -> the transcript document
 
-This script streams the recording as a multipart/form-data upload, reading it
-from disk a block at a time. It is the right way to hand over a large file:
-memory stays flat however long the recording is, and it avoids the third that
-base64 encoding adds to a request. For a small file
-example_stt_async_file.py is simpler; when the audio already lives somewhere
-reachable, example_stt_async_uri.py sends a URL instead of the bytes.
+This script uploads the audio to the Files API first and then names it by id.
+It is the handover to use when the same recording is transcribed more than
+once -- a second language, a different model, a re-run after a failure -- since
+the bytes are sent once and every later job is a small JSON request. For a
+recording you transcribe once and discard, example_stt_async_file.py (whole
+file in the request) is simpler; example_stt_async_uri.py sends no bytes at all
+when the audio already lives somewhere reachable.
 
-The config part must be sent before the file part. The server reads the form as
-a stream, so a config arriving after the audio is found too late.
+What a stored file is:
+
+  - It belongs to the workspace your API key belongs to, and only that
+    workspace can transcribe it.
+  - It is write-only. You can list it and read its metadata, but the bytes
+    cannot be downloaded again -- the Files API is not general storage.
+  - It expires. Seven days by default for audio; pass expires_after to ask for
+    something else, from one hour to thirty days. A job started before it
+    expires still finishes.
+  - It counts against your workspace's file storage, so delete what you no
+    longer need: DELETE /v1/files/{id}.
+
+Note the two JSON styles. The Files API is OpenAI-shaped and answers snake_case
+(mime_type, created_at), naming the file itself "id"; the transcription API is
+camelCase and takes that value as "fileId". That is not a mistake in this
+script.
 
 Usage:
-    python example_stt_async_stream.py [path/to/audio.wav]
+    python example_stt_async_files_api.py [path/to/audio.wav]
 """
 
-import json
 import os
 import sys
 import time
-import uuid
 from pathlib import Path
 
 try:
@@ -53,8 +67,6 @@ POLL_TIMEOUT_S = 600
 # upload or download that is still making progress.
 REQUEST_TIMEOUT_S = (10, 60)
 
-# How much of the file to read at a time while uploading.
-UPLOAD_BLOCK_BYTES = 1024 * 1024
 
 
 def check_api_key():
@@ -67,45 +79,54 @@ def check_api_key():
     return api_key
 
 
-def multipart_body(boundary: str, transcribe_config: dict, audio_path: str):
+def upload_file(audio_path: str, api_key: str, expires_after_s: int | None = None):
     """
-    Yield the multipart body a block at a time, config part first.
+    Upload a recording to the Files API and return the stored file.
 
-    Written by hand rather than with requests' `files=` argument because that
-    one builds the whole body in memory, which is exactly what a large upload
-    needs to avoid.
-    """
-    config_part = (
-        f"--{boundary}\r\n"
-        'Content-Disposition: form-data; name="transcribeConfig"\r\n'
-        "Content-Type: application/json\r\n\r\n"
-        f"{json.dumps(transcribe_config)}\r\n"
-    )
-    yield config_part.encode("utf-8")
-
-    file_header = (
-        f"--{boundary}\r\n"
-        f'Content-Disposition: form-data; name="file"; filename="{os.path.basename(audio_path)}"\r\n'
-        "Content-Type: application/octet-stream\r\n\r\n"
-    )
-    yield file_header.encode("utf-8")
-
-    with open(audio_path, "rb") as f:
-        while True:
-            block = f.read(UPLOAD_BLOCK_BYTES)
-            if not block:
-                break
-            yield block
-
-    yield f"\r\n--{boundary}--\r\n".encode("utf-8")
-
-
-def submit(audio_path: str, options: dict | None = None, api_key: str = ""):
-    """
-    Submit an asynchronous transcription job, streaming the audio file.
+    The type is read from the first bytes of the file, never from its name, so
+    an extension that lies about the contents changes nothing. Audio, video and
+    image types are accepted under this purpose; a video is stored whole and
+    transcription takes its audio track.
 
     Args:
-        audio_path: Path to audio file (WAV, MP3, FLAC, OGG, etc.)
+        audio_path: Path to the recording
+        api_key: API key for authentication
+        expires_after_s: Optional lifetime in seconds, from 3600 to 2592000
+
+    Returns:
+        dict: The file object, whose "id" names it from now on
+    """
+    headers = {"Authorization": f"Basic {api_key}"}
+
+    with open(audio_path, "rb") as audio:
+        # purpose says what the file is for. user_data is the one that takes
+        # media, and the one transcription reads.
+        data = {"purpose": "user_data"}
+        if expires_after_s is not None:
+            # Both parts are required together; the anchor has one valid value.
+            data["expires_after[anchor]"] = "created_at"
+            data["expires_after[seconds]"] = str(expires_after_s)
+
+        response = requests.post(
+            f"{API_BASE}/v1/files",
+            headers=headers,
+            data=data,
+            files={"file": (os.path.basename(audio_path), audio)},
+            timeout=REQUEST_TIMEOUT_S,
+        )
+    response.raise_for_status()
+    return response.json()
+
+
+def submit(file_id: str, options: dict | None = None, api_key: str = ""):
+    """
+    Submit an asynchronous transcription job that names a stored file.
+
+    Nothing is uploaded here: the request is small whatever the recording's
+    size, so submitting is fast even for an hours-long file.
+
+    Args:
+        file_id: Id of a file in your workspace, as POST /v1/files answered it
         options: Optional transcribeConfig overrides
         api_key: API key for authentication
 
@@ -122,15 +143,17 @@ def submit(audio_path: str, options: dict | None = None, api_key: str = ""):
     if options:
         transcribe_config.update(options)
 
-    boundary = uuid.uuid4().hex
+    body = {
+        "transcribeConfig": transcribe_config,
+        "fileId": file_id,
+    }
     headers = {
-        "Content-Type": f"multipart/form-data; boundary={boundary}",
+        "Content-Type": "application/json",
         "Authorization": f"Basic {api_key}",
     }
-    body = multipart_body(boundary, transcribe_config, audio_path)
 
     response = requests.post(
-        f"{API_BASE}/stt/v1/transcribe:async", headers=headers, data=body, timeout=REQUEST_TIMEOUT_S
+        f"{API_BASE}/stt/v1/transcribe:async", headers=headers, json=body, timeout=REQUEST_TIMEOUT_S
     )
     response.raise_for_status()
     return response.json()
@@ -206,13 +229,19 @@ def print_result(operation: dict, transcript_doc: dict):
     if usage.get("modelId"):
         print(f"Model: {usage['modelId']}")
 
-    expire_time = (operation.get("response") or {}).get("expireTime")
+    response = operation.get("response") or {}
+    result_uri = response.get("resultUri")
+    if result_uri:
+        # The link carries its own authorization, so anyone holding it can read
+        # the transcript until it expires. Treat it as you would the transcript.
+        print(f"\nTranscript link: {result_uri}")
+    expire_time = response.get("expireTime")
     if expire_time:
-        print(f"\nResult link expires at {expire_time}. Keep your own copy to read it later.")
+        print(f"It expires at {expire_time}. Keep your own copy to read it later.")
 
 
 def main():
-    print("Inworld STT Async Transcription - streamed upload")
+    print("Inworld STT Async Transcription - audio stored in the Files API")
     print("=" * 60)
 
     api_key = check_api_key()
@@ -223,17 +252,24 @@ def main():
     audio_path = sys.argv[1] if len(sys.argv) > 1 else str(default_audio_path)
     if not os.path.isfile(audio_path):
         print(f"Error: Audio file not found: {audio_path}")
-        print("Usage: python example_stt_async_stream.py [path/to/audio.wav]")
+        print("Usage: python example_stt_async_files_api.py [path/to/audio.wav]")
         print("Default: tests-data/audio/test-audio.wav")
         return 1
 
     try:
         size_mb = os.path.getsize(audio_path) / (1024 * 1024)
         print(f"Audio file: {audio_path} ({size_mb:.1f} MB)")
-        print("Uploading...")
+        print("Uploading to the Files API...")
         start = time.perf_counter()
 
-        operation = submit(audio_path, {}, api_key)
+        stored = upload_file(audio_path, api_key)
+        file_id = stored["id"]
+        print(f"Stored as {file_id} ({stored.get('mime_type')}, expires at {stored.get('expires_at')})")
+
+        # From here the recording is named rather than sent. Submitting it
+        # again -- another language, another model -- repeats only this step.
+        print("Submitting...")
+        operation = submit(file_id, {}, api_key)
         name = operation["name"]
         print(f"Job submitted: {name}")
 
@@ -249,6 +285,8 @@ def main():
         transcript_doc = download_transcript(operation["response"]["resultUri"])
         print_result(operation, transcript_doc)
         print(f"\nDone in {elapsed:.2f} s.")
+        print(f"The recording stays as {file_id} until it expires; "
+              f"delete it with DELETE /v1/files/{file_id}.")
     except requests.exceptions.RequestException as e:
         print(f"Transcription failed: {e}")
         if hasattr(e, "response") and e.response is not None:

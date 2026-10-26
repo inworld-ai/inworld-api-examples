@@ -13,7 +13,7 @@ This script sends no audio at all. It gives the service a URL and the service
 fetches the recording itself, which is the cheapest handover when the audio
 already lives somewhere reachable such as cloud storage: the bytes never pass
 through your process. To send the bytes instead, see example_stt_async_file.py
-(whole file in the request) or example_stt_async_stream.py (streamed upload).
+(whole file in the request).
 
 The URL must be https, must serve the audio directly, and must be reachable
 without your Inworld credentials -- either public, or carrying its own

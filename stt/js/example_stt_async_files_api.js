@@ -1,33 +1,48 @@
 #!/usr/bin/env node
 /**
- * Example script for Inworld STT asynchronous transcription, streaming the upload.
+ * Example script for Inworld STT asynchronous transcription of a stored file.
  *
  * Asynchronous transcription is for recordings too long to wait on. You hand
  * over a recording, receive a job, and collect the transcript when it finishes:
  *
- *   1. POST /stt/v1/transcribe:async      -> an operation naming the job
- *   2. GET  /lro/v1alpha/{operation name} -> poll until done
- *   3. GET  {resultUri}                   -> the transcript document
+ *   1. POST /v1/files                     -> upload the recording once
+ *   2. POST /stt/v1/transcribe:async      -> an operation naming the job
+ *   3. GET  /lro/v1alpha/{operation name} -> poll until done
+ *   4. GET  {resultUri}                   -> the transcript document
  *
- * This script streams the recording as a multipart/form-data upload, reading it
- * from disk a block at a time. It is the right way to hand over a large file:
- * memory stays flat however long the recording is, and it avoids the third that
- * base64 encoding adds to a request. For a small file example_stt_async_file.js
- * is simpler; when the audio already lives somewhere reachable,
- * example_stt_async_uri.js sends a URL instead of the bytes.
+ * This script uploads the audio to the Files API first and then names it by id.
+ * It is the handover to use when the same recording is transcribed more than
+ * once — a second language, a different model, a re-run after a failure — since
+ * the bytes are sent once and every later job is a small JSON request. For a
+ * recording you transcribe once and discard, example_stt_async_file.js (whole
+ * file in the request) is simpler; example_stt_async_uri.js sends no bytes at
+ * all when the audio already lives somewhere reachable.
  *
- * The config part must be sent before the file part. The server reads the form
- * as a stream, so a config arriving after the audio is found too late.
+ * What a stored file is:
+ *
+ *   - It belongs to the workspace your API key belongs to, and only that
+ *     workspace can transcribe it.
+ *   - It is write-only. You can list it and read its metadata, but the bytes
+ *     cannot be downloaded again — the Files API is not general storage.
+ *   - It expires. Seven days by default for audio; pass expires_after to ask
+ *     for something else, from one hour to thirty days. A job started before it
+ *     expires still finishes.
+ *   - It counts against your workspace's file storage, so delete what you no
+ *     longer need: DELETE /v1/files/{id}.
+ *
+ * Note the two JSON styles. The Files API is OpenAI-shaped and answers
+ * snake_case (mime_type, created_at), naming the file itself "id"; the
+ * transcription API is camelCase and takes that value as "fileId". That is not
+ * a mistake in this script.
  *
  * Usage:
- *   node example_stt_async_stream.js [path/to/audio.wav]
+ *   node example_stt_async_files_api.js [path/to/audio.wav]
  */
+
+try { require('dotenv').config(); } catch (_) {}
 
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
-const { Readable } = require('stream');
-try { require('dotenv').config(); } catch (_) {}
 
 const API_BASE = 'https://api.inworld.ai';
 
@@ -36,9 +51,6 @@ const API_BASE = 'https://api.inworld.ai';
 // budget than this default.
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 600000;
-
-// How much of the file to read at a time while uploading.
-const UPLOAD_BLOCK_BYTES = 1024 * 1024;
 
 /**
  * Check if INWORLD_API_KEY environment variable is set.
@@ -69,45 +81,59 @@ async function toError(response) {
 }
 
 /**
- * Yield the multipart body a block at a time, config part first.
+ * Upload a recording to the Files API and return the stored file.
  *
- * Written by hand rather than with FormData because that one needs the whole
- * body in memory, which is exactly what a large upload needs to avoid.
+ * The type is read from the first bytes of the file, never from its name, so an
+ * extension that lies about the contents changes nothing. Audio, video and
+ * image types are accepted under this purpose; a video is stored whole and
+ * transcription takes its audio track.
  *
- * @param {string} boundary
- * @param {Object} transcribeConfig
- * @param {string} audioPath
+ * The whole file is read into memory here, which keeps the example short. For
+ * a recording large enough to mind that, upload it in parts instead:
+ * POST /v1/uploads, then POST /v1/uploads/{id}/parts, then
+ * POST /v1/uploads/{id}/complete, which answers the same file object.
+ *
+ * @param {string} audioPath - Path to the recording
+ * @param {string} apiKey - API key for authentication
+ * @param {number} [expiresAfterS] - Optional lifetime in seconds, 3600 to 2592000
+ * @returns {Promise<Object>} The file object, whose "id" names it from now on
  */
-async function* multipartBody(boundary, transcribeConfig, audioPath) {
-    yield Buffer.from(
-        `--${boundary}\r\n` +
-        'Content-Disposition: form-data; name="transcribeConfig"\r\n' +
-        'Content-Type: application/json\r\n\r\n' +
-        `${JSON.stringify(transcribeConfig)}\r\n`
-    );
-
-    yield Buffer.from(
-        `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="file"; filename="${path.basename(audioPath)}"\r\n` +
-        'Content-Type: application/octet-stream\r\n\r\n'
-    );
-
-    for await (const block of fs.createReadStream(audioPath, { highWaterMark: UPLOAD_BLOCK_BYTES })) {
-        yield block;
+async function uploadFile(audioPath, apiKey, expiresAfterS) {
+    const form = new FormData();
+    // purpose says what the file is for. user_data is the one that takes
+    // media, and the one transcription reads.
+    form.append('purpose', 'user_data');
+    if (expiresAfterS != null) {
+        // Both parts are required together; the anchor has one valid value.
+        form.append('expires_after[anchor]', 'created_at');
+        form.append('expires_after[seconds]', String(expiresAfterS));
     }
+    form.append('file', new Blob([fs.readFileSync(audioPath)]), path.basename(audioPath));
 
-    yield Buffer.from(`\r\n--${boundary}--\r\n`);
+    const response = await fetch(`${API_BASE}/v1/files`, {
+        method: 'POST',
+        // No Content-Type here: fetch sets it from the FormData, including the
+        // multipart boundary, which a hand-written header would omit.
+        headers: { 'Authorization': `Basic ${apiKey}` },
+        body: form
+    });
+
+    if (!response.ok) throw await toError(response);
+    return response.json();
 }
 
 /**
- * Submit an asynchronous transcription job, streaming the audio file.
+ * Submit an asynchronous transcription job that names a stored file.
  *
- * @param {string} audioPath - Path to audio file (WAV, MP3, FLAC, OGG, etc.)
+ * Nothing is uploaded here: the request is small whatever the recording's size,
+ * so submitting is fast even for an hours-long file.
+ *
+ * @param {string} fileId - Id of a file in your workspace, as POST /v1/files answered it
  * @param {Object} options - Optional transcribeConfig overrides
  * @param {string} apiKey - API key for authentication
  * @returns {Promise<Object>} The operation, whose "name" identifies the job
  */
-async function submit(audioPath, options, apiKey) {
+async function submit(fileId, options, apiKey) {
     const transcribeConfig = {
         modelId: 'inworld/inworld-stt-1',
         // Asynchronous transcription accepts every encoding, including the
@@ -117,17 +143,13 @@ async function submit(audioPath, options, apiKey) {
         ...options
     };
 
-    const boundary = crypto.randomUUID().replace(/-/g, '');
     const response = await fetch(`${API_BASE}/stt/v1/transcribe:async`, {
         method: 'POST',
         headers: {
-            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+            'Content-Type': 'application/json',
             'Authorization': `Basic ${apiKey}`
         },
-        body: Readable.toWeb(Readable.from(multipartBody(boundary, transcribeConfig, audioPath))),
-        // Required by fetch whenever the body is a stream: it says the request
-        // body is sent before the response is read.
-        duplex: 'half'
+        body: JSON.stringify({ transcribeConfig, fileId })
     });
 
     if (!response.ok) throw await toError(response);
@@ -213,9 +235,14 @@ function printResult(operation, transcriptDoc) {
         console.log(`Model: ${usage.modelId}`);
     }
 
-    const expireTime = (operation.response || {}).expireTime;
-    if (expireTime) {
-        console.log(`\nResult link expires at ${expireTime}. Keep your own copy to read it later.`);
+    const response = operation.response || {};
+    if (response.resultUri) {
+        // The link carries its own authorization, so anyone holding it can read
+        // the transcript until it expires. Treat it as you would the transcript.
+        console.log(`\nTranscript link: ${response.resultUri}`);
+    }
+    if (response.expireTime) {
+        console.log(`It expires at ${response.expireTime}. Keep your own copy to read it later.`);
     }
 }
 
@@ -223,28 +250,34 @@ function printResult(operation, transcriptDoc) {
  * Main.
  */
 async function main() {
-    console.log('Inworld STT Async Transcription - streamed upload');
+    console.log('Inworld STT Async Transcription - audio stored in the Files API');
     console.log('='.repeat(60));
 
     const apiKey = checkApiKey();
     if (!apiKey) return 1;
 
-    const DEFAULT_AUDIO_PATH = path.join(__dirname, '..', 'tests-data', 'audio', 'test-audio.wav');
-    const audioPath = process.argv[2] || DEFAULT_AUDIO_PATH;
+    const defaultAudioPath = path.join(__dirname, '..', 'tests-data', 'audio', 'test-audio.wav');
+    const audioPath = process.argv[2] || defaultAudioPath;
     if (!fs.existsSync(audioPath)) {
         console.log(`Error: Audio file not found: ${audioPath}`);
-        console.log('Usage: node example_stt_async_stream.js [path/to/audio.wav]');
-        console.log('Default: ../tests-data/audio/test-audio.wav');
+        console.log('Usage: node example_stt_async_files_api.js [path/to/audio.wav]');
+        console.log('Default: tests-data/audio/test-audio.wav');
         return 1;
     }
 
     try {
         const sizeMb = (fs.statSync(audioPath).size / (1024 * 1024)).toFixed(1);
         console.log(`Audio file: ${audioPath} (${sizeMb} MB)`);
-        console.log('Uploading...');
+        console.log('Uploading to the Files API...');
         const start = Date.now();
 
-        let operation = await submit(audioPath, {}, apiKey);
+        const stored = await uploadFile(audioPath, apiKey);
+        console.log(`Stored as ${stored.id} (${stored.mime_type}, expires at ${stored.expires_at})`);
+
+        // From here the recording is named rather than sent. Submitting it
+        // again — another language, another model — repeats only this step.
+        console.log('Submitting...');
+        let operation = await submit(stored.id, {}, apiKey);
         console.log(`Job submitted: ${operation.name}`);
 
         console.log('Waiting for the job to finish...\n');
@@ -259,6 +292,8 @@ async function main() {
         const transcriptDoc = await downloadTranscript(operation.response.resultUri);
         printResult(operation, transcriptDoc);
         console.log(`\nDone in ${elapsed} s.`);
+        console.log(`The recording stays as ${stored.id} until it expires; ` +
+            `delete it with DELETE /v1/files/${stored.id}.`);
     } catch (err) {
         console.log(`Transcription failed: ${err.message}`);
         return 1;

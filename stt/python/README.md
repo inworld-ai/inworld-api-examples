@@ -105,20 +105,7 @@ python example_stt_async_file.py [path/to/audio.wav]
 
 **Output:** The job name while it runs, then the transcript, its segments and the billed audio duration.
 
-### 7. `example_stt_async_stream.py` - Asynchronous transcription, streamed upload
-
-Same job, but the recording is streamed as a `multipart/form-data` upload, read from disk a block at a time. Use it for large files: memory stays flat however long the recording is, and it avoids the third that base64 adds to a request. Default input: `tests-data/audio/test-audio.wav`.
-
-**Usage:**
-```bash
-python example_stt_async_stream.py
-# or
-python example_stt_async_stream.py [path/to/audio.wav]
-```
-
-**Output:** Same as `example_stt_async_file.py`.
-
-### 8. `example_stt_async_uri.py` - Asynchronous transcription, audio named by URL
+### 7. `example_stt_async_uri.py` - Asynchronous transcription, audio named by URL
 
 Same job, but no audio is sent: the service is given a URL and fetches the recording itself. The cheapest handover when the audio already lives somewhere reachable, such as cloud storage. The URL must be `https`, must serve the audio directly, and must be reachable without your Inworld credentials — redirects are refused. Default input: a public Google Cloud Storage sample.
 
@@ -130,6 +117,25 @@ python example_stt_async_uri.py [https://host/path/audio.wav]
 ```
 
 **Output:** Same as `example_stt_async_file.py`.
+
+### 8. `example_stt_async_files_api.py` - Asynchronous transcription of a stored file
+
+Uploads the recording to the Files API once, then submits jobs that name it by
+id. Use it when the same recording is transcribed more than once — a second
+language, a different model, a re-run — since the bytes are sent once and every
+later submit is a small JSON request. A stored file belongs to your workspace,
+cannot be downloaded again, expires after seven days unless you ask for another
+lifetime, and counts against your workspace's file storage. Default input:
+`tests-data/audio/test-audio.wav`.
+
+**Usage:**
+```bash
+python example_stt_async_files_api.py
+# or
+python example_stt_async_files_api.py [path/to/audio.wav]
+```
+
+**Output:** The stored file's id, then the same as `example_stt_async_file.py`.
 
 ## Configuration
 
