@@ -13,7 +13,7 @@ This script puts the whole file in the request, base64-encoded in the JSON body.
 It is the simplest of the three ways to hand over audio, and the right one for a
 small file. Base64 makes the request about a third larger than the recording,
 and the whole of it is held in memory, so for a large file prefer
-example_stt_async_stream.py (streams the file) or example_stt_async_uri.py
+example_stt_async_uri.py
 (sends a URL for the service to fetch).
 
 Usage:

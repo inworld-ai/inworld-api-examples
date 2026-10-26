@@ -13,8 +13,7 @@
  * fetches the recording itself, which is the cheapest handover when the audio
  * already lives somewhere reachable such as cloud storage: the bytes never pass
  * through your process. To send the bytes instead, see
- * example_stt_async_file.js (whole file in the request) or
- * example_stt_async_stream.js (streamed upload).
+ * example_stt_async_file.js (whole file in the request).
  *
  * The URL must be https, must serve the audio directly, and must be reachable
  * without your Inworld credentials — either public, or carrying its own
