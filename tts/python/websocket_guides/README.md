@@ -41,7 +41,7 @@ python server.py --port 8766 --model-id inworld-tts-2 --llm-model openai/gpt-4.1
 - **Reply**: a scripted reply or a live LLM.
   - *Scripted* replies stream the same tokens every run, with an LLM's timing: a first token after about a third of a second, then 60 tokens a second. They cover a short answer, a long one to interrupt, [markup](#markup-in-replies), a phone number with Spanish conversation context, and two language tutors: Spanish for English speakers, and Japanese for Chinese speakers. The reply text is shown under the menu: edit it, or pick *Your own script*, to speak any text you write with the same timing. The page keeps your script in the browser.
   - *Live LLM* streams from the Inworld Router's chat completions API with the same API key; `--llm-model` picks the model. Pick an agent, *Voice assistant*, *Spanish tutor* or *Japanese tutor (for Chinese speakers)*, and edit its system prompt in the sidebar. The prompts ask the LLM for [markup](#markup-in-replies).
-- **Interrupt**: press Esc, click Interrupt, or send another message. The page stops playback at once and reports how many seconds of the turn it played. The server closes the turn's context and keeps only the words you heard in the LLM history. The reply shows what was heard, with the rest struck through.
+- **Interrupt**: press Esc, click Interrupt, or send another message. The page stops playback at once and reports how many seconds of the turn it played. The server cancels the turn's context and keeps only the words you heard in the LLM history. The reply shows what was heard, with the rest struck through.
 - **Replay** plays a reply again, or only what you heard of an interrupted one.
 - **Raw** shows a reply exactly as it was sent to TTS, markup included, and **Copy** copies that text, to paste into a request of your own.
 - **New chat** clears the LLM history.
@@ -79,6 +79,7 @@ When the user interrupts, the LLM history keeps the markup the user heard along 
 - `create` opens a context: its voice, model, audio format, and whether auto mode is on.
 - `sendText` adds text to the context. To synthesize what it has buffered, add `"flushContext": {}` to a `sendText` or send a separate `flushContext`.
 - `closeContext` synthesizes anything still buffered, then closes the context.
+- `cancelContext` stops the context now: the synthesis in progress ends, text not synthesized yet is dropped, and `contextClosed` follows the audio already generated. It also stops a context you already closed.
 
 The service answers with `contextCreated`, then `audioChunk` messages (base64 audio; each PCM chunk starts with a WAV header), a `flushCompleted` after each synthesis, and `contextClosed` last. Every response names its `contextId`. An error arrives as a `status` with a nonzero `code`.
 

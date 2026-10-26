@@ -19,7 +19,7 @@ To speak one reply into a WAV file without the page, after the [setup](../README
 1. Open one WebSocket connection for the conversation before the user's first message (`Speaker.connect`), so its handshake never delays a reply.
 2. For each agent turn, pass the last assistant reply followed by the current user message as `previous_texts` to `Speaker.start_turn`. It seeds the new context through `synthesisContext.previousRequests`. Create the context with word timestamps, delivered with `"timestampTransportStrategy": "ASYNC"` so they never hold up the audio. You don't need to wait for `contextCreated`: [messages on a connection are processed in order](https://docs.inworld.ai/tts/synthesize-speech-websocket#message-pipelining).
 3. When the LLM finishes, send the reply in one `sendText` (up to 2,000 characters) with `flushContext`, then `closeContext`. Keep receiving until `contextClosed`, which arrives after the turn's last audio.
-4. On barge-in, stop playback, close the context, drop the rest of its audio, and keep only the words the user heard in the LLM history.
+4. On barge-in, stop playback, cancel the context, drop the rest of its audio, and keep only the words the user heard in the LLM history.
 
 ```json
 {"contextId": "turn-1", "create": {"voiceId": "Sarah", "modelId": "inworld-tts-2",
@@ -37,10 +37,13 @@ Waiting for the whole reply means nothing is spoken until the LLM has finished; 
 
 ## Barge-in
 
-Synthesis runs faster than playback. By the time the user cuts in, most of the reply has usually been synthesized and is sitting in your player's queue, so stopping the player is what makes the agent go quiet. Do that first, then:
+Synthesis runs faster than playback, so part of the reply is usually sitting in your player's queue when the user cuts in. Stopping the player is what makes the agent go quiet. Do that first, then:
 
 - Stop reading the LLM's stream.
-- Send `closeContext`. The service can't take back text it has accepted: whatever it still synthesizes arrives on the old `contextId`, and you drop it. The next turn starts on a new context right away.
+- Send `cancelContext`. The service stops the synthesis in progress and drops the text it hasn't synthesized yet. It still sends the audio it already generated, with its timestamps, then `contextClosed`; you drop that audio. A synthesis is billed once it produces audio, so the one in progress is billed and the dropped text is not.
+- Cancel even after `closeContext`. The LLM usually finishes writing before the user cuts in, so the context is often already closing; without the cancel, the service would synthesize the rest of the reply.
+
+The next turn starts on a new context right away.
 
 In the playground, the page stops playback the moment you press Esc or send a message, and tells the server how many seconds of the turn it played.
 
@@ -53,4 +56,4 @@ heard = await turn.heard_after_timestamps(seconds_played)   # "Sure, here's an e
 history.append({"role": "assistant", "content": heard})
 ```
 
-With the `ASYNC` transport, timestamps trail their audio, so the words the user just heard may not have their timestamps yet when they cut in. `Turn.heard_after_timestamps(seconds)` waits up to two seconds for timestamps to cover the played audio, then returns `heard(seconds)`. Closing the context doesn't stop them: the timestamps for audio already synthesized still arrive. If they don't arrive in time, the history comes out a few words short, never long.
+With the `ASYNC` transport, timestamps trail their audio, so the words the user just heard may not have their timestamps yet when they cut in. `Turn.heard_after_timestamps(seconds)` waits up to two seconds for timestamps to cover the played audio, then returns `heard(seconds)`. Cancelling the context doesn't stop them: the timestamps for audio already synthesized still arrive before `contextClosed`. If they don't arrive in time, the history comes out a few words short, never long.
