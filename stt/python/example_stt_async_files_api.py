@@ -31,8 +31,9 @@ What a stored file is:
     longer need: DELETE /v1/files/{id}.
 
 Note the two JSON styles. The Files API is OpenAI-shaped and answers snake_case
-(file_id, created_at); the transcription API is camelCase (transcribeConfig,
-fileId). That is not a mistake in this script.
+(mime_type, created_at), naming the file itself "id"; the transcription API is
+camelCase and takes that value as "fileId". That is not a mistake in this
+script.
 
 Usage:
     python example_stt_async_files_api.py [path/to/audio.wav]

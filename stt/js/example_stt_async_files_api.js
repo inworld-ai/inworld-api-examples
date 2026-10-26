@@ -31,8 +31,9 @@
  *     longer need: DELETE /v1/files/{id}.
  *
  * Note the two JSON styles. The Files API is OpenAI-shaped and answers
- * snake_case (file_id, created_at); the transcription API is camelCase
- * (transcribeConfig, fileId). That is not a mistake in this script.
+ * snake_case (mime_type, created_at), naming the file itself "id"; the
+ * transcription API is camelCase and takes that value as "fileId". That is not
+ * a mistake in this script.
  *
  * Usage:
  *   node example_stt_async_files_api.js [path/to/audio.wav]
