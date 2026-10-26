@@ -15,9 +15,8 @@ It is the handover to use when the same recording is transcribed more than
 once -- a second language, a different model, a re-run after a failure -- since
 the bytes are sent once and every later job is a small JSON request. For a
 recording you transcribe once and discard, example_stt_async_file.py (whole
-file in the request) or example_stt_async_stream.py (streamed upload) is
-simpler; example_stt_async_uri.py sends no bytes at all when the audio already
-lives somewhere reachable.
+file in the request) is simpler; example_stt_async_uri.py sends no bytes at all
+when the audio already lives somewhere reachable.
 
 What a stored file is:
 
@@ -229,9 +228,15 @@ def print_result(operation: dict, transcript_doc: dict):
     if usage.get("modelId"):
         print(f"Model: {usage['modelId']}")
 
-    expire_time = (operation.get("response") or {}).get("expireTime")
+    response = operation.get("response") or {}
+    result_uri = response.get("resultUri")
+    if result_uri:
+        # The link carries its own authorization, so anyone holding it can read
+        # the transcript until it expires. Treat it as you would the transcript.
+        print(f"\nTranscript link: {result_uri}")
+    expire_time = response.get("expireTime")
     if expire_time:
-        print(f"\nResult link expires at {expire_time}. Keep your own copy to read it later.")
+        print(f"It expires at {expire_time}. Keep your own copy to read it later.")
 
 
 def main():

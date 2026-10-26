@@ -15,9 +15,8 @@
  * once — a second language, a different model, a re-run after a failure — since
  * the bytes are sent once and every later job is a small JSON request. For a
  * recording you transcribe once and discard, example_stt_async_file.js (whole
- * file in the request) or example_stt_async_stream.js (streamed upload) is
- * simpler; example_stt_async_uri.js sends no bytes at all when the audio
- * already lives somewhere reachable.
+ * file in the request) is simpler; example_stt_async_uri.js sends no bytes at
+ * all when the audio already lives somewhere reachable.
  *
  * What a stored file is:
  *
@@ -235,9 +234,14 @@ function printResult(operation, transcriptDoc) {
         console.log(`Model: ${usage.modelId}`);
     }
 
-    const expireTime = (operation.response || {}).expireTime;
-    if (expireTime) {
-        console.log(`\nResult link expires at ${expireTime}. Keep your own copy to read it later.`);
+    const response = operation.response || {};
+    if (response.resultUri) {
+        // The link carries its own authorization, so anyone holding it can read
+        // the transcript until it expires. Treat it as you would the transcript.
+        console.log(`\nTranscript link: ${response.resultUri}`);
+    }
+    if (response.expireTime) {
+        console.log(`It expires at ${response.expireTime}. Keep your own copy to read it later.`);
     }
 }
 
