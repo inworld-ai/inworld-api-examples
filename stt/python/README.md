@@ -131,6 +131,25 @@ python example_stt_async_uri.py [https://host/path/audio.wav]
 
 **Output:** Same as `example_stt_async_file.py`.
 
+### 9. `example_stt_async_files_api.py` - Asynchronous transcription of a stored file
+
+Uploads the recording to the Files API once, then submits jobs that name it by
+id. Use it when the same recording is transcribed more than once — a second
+language, a different model, a re-run — since the bytes are sent once and every
+later submit is a small JSON request. A stored file belongs to your workspace,
+cannot be downloaded again, expires after seven days unless you ask for another
+lifetime, and counts against your workspace's file storage. Default input:
+`tests-data/audio/test-audio.wav`.
+
+**Usage:**
+```bash
+python example_stt_async_files_api.py
+# or
+python example_stt_async_files_api.py [path/to/audio.wav]
+```
+
+**Output:** The stored file's id, then the same as `example_stt_async_file.py`.
+
 ## Configuration
 
 - **Sync:** Uses `groq/whisper-large-v3`; see [API reference](https://docs.inworld.ai/api-reference/sttAPI/speechtotext/transcribe) for the full request body.

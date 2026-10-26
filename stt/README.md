@@ -20,7 +20,7 @@ transcript when the job finishes. Three steps:
    transcript. It needs no credentials and expires 24 hours after completion,
    so download the transcript if you need to keep it.
 
-The audio can be handed over three ways, and there is one self-contained
+The audio can be handed over four ways, and there is one self-contained
 example per way in [`js/`](js/) and [`python/`](python/):
 
 | Example | How the audio is handed over | Use it when |
@@ -28,6 +28,15 @@ example per way in [`js/`](js/) and [`python/`](python/):
 | `example_stt_async_file` | the whole file in the request, base64 in `audioData.content` | the recording is small — simplest, but base64 makes the request about a third larger and holds it all in memory |
 | `example_stt_async_stream` | streamed `multipart/form-data` upload | the recording is large — memory stays flat however long it is |
 | `example_stt_async_uri` | an `https` URL the service fetches itself | the audio already lives somewhere reachable, such as cloud storage — the bytes never pass through your process |
+| `example_stt_async_files_api` | a `fileId`, after uploading once to the Files API | the same recording is transcribed more than once — upload once, then each submit is a small JSON request |
+
+A file uploaded to the Files API belongs to the workspace your API key belongs
+to, and only that workspace can transcribe it. It is write-only — you can list
+it and read its metadata, but the bytes cannot be downloaded again — it expires
+after seven days unless `expires_after` asks for another lifetime (one hour to
+thirty days), and it counts against your workspace's file storage until it
+expires or you delete it. Uploading it also costs nothing extra at
+transcription time: a job that names a file sends no audio at all.
 
 When sending multipart, put the `transcribeConfig` part **before** the `file`
 part: the upload is read as a stream, so a config arriving after the audio is

@@ -131,6 +131,24 @@ node example_stt_async_uri.js [https://host/path/audio.wav]
 
 **Output:** Same as `example_stt_async_file.js`.
 
+### 9. Asynchronous transcription of a stored file (`example_stt_async_files_api.js`)
+
+Uploads the recording to the Files API once, then submits jobs that name it by
+id. Use it when the same recording is transcribed more than once — a second
+language, a different model, a re-run — since the bytes are sent once and every
+later submit is a small JSON request. A stored file belongs to your workspace,
+cannot be downloaded again, expires after seven days unless you ask for another
+lifetime, and counts against your workspace's file storage. Default input:
+`tests-data/audio/test-audio.wav`.
+
+```bash
+node example_stt_async_files_api.js
+# or
+node example_stt_async_files_api.js [path/to/audio.wav]
+```
+
+**Output:** The stored file's id, then the same as `example_stt_async_file.js`.
+
 ## Configuration
 
 - **Sync:** Uses `groq/whisper-large-v3`; see [API reference](https://docs.inworld.ai/api-reference/sttAPI/speechtotext/transcribe) for the full request body.
