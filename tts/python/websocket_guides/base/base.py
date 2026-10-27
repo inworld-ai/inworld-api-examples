@@ -7,10 +7,9 @@ Speak an agent's replies over the TTS WebSocket, with barge-in.
 - One context per agent turn, with auto mode off, and one flush per turn: the
   whole reply in one `sendText` with `flushContext` once the LLM has finished,
   then `closeContext`. `contextClosed` arrives after the turn's last audio.
-- Barge-in: stop playback at once, then close the context and drop the rest
-  of its audio. Synthesis runs faster than playback, so most of an interrupted
-  reply has usually been synthesized already; stopping the player is what the
-  user hears.
+- Barge-in: stop playback at once, then cancel the context. The service stops
+  synthesizing and drops the reply's text it has not spoken; drop the audio it
+  already generated, which still arrives.
 - Word timestamps tell you what the user actually heard, so the reply you keep
   in the LLM's history can end there.
 
@@ -67,7 +66,7 @@ class Turn:
         self.audio_seconds = 0.0  # audio received so far
         self.syntheses = 0
         self.interrupted = False
-        self.closing = False  # closeContext sent, or the context ended
+        self.closing = False  # closeContext or cancelContext sent, or the context ended
         self.finished = False  # no more responses will arrive
         self.pending = ""  # reply text not sent yet
         self.sent = ""  # reply text sent so far
@@ -164,10 +163,12 @@ class Speaker:
         await self._close(turn)
 
     async def interrupt(self, turn: Turn):
-        """Barge-in. Stop your player first; this closes the context without
-        sending anything more, and drops whatever audio it still sends."""
-        turn.interrupted = True
-        await self._close(turn)
+        """Barge-in. Stop your player first; this cancels the context, even one
+        already closing, and drops whatever audio it still sends."""
+        cancel = not (turn.interrupted or turn.finished)
+        turn.interrupted = turn.closing = True
+        if cancel:
+            await self._send(turn, {"cancelContext": {}})
 
     async def close(self):
         if self._ws is not None:
