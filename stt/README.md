@@ -17,8 +17,9 @@ transcript when the job finishes. Three steps:
 2. `GET https://api.inworld.ai/lro/v1alpha/{operation name}` reports whether
    the job has finished. Poll every few seconds.
 3. The finished operation carries `response.resultUri`, a signed link to the
-   transcript. It needs no credentials and expires 24 hours after completion,
-   so download the transcript if you need to keep it.
+   transcript. It needs no credentials and lasts 7 days from completion, which
+   is also how long the transcript is kept — download it if you need your own
+   copy after that.
 
 The audio can be handed over three ways, and there is one self-contained
 example per way in [`js/`](js/) and [`python/`](python/):
