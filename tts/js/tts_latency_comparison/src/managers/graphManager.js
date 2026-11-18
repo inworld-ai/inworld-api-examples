@@ -34,7 +34,7 @@ class GraphManager {
       };
 
       console.log(`[GraphManager] Starting graph with input:`, input);
-      const { outputStream } = this.ttsGraph.start(input);
+      const { outputStream } = await this.ttsGraph.start(input);
       console.log(`[GraphManager] Graph started, processing output stream...`);
       
       // Store session manager reference on the graph for nodes to access
@@ -43,7 +43,7 @@ class GraphManager {
       // Process the results
       const results = [];
       for await (const result of outputStream) {
-        result.processResponse({
+        await result.processResponse({
           default: (data) => {
             results.push(data);
           }

@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { VADFactory } from '@inworld/runtime/primitives/vad';
+import { VAD } from '@inworld/runtime/primitives/vad';
 import { DeviceRegistry, DeviceType } from '@inworld/runtime/core';
 import fs from 'fs';
 import ffmpeg from 'fluent-ffmpeg';
@@ -51,19 +51,22 @@ class VadService extends EventEmitter {
             console.log('VAD Service: Starting initialization with model path:', this.config.modelPath);
             
             // Try to find CUDA device, fallback to CPU
-            const availableDevices = DeviceRegistry.getAvailableDevices();
-            console.log('VAD Service: Available devices:', availableDevices.map(d => d.getType()));
-            
-            const cudaDevice = availableDevices.find(
-                (device) => device.getType() === DeviceType.CUDA
-            );
+            const availableDevices = await DeviceRegistry.getAvailableDevices();
+            console.log('VAD Service: Available devices:', availableDevices.map(device => device.type));
+
+            const cudaDevice = availableDevices.find(device => device.type === DeviceType.CUDA);
+            const device = cudaDevice ?? availableDevices.find(device => device.type === DeviceType.CPU);
+            if (!device) {
+                throw new Error('No supported device is available for local VAD');
+            }
             console.log('VAD Service: Using CUDA device:', !!cudaDevice);
 
-            // Create local VAD instance
-            console.log('VAD Service: Creating VAD instance...');
-            this.vad = await VADFactory.createLocal({
-                modelPath: this.config.modelPath,
-                device: cudaDevice || availableDevices[0] // fallback to first available device
+            this.vad = await VAD.create({
+                localConfig: {
+                    modelPath: this.config.modelPath,
+                    device: { type: device.type, index: device.index },
+                    defaultConfig: { speechThreshold: 0.5 }
+                }
             });
 
             this.isInitialized = true;
@@ -169,14 +172,9 @@ class VadService extends EventEmitter {
                 continue;
             }
             
-            // Pass Float32Array directly (normalized -1 to 1 range)
-            // Previously converted to int16 range, but VAD accepts fp32 directly
-            // const integerArray = Array.from(chunk, sample => Math.round(sample * 32768));
-            
             try {
-                // Process with Silero VAD - this is the main detection
                 const vadResult = await this.vad.detectVoiceActivity({
-                    data: chunk,  // Pass Float32Array directly
+                    data: Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength),
                     sampleRate: this.config.sampleRate
                 });
                 
@@ -301,14 +299,7 @@ class VadService extends EventEmitter {
             }
         }
 
-        if (this.vad) {
-            try {
-                this.vad.destroy();
-            } catch (error) {
-                console.warn('VAD Service: Error destroying VAD instance:', error.message);
-            }
-            this.vad = null;
-        }
+        this.vad = null;
         
         this.isInitialized = false;
         this.isInitializing = false;

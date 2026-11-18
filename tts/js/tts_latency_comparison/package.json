@@ -9,7 +9,7 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
-    "@inworld/runtime": "^0.6.0",
+    "@inworld/runtime": "1.0.9",
     "audio-buffer-utils": "^5.1.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
