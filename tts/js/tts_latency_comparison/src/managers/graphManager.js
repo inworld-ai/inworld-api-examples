@@ -1,3 +1,4 @@
+import vadService from '../services/vadService.js';
 import { createTTSComparisonGraph } from '../graphs/ttsComparison.js';
 
 class GraphManager {
@@ -83,6 +84,7 @@ class GraphManager {
         this.ttsGraph = null;
       }
       
+      await vadService.destroy();
       this.sessionManager = null;
       console.log('[GraphManager] Graph manager shutdown complete');
     } catch (error) {
