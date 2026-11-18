@@ -9,7 +9,7 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
-    "@inworld/runtime": "^0.6.0",
+    "@inworld/runtime": "1.0.9",
     "audio-buffer-utils": "^5.1.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -23,5 +23,12 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
+  },
+  "overrides": {
+    "fastify": "^5.12.2",
+    "@fastify/swagger": "^9.4.0",
+    "@fastify/swagger-ui": "^5.2.0",
+    "@fastify/static": "^10.1.2",
+    "glob": "^14.0.2"
   }
 }
