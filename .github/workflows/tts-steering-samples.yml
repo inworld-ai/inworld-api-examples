@@ -1,0 +1,36 @@
+name: TTS steering sample tests
+
+on:
+  pull_request:
+    paths:
+      - 'tts-steering/**'
+      - '.github/workflows/tts-steering-samples.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tts-steering/**'
+      - '.github/workflows/tts-steering-samples.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: npm ci
+        working-directory: tts-steering/js
+      - run: npm test
+        working-directory: tts-steering/js
+      - run: pip install -r requirements.txt
+        working-directory: tts-steering/python
+      - run: python -m unittest discover -s . -p 'test_*.py'
+        working-directory: tts-steering/python

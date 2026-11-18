@@ -1,0 +1,27 @@
+{
+  "name": "inworld-tts-steering-examples",
+  "version": "1.0.0",
+  "description": "Inworld TTS steering examples in JavaScript/Node.js: LLM-written steering tags over WebSocket, and built-in Reasoning",
+  "main": "example_llm_steering_stream.js",
+  "scripts": {
+    "stream": "node example_llm_steering_stream.js",
+    "reasoning": "node example_reasoning.js",
+    "test": "node --test"
+  },
+  "keywords": [
+    "inworld",
+    "tts",
+    "steering",
+    "llm",
+    "examples"
+  ],
+  "author": "Inworld AI",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "ws": "^8.21.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
